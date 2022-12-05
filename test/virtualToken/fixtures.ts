@@ -1,15 +1,13 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 
 interface BaseTokenFixture {
     baseToken: BaseToken
     chainlinkPriceFeedV3: ChainlinkPriceFeedV3
     priceFeedDispatcher: PriceFeedDispatcher
     mockedAggregator: MockContract
-    bandPriceFeed: BandPriceFeed
-    mockedStdReference: MockContract
 }
 
 export async function baseTokenFixture(): Promise<BaseTokenFixture> {
@@ -39,22 +37,9 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
         chainlinkPriceFeedV3.address,
     )) as PriceFeedDispatcher
 
-    // BandPriceFeed
-    const stdReferenceFactory = await ethers.getContractFactory("TestStdReference")
-    const stdReference = await stdReferenceFactory.deploy()
-    const mockedStdReference = await smockit(stdReference)
-
-    const baseAsset = "ETH"
-    const bandPriceFeedFactory = await ethers.getContractFactory("BandPriceFeed")
-    const bandPriceFeed = (await bandPriceFeedFactory.deploy(
-        mockedStdReference.address,
-        baseAsset,
-        cacheTwapInterval,
-    )) as BandPriceFeed
-
     const baseTokenFactory = await ethers.getContractFactory("BaseToken")
     const baseToken = (await baseTokenFactory.deploy()) as BaseToken
     await baseToken.initialize("RandomTestToken0", "RandomTestToken0", priceFeedDispatcher.address)
 
-    return { baseToken, chainlinkPriceFeedV3, priceFeedDispatcher, mockedAggregator, bandPriceFeed, mockedStdReference }
+    return { baseToken, chainlinkPriceFeedV3, priceFeedDispatcher, mockedAggregator }
 }

@@ -3,29 +3,19 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { forwardRealTimestamp, getRealTimestamp, setRealTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
-describe.only("BaseToken", async () => {
+describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
     let priceFeedDispatcher: PriceFeedDispatcher
     let mockedAggregator: MockContract // used by ChainlinkPriceFeedV2
-    let bandPriceFeed: BandPriceFeed
-    let mockedStdReference: MockContract // used by BandPriceFeed
     let currentTime: number
     let chainlinkRoundData: any[]
-    let bandReferenceData: any[]
     const closedPrice = parseEther("200")
-
-    async function updateBandPrice(): Promise<void> {
-        mockedStdReference.smocked.getReferenceData.will.return.with(async () => {
-            return bandReferenceData[bandReferenceData.length - 1]
-        })
-        await bandPriceFeed.update()
-    }
 
     async function updateChainlinkPrice(): Promise<void> {
         mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -38,9 +28,7 @@ describe.only("BaseToken", async () => {
         const _fixture = await loadFixture(baseTokenFixture)
         baseToken = _fixture.baseToken
         mockedAggregator = _fixture.mockedAggregator
-        bandPriceFeed = _fixture.bandPriceFeed
         priceFeedDispatcher = _fixture.priceFeedDispatcher
-        mockedStdReference = _fixture.mockedStdReference
 
         // `base` = now - _interval
         // aggregator's answer
@@ -56,28 +44,19 @@ describe.only("BaseToken", async () => {
         chainlinkRoundData = [
             // [roundId, answer, startedAt, updatedAt, answeredInRound]
         ]
-        bandReferenceData = [
-            // [rate, lastUpdatedBase, lastUpdatedQuote]
-        ]
 
         // start with roundId != 0 as now if roundId == 0 Chainlink will be freezed
         chainlinkRoundData.push([1, parseUnits("400", 6), currentTime, currentTime, 1])
-        bandReferenceData.push([parseUnits("400", 18), currentTime, currentTime])
-        await updateBandPrice()
         await updateChainlinkPrice()
 
         currentTime += 15
         await setRealTimestamp(currentTime)
         chainlinkRoundData.push([2, parseUnits("405", 6), currentTime, currentTime, 2])
-        bandReferenceData.push([parseUnits("405", 18), currentTime, currentTime])
-        await updateBandPrice()
         await updateChainlinkPrice()
 
         currentTime += 15
         await setRealTimestamp(currentTime)
         chainlinkRoundData.push([3, parseUnits("410", 6), currentTime, currentTime, 3])
-        bandReferenceData.push([parseUnits("410", 18), currentTime, currentTime])
-        await updateBandPrice()
         await updateChainlinkPrice()
 
         currentTime += 15
@@ -87,7 +66,6 @@ describe.only("BaseToken", async () => {
     describe("twap", () => {
         it("twap price", async () => {
             const price = await baseToken.getIndexPrice(45)
-            console.log(price.toString())
             expect(price).to.eq(parseEther("405"))
         })
 
@@ -144,50 +122,7 @@ describe.only("BaseToken", async () => {
 
     describe("BaseToken changes PriceFeed", async () => {
         it("forced error when non-owner calls setPriceFeed", async () => {
-            await expect(baseToken.connect(user).setPriceFeed(bandPriceFeed.address)).to.be.revertedWith("SO_CNO")
-        })
-
-        it("change from ChainlinkPrice to BandPriceFeed", async () => {
-            const spotPriceFromChainlink = await baseToken.getIndexPrice(0)
-            expect(spotPriceFromChainlink).to.eq(parseEther("410"))
-
-            const twapFromChainlink = await baseToken.getIndexPrice(45)
-            expect(twapFromChainlink).to.eq(parseEther("405"))
-
-            bandReferenceData.push([parseUnits("415", 18), currentTime, currentTime])
-            await updateBandPrice()
-
-            // hardhat will increase block timestamp by 1 for each transactions
-            await expect(baseToken.setPriceFeed(bandPriceFeed.address))
-                .to.emit(baseToken, "PriceFeedChanged")
-                .withArgs(bandPriceFeed.address)
-
-            expect(await baseToken.getPriceFeed()).to.eq(bandPriceFeed.address)
-
-            const spotPriceFromBand = await baseToken.getIndexPrice(0)
-            expect(spotPriceFromBand).to.eq(parseEther("415"))
-
-            currentTime += 15
-            await setRealTimestamp(currentTime)
-
-            // ob0 (ts, priceCumulative) = (t0,0)
-            // ob1 (ts, priceCumulative) = (t0+15,6000)
-            // ob2 (ts, priceCumulative) = (t0+30,12075)
-            // ob3 (ts, priceCumulative) = (t0+45,18225)
-            // latestBandData(ts, price): (t0+45, 415)
-            // current timestamp = t0+60
-            // currentPriceCumulative =
-            //     lastestObservation.priceCumulative +
-            //     (lastestObservation.price * (latestBandData.lastUpdatedBase - lastestObservation.timestamp)) +
-            //     (latestBandData.rate * (currentTimestamp - latestBandData.lastUpdatedBase));
-            // = 18225 + 415 * (t0+45 - (t0+45)) + 415 * (t0+60 - (t0+45))
-            // = 24450
-            // target ts: current ts - interval = t0+60-45 = t0+15
-            // targetPriceCumulative = ob1's PriceCumulative = 6000
-            // twap = (currentPriceCumulative-targetPriceCumulative) / interval
-            //      = (24450-6000) / 45 = 410
-            const twapFromBand = await baseToken.getIndexPrice(45)
-            expect(twapFromBand).to.eq(parseEther("410"))
+            await expect(baseToken.connect(user).setPriceFeed(priceFeedDispatcher.address)).to.be.revertedWith("SO_CNO")
         })
     })
 
