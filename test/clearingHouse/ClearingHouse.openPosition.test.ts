@@ -1368,7 +1368,7 @@ describe("ClearingHouse openPosition", () => {
                 //     marketPrice: '146.88860454062238813'
                 // }
 
-                // realizedPnL = -0.000001209503724417
+                // realizedPnL = -0.000001209503724417 (is from the settlement of the funding payment during beforeEachh)
                 // openNotional = quoteBalance + (quoteLiquidity + quoteFee) = ((2) + (-2)) + (1) = 1
                 // positionValue = (-0.013348304809274554 + 0.006842090768717812) * 151.312772670283486817 = -0.9844732861
                 // unrealizedPnL = positionValue + openNotional = -0.9844732861 + 1 = 0.0155267139

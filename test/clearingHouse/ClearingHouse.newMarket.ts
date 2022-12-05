@@ -146,7 +146,7 @@ describe("ClearingHouse new market listing", () => {
             await q2bExactInput(fixture, bob, 4, baseToken3.address)
             await b2qExactOutput(fixture, davis, 2, baseToken3.address)
 
-            // pause market
+            // pause market temporary
             await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "0")
         })
 
@@ -229,10 +229,26 @@ describe("ClearingHouse new market listing", () => {
         })
     })
 
-    describe("liquidate when trader has order in paused market", () => {
+    describe("liquidate when trader has order in temporary paused market", () => {
         beforeEach(async () => {
             await withdrawAll(fixture, bob)
+            // prepare collateral for trader bob
             await mintAndDeposit(fixture, bob, 200)
+            // prepare collateral for liquidator davis
+            await mintAndDeposit(fixture, davis, 1000)
+        })
+
+        it("Can cancel order and liquidate successfully", async () => {
+            // Test scenario:
+            // Pre-work:
+            // 1. alice adds large liquidities on market1 and market3
+            // 2. bob adds small liquidities on market1 and market3
+            // 3. bob opens long positions on market1 and market3
+            // 4. pause market3 temporary
+            // 5. drop market1's mark price to make bob to be liquidatable
+            // Expected:
+            // 1. Can cancel bob's all excess orders
+            // 2. Can liquidate bob's positions on market1 and market3.
 
             // alice add liquidity to baseToken, baseToken3 market
             await addOrder(fixture, alice, 1000, 10000, 48000, 52000, false, baseToken3.address)
@@ -253,7 +269,7 @@ describe("ClearingHouse new market listing", () => {
             // pause any swap in baseToken3 market, not delist
             await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "0")
 
-            // drop baseToken mark price
+            // drop baseToken mark price to make bob to be liquidatable
             await b2qExactOutput(fixture, alice, 10000, baseToken.address)
             await forwardBothTimestamps(clearingHouse, 1800)
             await closePosition(fixture, alice, 0, baseToken.address)
@@ -263,10 +279,6 @@ describe("ClearingHouse new market listing", () => {
             //   markPrice: 123.526929021317272912
             //
 
-            await mintAndDeposit(fixture, davis, 1000)
-        })
-
-        it("liquidate process", async () => {
             // can cancelAllExcessOrders from baseToken, baseToken3 market
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken3.address)
