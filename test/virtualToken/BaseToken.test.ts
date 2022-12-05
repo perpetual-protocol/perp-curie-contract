@@ -1,6 +1,5 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
@@ -8,7 +7,7 @@ import { BandPriceFeed, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { forwardRealTimestamp, getRealTimestamp, setRealTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
-describe("BaseToken", async () => {
+describe.only("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
@@ -61,35 +60,32 @@ describe("BaseToken", async () => {
             // [rate, lastUpdatedBase, lastUpdatedQuote]
         ]
 
-        chainlinkRoundData.push([0, parseUnits("400", 6), currentTime, currentTime, 0])
+        // start with roundId != 0 as now if roundId == 0 Chainlink will be freezed
+        chainlinkRoundData.push([1, parseUnits("400", 6), currentTime, currentTime, 1])
         bandReferenceData.push([parseUnits("400", 18), currentTime, currentTime])
         await updateBandPrice()
         await updateChainlinkPrice()
 
         currentTime += 15
         await setRealTimestamp(currentTime)
-        chainlinkRoundData.push([1, parseUnits("405", 6), currentTime, currentTime, 1])
+        chainlinkRoundData.push([2, parseUnits("405", 6), currentTime, currentTime, 2])
         bandReferenceData.push([parseUnits("405", 18), currentTime, currentTime])
         await updateBandPrice()
         await updateChainlinkPrice()
 
         currentTime += 15
         await setRealTimestamp(currentTime)
-        chainlinkRoundData.push([2, parseUnits("410", 6), currentTime, currentTime, 2])
+        chainlinkRoundData.push([3, parseUnits("410", 6), currentTime, currentTime, 3])
         bandReferenceData.push([parseUnits("410", 18), currentTime, currentTime])
         await updateBandPrice()
         await updateChainlinkPrice()
-
-        mockedAggregator.smocked.getRoundData.will.return.with((round: BigNumber) => {
-            return chainlinkRoundData[round.toNumber()]
-        })
 
         currentTime += 15
         await setRealTimestamp(currentTime)
     })
 
     describe("twap", () => {
-        it.only("twap price", async () => {
+        it("twap price", async () => {
             const price = await baseToken.getIndexPrice(45)
             console.log(price.toString())
             expect(price).to.eq(parseEther("405"))
@@ -125,14 +121,14 @@ describe("BaseToken", async () => {
 
         // WARNING: this test can fail for unknown reason for the function baseToken.getIndexPrice(), while it won't in other cases
         it("if current price < 0, ignore the current price", async () => {
-            chainlinkRoundData.push([3, parseUnits("-10", 6), 250, 250, 3])
+            chainlinkRoundData.push([4, parseUnits("-10", 6), 250, 250, 4])
             const price = await baseToken.getIndexPrice(45)
             expect(price).to.eq(parseEther("405"))
         })
 
         it("if there is a negative price in the middle, ignore that price", async () => {
-            chainlinkRoundData.push([3, parseUnits("-100", 6), currentTime + 20, currentTime + 20, 3])
-            chainlinkRoundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
+            chainlinkRoundData.push([4, parseUnits("-100", 6), currentTime + 20, currentTime + 20, 4])
+            chainlinkRoundData.push([5, parseUnits("420", 6), currentTime + 30, currentTime + 30, 5])
             await forwardRealTimestamp(50)
 
             // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
