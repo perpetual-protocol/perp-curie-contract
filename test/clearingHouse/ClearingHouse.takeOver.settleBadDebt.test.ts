@@ -20,7 +20,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice, syncIndexToMarketPriceLocal, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPriceLocal, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate (assume zero IF fee)", () => {
@@ -81,7 +81,7 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
 
         // initialize BTC pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken2.address)
-        await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher2, pool2)
 
         // set weth as collateral
         wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("100", 8))

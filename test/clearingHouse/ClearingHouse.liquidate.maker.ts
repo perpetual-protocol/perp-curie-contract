@@ -20,7 +20,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { filterLogs, syncIndexToMarketPrice } from "../shared/utilities"
+import { filterLogs, syncIndexToMarketPriceLocal } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate maker", () => {
@@ -416,7 +416,7 @@ describe("ClearingHouse liquidate maker", () => {
             beforeEach(async () => {
                 const initPrice = "10"
                 await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-                await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
+                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher2, pool2)
 
                 // alice add v2 style liquidity in pool2
                 await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
@@ -695,7 +695,7 @@ describe("ClearingHouse liquidate maker", () => {
         beforeEach(async () => {
             const initPrice = "10"
             await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-            await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
+            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher2, pool2)
 
             // alice add v2 style liquidity on pool2
             await collateral.mint(alice.address, parseUnits("200", collateralDecimals))

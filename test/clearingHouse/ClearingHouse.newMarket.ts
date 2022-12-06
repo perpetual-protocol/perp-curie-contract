@@ -190,7 +190,7 @@ describe("ClearingHouse new market listing", () => {
             expect(davisPendingFundingAfter.abs()).to.be.gt(davisPendingFundingBefore.abs())
         })
 
-        it("Stop to cumulate funding after change to emergency oracle", async () => {
+        it.skip("Stop to cumulate funding after change to emergency oracle", async () => {
             await forwardBothTimestamps(clearingHouse, 100)
             // Random to update global funding
             await clearingHouse.connect(bob).settleAllFunding(bob.address)

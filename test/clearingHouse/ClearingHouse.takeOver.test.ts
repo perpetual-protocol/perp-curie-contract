@@ -28,7 +28,6 @@ import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import {
     calculateLiquidatePositionSize,
     getMarginRatio,
-    syncIndexToMarketPrice,
     syncIndexToMarketPriceLocal,
     syncMarkPriceToMarketPrice,
 } from "../shared/utilities"
@@ -99,7 +98,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         initPrice = "10000"
         // initialize BTC pool
         await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
-        await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher2, pool2)
         // mock mark price to make account value calculation easier
         await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
 
