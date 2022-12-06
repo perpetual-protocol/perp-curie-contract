@@ -20,7 +20,13 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
+import {
+    CACHED_TWAP_INTERVAL,
+    createQuoteTokenFixture,
+    token0Fixture,
+    tokensFixture,
+    uniswapV3FactoryFixture,
+} from "../shared/fixtures"
 
 import { ethers } from "hardhat"
 import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
@@ -354,13 +360,12 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         })
 
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
-        const cacheTwapInterval = 15 * 60
         const chainlinkPriceFeed = (await chainlinkPriceFeedV3Factory.deploy(
             mockedAggregator.address,
             40 * 60, // 40 mins
             1e5, // 10%
             10, // 10s
-            cacheTwapInterval,
+            CACHED_TWAP_INTERVAL,
         )) as ChainlinkPriceFeedV3
         const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
         const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(

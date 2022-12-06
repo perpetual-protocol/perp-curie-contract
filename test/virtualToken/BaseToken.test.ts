@@ -4,6 +4,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
 import { PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { CACHED_TWAP_INTERVAL } from "../shared/fixtures"
 import { forwardRealTimestamp, getRealTimestamp, setRealTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
@@ -21,7 +22,7 @@ describe("BaseToken", async () => {
         mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
             return chainlinkRoundData[chainlinkRoundData.length - 1]
         })
-        await priceFeedDispatcher.dispatchPrice(15 * 60)
+        await priceFeedDispatcher.dispatchPrice(CACHED_TWAP_INTERVAL)
     }
 
     beforeEach(async () => {
@@ -181,7 +182,7 @@ describe("BaseToken", async () => {
             })
 
             it("verify status after market paused", async () => {
-                const indexPrice = await baseToken.getIndexPrice(15 * 60)
+                const indexPrice = await baseToken.getIndexPrice(CACHED_TWAP_INTERVAL)
                 expect(indexPrice).to.be.eq(parseEther("405.108695"))
 
                 expect(await baseToken.getPausedIndexPrice()).to.be.eq(parseEther("405.108695"))
@@ -195,7 +196,7 @@ describe("BaseToken", async () => {
 
                 expect(await baseToken.isClosed()).to.be.eq(true)
 
-                let indexPrice = await baseToken.getIndexPrice(15 * 60)
+                let indexPrice = await baseToken.getIndexPrice(CACHED_TWAP_INTERVAL)
                 let pausedIndexPrice = await baseToken.getPausedIndexPrice()
                 expect(indexPrice).to.be.eq(pausedIndexPrice)
 

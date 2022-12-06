@@ -2,6 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken } from "../../typechain"
 import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { CACHED_TWAP_INTERVAL } from "../shared/fixtures"
 
 interface BaseTokenFixture {
     baseToken: BaseToken
@@ -19,15 +20,13 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
         return 6
     })
 
-    const cacheTwapInterval = 15 * 60
-
     const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
     const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
         mockedAggregator.address,
         40 * 60, // 40 mins
         1e5, // 10%
         10, // 10s
-        cacheTwapInterval,
+        CACHED_TWAP_INTERVAL,
     )) as ChainlinkPriceFeedV3
 
     const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")

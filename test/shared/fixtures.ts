@@ -4,6 +4,8 @@ import { BaseToken, QuoteToken, UniswapV3Factory, UniswapV3Pool, VirtualToken } 
 import { ChainlinkPriceFeedV3, EmergencyPriceFeed, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { isAscendingTokenOrder } from "./utilities"
 
+export const CACHED_TWAP_INTERVAL = 15 * 60
+
 interface TokensFixture {
     token0: BaseToken
     token1: QuoteToken
@@ -42,14 +44,13 @@ export function createBaseTokenFixture(name: string, symbol: string): () => Prom
             return 6
         })
 
-        const cacheTwapInterval = 15 * 60
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
         const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
             mockedAggregator.address,
             40 * 60, // 40 mins
             1e5, // 10%
             10, // 10s
-            cacheTwapInterval,
+            CACHED_TWAP_INTERVAL,
         )) as ChainlinkPriceFeedV3
         const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
         const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
