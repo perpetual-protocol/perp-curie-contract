@@ -65,8 +65,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     }
 
     function setPriceFeed(address priceFeedArg) external onlyOwner {
-        // ChainlinkPriceFeed uses 8 decimals
-        // BandPriceFeed uses 18 decimals
+        // For all USD pairs, ChainlinkPriceFeed uses 8 decimals
         uint8 priceFeedDecimals = IPriceFeedDispatcher(priceFeedArg).decimals();
         // BT_IPFD: Invalid price feed decimals
         require(priceFeedDecimals <= decimals(), "BT_IPFD");
@@ -79,16 +78,6 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
 
     function cacheTwap(uint256 interval) external override {
         IPriceFeedDispatcher(_priceFeed).dispatchPrice(interval);
-    }
-
-    //
-    // INTERNAL NON-VIEW
-    //
-
-    function _close(uint256 closedPrice) internal {
-        _status = IBaseToken.Status.Closed;
-        _closedPrice = closedPrice;
-        emit StatusUpdated(_status);
     }
 
     //
@@ -127,10 +116,6 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         return _closedPrice;
     }
 
-    //
-    // PUBLIC VIEW
-    //
-
     /// @inheritdoc IIndexPrice
     /// @dev we overwrite the index price in BaseToken depending on the status
     ///      1. Open: the price is from the price feed
@@ -144,8 +129,14 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     }
 
     //
-    // INTERNAL VIEW
+    // INTERNAL
     //
+
+    function _close(uint256 closedPrice) internal {
+        _status = IBaseToken.Status.Closed;
+        _closedPrice = closedPrice;
+        emit StatusUpdated(_status);
+    }
 
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
         if (_priceFeedDecimals == decimals()) {
