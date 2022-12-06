@@ -30,8 +30,9 @@ interface IClearingHouseConfig {
     function isBackstopLiquidityProvider(address account) external view returns (bool isBackstopLiquidityProvider);
 
     /// @return markPriceMarketTwapInterval MarkPriceMarketTwapInterval for mark price calculations
-    function getMarkPriceMarketTwapInterval() external view returns (uint32 markPriceMarketTwapInterval);
-
     /// @return markPricePremiumInterval MarkPricePremiumInterval for mark price calculations
-    function getMarkPricePremiumInterval() external view returns (uint32 markPricePremiumInterval);
+    function getMarkPriceConfigs()
+        external
+        view
+        returns (uint32 markPriceMarketTwapInterval, uint32 markPricePremiumInterval);
 }

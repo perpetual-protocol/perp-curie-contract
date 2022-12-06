@@ -531,8 +531,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
         IClearingHouseConfig chConfig = IClearingHouseConfig(_clearingHouseConfig);
-        uint32 marketTwapInterval = chConfig.getMarkPriceMarketTwapInterval();
-        uint32 premiumInterval = chConfig.getMarkPricePremiumInterval();
+        (uint32 marketTwapInterval, uint32 premiumInterval) = chConfig.getMarkPriceConfigs();
 
         // Use index twap:
         //   1. For backward compatible, returns index twap when not switch to mark price yet.

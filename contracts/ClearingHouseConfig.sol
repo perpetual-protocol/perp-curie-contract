@@ -160,12 +160,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     }
 
     /// @inheritdoc IClearingHouseConfig
-    function getMarkPriceMarketTwapInterval() external view override returns (uint32) {
-        return _markPriceMarketTwapInterval;
-    }
-
-    /// @inheritdoc IClearingHouseConfig
-    function getMarkPricePremiumInterval() external view override returns (uint32) {
-        return _markPricePremiumInterval;
+    function getMarkPriceConfigs() external view override returns (uint32, uint32) {
+        return (_markPriceMarketTwapInterval, _markPricePremiumInterval);
     }
 }
