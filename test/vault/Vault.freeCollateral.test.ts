@@ -31,7 +31,7 @@ describe("Vault getFreeCollateral", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -48,15 +48,15 @@ describe("Vault getFreeCollateral", () => {
         pool = fixture.pool
         baseToken = fixture.baseToken
         marketRegistry = fixture.marketRegistry
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
         fixture = fixture
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther("151")
         })
 
         // mint and add liquidity
@@ -64,8 +64,8 @@ describe("Vault getFreeCollateral", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", 8))
-        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("40000", 8))
+        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
+        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
 
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
@@ -101,8 +101,8 @@ describe("Vault getFreeCollateral", () => {
 
             it("long then get free collateral", async () => {
                 // set index price for a positive funding
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("150", 6), 0, 0, 0]
+                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                    return parseEther("150")
                 })
 
                 // alice long 0.065379992856491801 ETH for 10 USD
@@ -187,8 +187,8 @@ describe("Vault getFreeCollateral", () => {
     describe("# getFreeCollateralByToken", async () => {
         describe("without position", async () => {
             beforeEach(async () => {
-                wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("3031.39326836", 8))
-                wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("40275.56504427", 8))
+                wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("3031.39326836"))
+                wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("40275.56504427"))
             })
 
             it("weth free collateral equals trader's balance", async () => {
@@ -261,7 +261,7 @@ describe("Vault getFreeCollateral", () => {
                     )
 
                     // weth price drops to 1
-                    wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("1", 8))
+                    wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("1"))
 
                     // free collateral of weth: max(((10 * 1 * 0.7) - (100 * 10%)) / 1 / 0.7, 0) = 0
                     expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq("0")
@@ -292,8 +292,8 @@ describe("Vault getFreeCollateral", () => {
                 })
 
                 it("trader's settlement token balance < 0", async () => {
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("100", 6), 0, 0, 0]
+                    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                        return parseEther("100")
                     })
                     await forwardBothTimestamps(clearingHouse, 360)
 

@@ -8,7 +8,7 @@ import { BaseToken, TestAccountBalance, TestERC20, UniswapV3Pool, Vault } from "
 import { addOrder, findLiquidityChangedEvents, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPriceLocal } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse accounting (liquidity)", () => {
@@ -19,7 +19,7 @@ describe("ClearingHouse accounting (liquidity)", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -43,12 +43,12 @@ describe("ClearingHouse accounting (liquidity)", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "100"
         await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
 
         // prepare collateral for makers
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))

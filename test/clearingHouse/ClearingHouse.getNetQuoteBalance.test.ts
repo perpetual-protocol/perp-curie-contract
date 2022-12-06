@@ -17,7 +17,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -28,13 +28,13 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
         collateral = fixture.USDC
         vault = fixture.vault
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "154"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther(initPrice)
         })
 
         // prepare collateral for alice

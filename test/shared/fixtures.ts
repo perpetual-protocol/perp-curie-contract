@@ -63,6 +63,11 @@ export function createBaseTokenFixture(name: string, symbol: string): () => Prom
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
         const baseToken = (await baseTokenFactory.deploy()) as BaseToken
         const mockedPriceFeedDispatcher = await smockit(priceFeedDispatcher)
+
+        mockedPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
+            return 18
+        })
+
         await baseToken.initialize(name, symbol, mockedPriceFeedDispatcher.address)
 
         return { baseToken, mockedAggregator, mockedPriceFeedDispatcher }
@@ -80,11 +85,13 @@ export async function tokensFixture(): Promise<TokensFixture> {
         baseToken: randomToken0,
         mockedAggregator: randomMockedAggregator0,
         mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher,
+        mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher0,
     } = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
-    const { baseToken: randomToken1, mockedAggregator: randomMockedAggregator1 } = await createBaseTokenFixture(
-        "RandomTestToken1",
-        "randomToken1",
-    )()
+    const {
+        baseToken: randomToken1,
+        mockedAggregator: randomMockedAggregator1,
+        mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher1,
+    } = await createBaseTokenFixture("RandomTestToken1", "randomToken1")()
 
     let token0: BaseToken
     let token1: QuoteToken
@@ -94,12 +101,13 @@ export async function tokensFixture(): Promise<TokensFixture> {
     if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
         token0 = randomToken0
         mockedAggregator0 = randomMockedAggregator0
-        mockedPriceFeedDispatcher0 = randomMockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher0 = randomMockedPriceFeedDispatcher0
         token1 = randomToken1 as VirtualToken as QuoteToken
         mockedAggregator1 = randomMockedAggregator1
     } else {
         token0 = randomToken1
         mockedAggregator0 = randomMockedAggregator1
+        mockedPriceFeedDispatcher0 = randomMockedPriceFeedDispatcher1
         token1 = randomToken0 as VirtualToken as QuoteToken
         mockedAggregator1 = randomMockedAggregator0
     }

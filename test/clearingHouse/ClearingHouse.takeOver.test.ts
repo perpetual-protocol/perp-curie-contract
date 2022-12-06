@@ -29,6 +29,7 @@ import {
     calculateLiquidatePositionSize,
     getMarginRatio,
     syncIndexToMarketPrice,
+    syncIndexToMarketPriceLocal,
     syncMarkPriceToMarketPrice,
 } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -47,8 +48,8 @@ describe("ClearingHouse takeOver (liquidate)", () => {
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     const blockTimeStamp = 1
 
     async function _getMarginRatio(trader: Wallet) {
@@ -86,19 +87,19 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
 
         let initPrice = "1000"
         await initMarket(fixture, initPrice)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
         // mock mark price to make account value calculation easier
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         initPrice = "10000"
         // initialize BTC pool
         await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
         // mock mark price to make account value calculation easier
         await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
 

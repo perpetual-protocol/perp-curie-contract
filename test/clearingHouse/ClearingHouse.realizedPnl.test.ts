@@ -35,7 +35,7 @@ describe("ClearingHouse realizedPnl", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let collateralDecimals: number
     let takerUsdcBalanceBefore: BigNumber
     const lowerTick: number = 46200
@@ -50,13 +50,13 @@ describe("ClearingHouse realizedPnl", () => {
         marketRegistry = fixture.marketRegistry
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "100"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther(initPrice)
         })
 
         // prepare collateral for maker

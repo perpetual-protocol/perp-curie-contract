@@ -34,8 +34,8 @@ describe("ClearingHouse new market listing", () => {
     let quoteToken: QuoteToken
     let baseToken: BaseToken
     let baseToken3: BaseToken
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator3: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher3: MockContract
     let pool3Addr: string
 
     let lowerTick: number
@@ -53,11 +53,11 @@ describe("ClearingHouse new market listing", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         collateralDecimals = await collateral.decimals()
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
 
         const _token0Fixture = await token0Fixture(quoteToken.address)
         baseToken3 = _token0Fixture.baseToken
-        mockedBaseAggregator3 = _token0Fixture.mockedAggregator
+        mockedPriceFeedDispatcher3 = _token0Fixture.mockedPriceFeedDispatcher
 
         const uniAndExFeeTier = 10000
         const ifFeeRatio = 100000
@@ -73,8 +73,8 @@ describe("ClearingHouse new market listing", () => {
         const initPrice = "148"
         // initial baseToken market
         await initMarket(fixture, initPrice, uniAndExFeeTier, ifFeeRatio, 1000, baseToken.address)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther(initPrice.toString())
         })
 
         // initial baseToken3 market
@@ -86,8 +86,8 @@ describe("ClearingHouse new market listing", () => {
             0,
             baseToken3.address,
         )
-        mockedBaseAggregator3.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        mockedPriceFeedDispatcher3.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther(initPrice.toString())
         })
 
         lowerTick = minTick

@@ -29,7 +29,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -41,7 +41,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
         collateralDecimals = await collateral.decimals()
 
         // mint
@@ -56,8 +56,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         // prepare collateral for carol
         await mintAndDeposit(fixture, carol, 1000)
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther("151")
         })
     })
 
@@ -457,8 +457,8 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("151")
             })
 
             baseTokenBalanceInit = await baseToken.balanceOf(clearingHouse.address)

@@ -37,8 +37,8 @@ describe("ClearingHouse addLiquidity", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -53,8 +53,8 @@ describe("ClearingHouse addLiquidity", () => {
         baseToken2 = fixture.baseToken2
         quoteToken = fixture.quoteToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         marketRegistry = fixture.marketRegistry
         collateralDecimals = await collateral.decimals()
 
@@ -68,11 +68,11 @@ describe("ClearingHouse addLiquidity", () => {
         await collateral.transfer(bob.address, amount)
         await deposit(bob, vault, 1000, collateral)
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther("151")
         })
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
+        mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther("151")
         })
     })
 

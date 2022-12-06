@@ -10,7 +10,7 @@ import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
 
-describe.only("AccountBalance.getTotalPositionValue", () => {
+describe("AccountBalance.getTotalPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
@@ -21,7 +21,6 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
     let baseToken: BaseToken
     let pool: UniswapV3Pool
     let collateralDecimals: number
-    let mockedBaseAggregator: MockContract
     let mockedPriceFeedDispatcher0: MockContract
 
     beforeEach(async () => {
@@ -33,7 +32,6 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
         baseToken = fixture.baseToken
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
-        mockedBaseAggregator = fixture.mockedBaseAggregator
         mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
 
         // alice
@@ -124,9 +122,6 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
             // 1. instead of the exact mark price 149.863446, whose tick index is 50099.75001 -> floor() -> 50099
             // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
             // -> 1.0001 ^ 50099 = 149.8522069974
-            // mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            //     return [0, parseUnits("149.852206", 6), 0, 0, 0]
-            // })
 
             mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("149.852206")
@@ -201,8 +196,8 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
             // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
             // -> 1.0001 ^ 50115 = 150.0921504352
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("150.092150", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("150.092150")
             })
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
@@ -304,8 +299,8 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
         // ((50200 * 400 + 50360 * 500) / 900) = 50288.8888888889 -> floor() -> 50288
         // -> 1.0001 ^ 50288 = 152.7112031757
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("152.711203", 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther("152.711203")
         })
         // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 

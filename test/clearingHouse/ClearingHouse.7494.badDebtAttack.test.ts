@@ -15,7 +15,7 @@ import { addOrder, closePosition, q2bExactInput } from "../helper/clearingHouseH
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { formatSqrtPriceX96ToPrice, syncIndexToMarketPrice } from "../shared/utilities"
+import { formatSqrtPriceX96ToPrice, syncIndexToMarketPriceLocal } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse 7494 bad debt attack", () => {
@@ -27,7 +27,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -43,13 +43,13 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
         collateralDecimals = await collateral.decimals()
 
         // simulating SAND pool
         const initPrice = "1.3"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
 
         // prepare collateral for makers
         const makerAmount = parseUnits("500000", collateralDecimals)

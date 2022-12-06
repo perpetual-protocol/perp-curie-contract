@@ -28,7 +28,7 @@ describe("ClearingHouse closePosition", () => {
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
 
@@ -41,7 +41,7 @@ describe("ClearingHouse closePosition", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
 
         const collateralDecimals = await collateral.decimals()
         // mint
@@ -68,8 +68,8 @@ describe("ClearingHouse closePosition", () => {
         beforeEach(async () => {
             let initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("151")
             })
 
             // alice add liquidity
@@ -250,8 +250,8 @@ describe("ClearingHouse closePosition", () => {
         beforeEach(async () => {
             let initPrice = "148.3760629"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("148", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("148")
             })
         })
 
@@ -626,8 +626,8 @@ describe("ClearingHouse closePosition", () => {
         it("a trader swaps base to quote and then closes; one maker", async () => {
             let initPrice = "151.3733069"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("151")
             })
 
             // alice add liquidity
@@ -678,8 +678,8 @@ describe("ClearingHouse closePosition", () => {
         beforeEach(async () => {
             let initPrice = "151.3733069"
             const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("151")
             })
 
             lowerTick = minTick

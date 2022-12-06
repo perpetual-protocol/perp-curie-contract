@@ -20,7 +20,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncIndexToMarketPriceLocal, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate (assume zero IF fee)", () => {
@@ -45,8 +45,8 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -68,8 +68,8 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
         million = parseUnits("1000000", collateralDecimals)
@@ -77,15 +77,15 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
 
         // initialize ETH pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
 
         // initialize BTC pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken2.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
         // set weth as collateral
-        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
+        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("100", 8))
+        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("100", 8))
 
         // mint
         collateral.mint(alice.address, hundred)

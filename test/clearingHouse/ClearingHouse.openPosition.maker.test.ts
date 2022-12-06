@@ -18,9 +18,9 @@ describe("ClearingHouse maker close position", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let baseToken2: BaseToken
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let lowerTick: number
     let upperTick: number
     let collateralDecimals: number
@@ -33,15 +33,15 @@ describe("ClearingHouse maker close position", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
         baseToken2 = fixture.baseToken2
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther(initPrice)
         })
 
         lowerTick = minTick
@@ -246,8 +246,8 @@ describe("ClearingHouse maker close position", () => {
             // init BTC pool
             const initPrice = "10"
             await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-            mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits(initPrice, 6), 0, 0, 0]
+            mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther(initPrice)
             })
 
             // alice add liquidity to BTC

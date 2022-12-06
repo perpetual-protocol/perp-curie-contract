@@ -17,7 +17,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -26,7 +26,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
 
         // mint
         collateral.mint(admin.address, parseEther("10000"))
@@ -42,8 +42,8 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226651"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("151")
             })
 
             await clearingHouse.connect(alice).addLiquidity({
@@ -100,8 +100,8 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("151")
             })
 
             await clearingHouse.connect(alice).addLiquidity({

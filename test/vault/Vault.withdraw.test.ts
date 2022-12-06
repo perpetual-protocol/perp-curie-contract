@@ -18,7 +18,7 @@ import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../help
 import { initMarket } from "../helper/marketHelper"
 import { IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPriceLocal, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -34,7 +34,7 @@ describe("Vault withdraw test", () => {
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -70,14 +70,14 @@ describe("Vault withdraw test", () => {
         collateralManager = fixture.collateralManager
         pool = fixture.pool
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
 
         wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("2500"))
         wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))

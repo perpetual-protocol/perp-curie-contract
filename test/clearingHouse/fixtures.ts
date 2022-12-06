@@ -54,9 +54,8 @@ export interface ClearingHouseFixture {
     mockedWbtcPriceFeedDispatcher: MockContract
     quoteToken: QuoteToken
     baseToken: BaseToken
-    mockedBaseAggregator: MockContract
     baseToken2: BaseToken
-    mockedBaseAggregator2: MockContract
+    mockedPriceFeedDispatcher2: MockContract
     pool2: UniswapV3Pool
 }
 
@@ -125,17 +124,25 @@ export function createClearingHouseFixture(
             10, // 10s
             0,
         )) as ChainlinkPriceFeedV3
+
         const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
         const wethPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
             ethers.constants.AddressZero,
             wethChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWethPriceFeedDispatcher = await smockit(wethPriceFeedDispatcher)
+        mockedWethPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
+            return 18
+        })
+
         const wbtcPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
             ethers.constants.AddressZero,
             wbtcChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWbtcPriceFeedDispatcher = await smockit(wbtcPriceFeedDispatcher)
+        mockedWbtcPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
+            return 18
+        })
 
         // we assume (base, quote) == (token0, token1)
         baseToken = token0
@@ -215,13 +222,13 @@ export function createClearingHouseFixture(
             parseUnits("500", usdcDecimals), // collateralValueDust
         )
         await collateralManager.addCollateral(WETH.address, {
-            priceFeed: wethPriceFeedDispatcher.address,
+            priceFeed: mockedWethPriceFeedDispatcher.address,
             collateralRatio: (0.7e6).toString(),
             discountRatio: (0.1e6).toString(),
             depositCap: parseEther("1000"),
         })
         await collateralManager.addCollateral(WBTC.address, {
-            priceFeed: wbtcPriceFeedDispatcher.address,
+            priceFeed: mockedWbtcPriceFeedDispatcher.address,
             collateralRatio: (0.7e6).toString(),
             discountRatio: (0.1e6).toString(),
             depositCap: parseUnits("1000", await WBTC.decimals()),
@@ -240,7 +247,7 @@ export function createClearingHouseFixture(
         // deploy another pool
         const _token0Fixture = await token0Fixture(quoteToken.address)
         const baseToken2 = _token0Fixture.baseToken
-        const mockedBaseAggregator2 = _token0Fixture.mockedAggregator
+        const mockedPriceFeedDispatcher2 = _token0Fixture.mockedPriceFeedDispatcher
         await uniV3Factory.createPool(baseToken2.address, quoteToken.address, uniFeeTier)
         const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, uniFeeTier)
         const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
@@ -311,9 +318,8 @@ export function createClearingHouseFixture(
             mockedWbtcPriceFeedDispatcher,
             quoteToken,
             baseToken,
-            mockedBaseAggregator,
             baseToken2,
-            mockedBaseAggregator2,
+            mockedPriceFeedDispatcher2,
             pool2,
         }
     }

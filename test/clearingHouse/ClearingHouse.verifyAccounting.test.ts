@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumber, BigNumberish, Wallet } from "ethers"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { InsuranceFund, UniswapV3Pool, Vault } from "../../typechain"
 import {
@@ -16,7 +16,7 @@ import {
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPriceLocal } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse verify accounting", () => {
@@ -32,7 +32,7 @@ describe("ClearingHouse verify accounting", () => {
     let decimals: number
     let insuranceFund: InsuranceFund
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let lowerTick: number
     let upperTick: number
     let baseTokenList: string[]
@@ -44,7 +44,7 @@ describe("ClearingHouse verify accounting", () => {
         decimals = await fixture.USDC.decimals()
         insuranceFund = fixture.insuranceFund
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
 
         // mint 1000 to every wallets and store balanceBefore
         for (const wallet of wallets) {
@@ -55,8 +55,8 @@ describe("ClearingHouse verify accounting", () => {
         const initPrice = "10"
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            return parseEther(initPrice.toString())
         })
 
         lowerTick = minTick
@@ -126,8 +126,8 @@ describe("ClearingHouse verify accounting", () => {
         beforeEach(async () => {
             const initPrice = "10"
             await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined, fixture.baseToken2.address)
-            fixture.mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
+            fixture.mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther(initPrice.toString())
             })
 
             await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick, false, fixture.baseToken2.address)
@@ -175,7 +175,7 @@ describe("ClearingHouse verify accounting", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
             await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
             await removeOrder(fixture, alice, 0, lowerTick, upperTick)
             await closePosition(fixture, alice)

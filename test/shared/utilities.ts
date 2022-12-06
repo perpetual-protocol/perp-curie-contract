@@ -86,7 +86,7 @@ export async function syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0: Mo
     const sqrtPrice = slot0.sqrtPriceX96
     const price = formatSqrtPriceX96ToPrice(sqrtPrice, 0)
     mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
-        return price
+        return parseEther(price)
     })
 }
 
