@@ -10,6 +10,7 @@ interface TokensFixture {
     token0: BaseToken
     token1: QuoteToken
     mockedAggregator0: MockContract
+    mockedPriceFeedDispatcher0: MockContract
     mockedAggregator1: MockContract
 }
 
@@ -23,6 +24,7 @@ interface PoolFixture {
 interface BaseTokenFixture {
     baseToken: BaseToken
     mockedAggregator: MockContract
+    mockedPriceFeedDispatcher: MockContract
 }
 
 export function createQuoteTokenFixture(name: string, symbol: string): () => Promise<QuoteToken> {
@@ -60,9 +62,10 @@ export function createBaseTokenFixture(name: string, symbol: string): () => Prom
 
         const baseTokenFactory = await ethers.getContractFactory("BaseToken")
         const baseToken = (await baseTokenFactory.deploy()) as BaseToken
-        await baseToken.initialize(name, symbol, priceFeedDispatcher.address)
+        const mockedPriceFeedDispatcher = await smockit(priceFeedDispatcher)
+        await baseToken.initialize(name, symbol, mockedPriceFeedDispatcher.address)
 
-        return { baseToken, mockedAggregator }
+        return { baseToken, mockedAggregator, mockedPriceFeedDispatcher }
     }
 }
 
@@ -73,10 +76,11 @@ export async function uniswapV3FactoryFixture(): Promise<UniswapV3Factory> {
 
 // assume isAscendingTokensOrder() == true/ token0 < token1
 export async function tokensFixture(): Promise<TokensFixture> {
-    const { baseToken: randomToken0, mockedAggregator: randomMockedAggregator0 } = await createBaseTokenFixture(
-        "RandomTestToken0",
-        "randomToken0",
-    )()
+    const {
+        baseToken: randomToken0,
+        mockedAggregator: randomMockedAggregator0,
+        mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher,
+    } = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
     const { baseToken: randomToken1, mockedAggregator: randomMockedAggregator1 } = await createBaseTokenFixture(
         "RandomTestToken1",
         "randomToken1",
@@ -85,10 +89,12 @@ export async function tokensFixture(): Promise<TokensFixture> {
     let token0: BaseToken
     let token1: QuoteToken
     let mockedAggregator0: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
     let mockedAggregator1: MockContract
     if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
         token0 = randomToken0
         mockedAggregator0 = randomMockedAggregator0
+        mockedPriceFeedDispatcher0 = randomMockedPriceFeedDispatcher
         token1 = randomToken1 as VirtualToken as QuoteToken
         mockedAggregator1 = randomMockedAggregator1
     } else {
@@ -100,6 +106,7 @@ export async function tokensFixture(): Promise<TokensFixture> {
     return {
         token0,
         mockedAggregator0,
+        mockedPriceFeedDispatcher0,
         token1,
         mockedAggregator1,
     }

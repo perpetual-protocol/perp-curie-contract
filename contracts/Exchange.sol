@@ -28,6 +28,8 @@ import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
+import "hardhat/console.sol";
+
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Exchange is
     IUniswapV3SwapCallback,
@@ -350,6 +352,11 @@ contract Exchange is
         uint256 indexTwap =
             IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
         uint256 spread = markPrice > indexTwap ? markPrice.sub(indexTwap) : indexTwap.sub(markPrice);
+
+        console.log("markPrice");
+        console.log(markPrice);
+        console.log("indexTwap");
+        console.log(indexTwap);
         return spread > PerpMath.mulRatio(indexTwap, _MAX_PRICE_SPREAD_RATIO);
     }
 

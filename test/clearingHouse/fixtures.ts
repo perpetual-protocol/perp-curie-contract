@@ -49,6 +49,7 @@ export interface ClearingHouseFixture {
     USDC: TestERC20
     WETH: TestERC20
     WBTC: TestERC20
+    mockedPriceFeedDispatcher0: MockContract
     mockedWethPriceFeedDispatcher: MockContract
     mockedWbtcPriceFeedDispatcher: MockContract
     quoteToken: QuoteToken
@@ -99,7 +100,7 @@ export function createClearingHouseFixture(
         const usdcDecimals = await USDC.decimals()
 
         let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
-        const { token0, mockedAggregator0, token1 } = await tokensFixture()
+        const { token0, mockedAggregator0, mockedPriceFeedDispatcher0, token1 } = await tokensFixture()
 
         // price feed for weth and wbtc
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
@@ -305,6 +306,7 @@ export function createClearingHouseFixture(
             USDC,
             WETH,
             WBTC,
+            mockedPriceFeedDispatcher0,
             mockedWethPriceFeedDispatcher,
             mockedWbtcPriceFeedDispatcher,
             quoteToken,

@@ -2,7 +2,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { DECIMAL_PLACES_18, syncIndexToMarketPrice } from "../shared/utilities"
+import { DECIMAL_PLACES_18, syncIndexToMarketPriceLocal } from "../shared/utilities"
 
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
@@ -22,6 +22,7 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
     let pool: UniswapV3Pool
     let collateralDecimals: number
     let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher0: MockContract
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -33,6 +34,7 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
         mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
 
         // alice
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
@@ -51,7 +53,7 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
         beforeEach(async () => {
             const initPrice = "151.3733069"
             await initMarket(fixture, initPrice)
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
         })
 
         // see more desc in getTotalPositionSize test
@@ -122,8 +124,12 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
             // 1. instead of the exact mark price 149.863446, whose tick index is 50099.75001 -> floor() -> 50099
             // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
             // -> 1.0001 ^ 50099 = 149.8522069974
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("149.852206", 6), 0, 0, 0]
+            // mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            //     return [0, parseUnits("149.852206", 6), 0, 0, 0]
+            // })
+
+            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                return parseEther("149.852206")
             })
 
             const markPrice = await accountBalance.getMarkPrice(baseToken.address)
@@ -221,7 +227,7 @@ describe.only("AccountBalance.getTotalPositionValue", () => {
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
         const initPrice = "148.3760629"
         await initMarket(fixture, initPrice)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
 
         const lowerTick = "50000"
         const middleTick = "50200"

@@ -81,6 +81,15 @@ export async function syncIndexToMarketPrice(aggregator: MockContract, pool: Uni
     })
 }
 
+export async function syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0: MockContract, pool: UniswapV3Pool) {
+    const slot0 = await pool.slot0()
+    const sqrtPrice = slot0.sqrtPriceX96
+    const price = formatSqrtPriceX96ToPrice(sqrtPrice, 0)
+    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        return price
+    })
+}
+
 export async function syncMarkPriceToMarketPrice(
     accountBalance: TestAccountBalance,
     baseToken: string,
