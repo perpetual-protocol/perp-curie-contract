@@ -141,7 +141,7 @@ export function createClearingHouseFixture(
         )) as PriceFeedDispatcher
         const mockedWbtcPriceFeedDispatcher = await smockit(wbtcPriceFeedDispatcher)
         mockedWbtcPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return 18
+            return 8
         })
 
         // we assume (base, quote) == (token0, token1)
