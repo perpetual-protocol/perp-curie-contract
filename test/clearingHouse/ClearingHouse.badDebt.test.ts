@@ -15,7 +15,7 @@ import { addOrder, b2qExactInput, b2qExactOutput, closePosition, q2bExactInput }
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse badDebt", () => {
@@ -29,7 +29,7 @@ describe("ClearingHouse badDebt", () => {
     let vault: Vault
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let lowerTick: number, upperTick: number
 
     beforeEach(async () => {
@@ -40,14 +40,14 @@ describe("ClearingHouse badDebt", () => {
         accountBalance = fixture.accountBalance as TestAccountBalance
         exchange = fixture.exchange as TestExchange
         vault = fixture.vault
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
 
         const initPrice = "100"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, 1000)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -82,7 +82,7 @@ describe("ClearingHouse badDebt", () => {
                 await q2bExactInput(fixture, bob, "800", baseToken.address)
 
                 // To ignore funding payment
-                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
                 // bob long base token for a 30 mins to manipulate mark price
                 await forwardBothTimestamps(clearingHouse, 1800)

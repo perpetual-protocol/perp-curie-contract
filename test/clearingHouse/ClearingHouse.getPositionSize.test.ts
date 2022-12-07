@@ -17,7 +17,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -27,7 +27,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         // alice
@@ -49,7 +49,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
         beforeEach(async () => {
             const initPrice = "151.3733069"
             await initMarket(fixture, initPrice)
-            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("151")
             })
         })
@@ -173,7 +173,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
         const initPrice = "148.3760629"
         await initMarket(fixture, initPrice)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("148")
         })
 

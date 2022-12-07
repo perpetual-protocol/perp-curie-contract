@@ -28,7 +28,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
@@ -42,13 +42,13 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
         insuranceFund = fixture.insuranceFund
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 400000)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther(initPrice)
         })
 

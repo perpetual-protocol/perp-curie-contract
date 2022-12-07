@@ -16,7 +16,7 @@ import {
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse verify accounting", () => {
@@ -32,7 +32,7 @@ describe("ClearingHouse verify accounting", () => {
     let decimals: number
     let insuranceFund: InsuranceFund
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let lowerTick: number
     let upperTick: number
     let baseTokenList: string[]
@@ -44,7 +44,7 @@ describe("ClearingHouse verify accounting", () => {
         decimals = await fixture.USDC.decimals()
         insuranceFund = fixture.insuranceFund
         pool = fixture.pool
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         // mint 1000 to every wallets and store balanceBefore
         for (const wallet of wallets) {
@@ -55,7 +55,7 @@ describe("ClearingHouse verify accounting", () => {
         const initPrice = "10"
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther(initPrice.toString())
         })
 
@@ -175,7 +175,7 @@ describe("ClearingHouse verify accounting", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice
-            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
             await removeOrder(fixture, alice, 0, lowerTick, upperTick)
             await closePosition(fixture, alice)

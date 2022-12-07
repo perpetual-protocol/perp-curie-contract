@@ -9,9 +9,7 @@ export const CACHED_TWAP_INTERVAL = 15 * 60
 interface TokensFixture {
     token0: BaseToken
     token1: QuoteToken
-    mockedAggregator0: MockContract
-    mockedPriceFeedDispatcher0: MockContract
-    mockedAggregator1: MockContract
+    mockedPriceFeedDispatcher: MockContract
 }
 
 interface PoolFixture {
@@ -23,7 +21,6 @@ interface PoolFixture {
 
 interface BaseTokenFixture {
     baseToken: BaseToken
-    mockedAggregator: MockContract
     mockedPriceFeedDispatcher: MockContract
 }
 
@@ -36,7 +33,10 @@ export function createQuoteTokenFixture(name: string, symbol: string): () => Pro
     }
 }
 
-export function createBaseTokenFixture(name: string, symbol: string): () => Promise<BaseTokenFixture> {
+export function createBaseTokenFixture(
+    name: string = "RandomToken0",
+    symbol: string = "RT0",
+): () => Promise<BaseTokenFixture> {
     return async (): Promise<BaseTokenFixture> => {
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
         const aggregator = await aggregatorFactory.deploy()
@@ -70,7 +70,7 @@ export function createBaseTokenFixture(name: string, symbol: string): () => Prom
 
         await baseToken.initialize(name, symbol, mockedPriceFeedDispatcher.address)
 
-        return { baseToken, mockedAggregator, mockedPriceFeedDispatcher }
+        return { baseToken, mockedPriceFeedDispatcher }
     }
 }
 
@@ -81,49 +81,34 @@ export async function uniswapV3FactoryFixture(): Promise<UniswapV3Factory> {
 
 // assume isAscendingTokensOrder() == true/ token0 < token1
 export async function tokensFixture(): Promise<TokensFixture> {
-    const {
-        baseToken: randomToken0,
-        mockedAggregator: randomMockedAggregator0,
-        mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher,
-        mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher0,
-    } = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
-    const {
-        baseToken: randomToken1,
-        mockedAggregator: randomMockedAggregator1,
-        mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher1,
-    } = await createBaseTokenFixture("RandomTestToken1", "randomToken1")()
+    const { baseToken: randomToken0, mockedPriceFeedDispatcher: randommockedPriceFeedDispatcher } =
+        await createBaseTokenFixture()()
+    const { baseToken: randomToken1, mockedPriceFeedDispatcher: randomMockedPriceFeedDispatcher1 } =
+        await createBaseTokenFixture("RandomToken1", "RT1")()
 
     let token0: BaseToken
     let token1: QuoteToken
-    let mockedAggregator0: MockContract
-    let mockedPriceFeedDispatcher0: MockContract
-    let mockedAggregator1: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     if (isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
         token0 = randomToken0
-        mockedAggregator0 = randomMockedAggregator0
-        mockedPriceFeedDispatcher0 = randomMockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = randommockedPriceFeedDispatcher
         token1 = randomToken1 as VirtualToken as QuoteToken
-        mockedAggregator1 = randomMockedAggregator1
     } else {
         token0 = randomToken1
-        mockedAggregator0 = randomMockedAggregator1
-        mockedPriceFeedDispatcher0 = randomMockedPriceFeedDispatcher1
+        mockedPriceFeedDispatcher = randomMockedPriceFeedDispatcher1
         token1 = randomToken0 as VirtualToken as QuoteToken
-        mockedAggregator1 = randomMockedAggregator0
     }
     return {
         token0,
-        mockedAggregator0,
-        mockedPriceFeedDispatcher0,
+        mockedPriceFeedDispatcher,
         token1,
-        mockedAggregator1,
     }
 }
 
 export async function token0Fixture(token1Addr: string): Promise<BaseTokenFixture> {
     let token0Fixture: BaseTokenFixture
     while (!token0Fixture || !isAscendingTokenOrder(token0Fixture.baseToken.address, token1Addr)) {
-        token0Fixture = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
+        token0Fixture = await createBaseTokenFixture()()
     }
     return token0Fixture
 }

@@ -7,7 +7,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("Exchange complicated test", () => {
     const [admin, maker, taker] = waffle.provider.getWallets()
@@ -15,7 +15,7 @@ describe("Exchange complicated test", () => {
     let vault: Vault
     let usdc: TestERC20
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -24,13 +24,13 @@ describe("Exchange complicated test", () => {
         vault = fixture.vault
         usdc = fixture.USDC
         pool = fixture.pool
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // taker mint
         await usdc.mint(taker.address, parseUnits("10000000", usdcDecimals))

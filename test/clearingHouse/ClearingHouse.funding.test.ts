@@ -32,7 +32,7 @@ describe("ClearingHouse funding", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let quoteToken: QuoteToken
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -47,12 +47,12 @@ describe("ClearingHouse funding", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "154.4310961"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("154")
         })
 
@@ -130,7 +130,7 @@ describe("ClearingHouse funding", () => {
         describe("one maker provides order in range and another maker provides order above current price", async () => {
             beforeEach(async () => {
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("150.953124")
                 })
                 // alice provides liquidity with the range inside
@@ -249,7 +249,7 @@ describe("ClearingHouse funding", () => {
 
     describe("# _settleFundingAndUpdateFundingGrowth", () => {
         it("markTwap & indexTwap are not zero in the first tx of the market", async () => {
-            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("150.953124")
             })
             await expect(
@@ -289,7 +289,7 @@ describe("ClearingHouse funding", () => {
             // can notice that markTwaps in this case are different from those in "two takers; first positive then negative funding"
             it("with twap; two takers; positive, negative then positive funding", async () => {
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("150.953124")
                 })
 
@@ -332,7 +332,7 @@ describe("ClearingHouse funding", () => {
                 await forwardBothTimestamps(clearingHouse, 450)
 
                 // set index price for a negative funding
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("156.953124")
                 })
 
@@ -373,7 +373,7 @@ describe("ClearingHouse funding", () => {
                 await forwardBothTimestamps(clearingHouse, 250)
 
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("152.953124")
                 })
 
@@ -396,7 +396,7 @@ describe("ClearingHouse funding", () => {
                 // basic examples
                 it("one taker swaps once; positive funding", async () => {
                     // set index price for a positive funding
-                    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                         return parseEther("150.953124")
                     })
 
@@ -461,7 +461,7 @@ describe("ClearingHouse funding", () => {
 
                 it("one taker swaps twice; add liquidity in between; negative funding", async () => {
                     // set index price for a negative funding
-                    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                         return parseEther("156.953124")
                     })
 
@@ -535,7 +535,7 @@ describe("ClearingHouse funding", () => {
 
                 it("two takers; first positive then negative funding", async () => {
                     // set index price for a positive funding
-                    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                         return parseEther("150.953124")
                     })
 
@@ -573,7 +573,7 @@ describe("ClearingHouse funding", () => {
                     await forwardBothTimestamps(clearingHouse, 3600)
 
                     // set index price for a negative funding
-                    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                         return parseEther("156.953124")
                     })
 
@@ -658,7 +658,7 @@ describe("ClearingHouse funding", () => {
                 })
 
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("150.953124")
                 })
             })
@@ -856,7 +856,7 @@ describe("ClearingHouse funding", () => {
                     })
 
                     // set index price for a positive funding
-                    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                         return parseEther("150.953124")
                     })
 
@@ -1109,7 +1109,7 @@ describe("ClearingHouse funding", () => {
 
         describe("max funding rate exceeded", async () => {
             beforeEach(async () => {
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("150.953124")
                 })
 
@@ -1139,7 +1139,7 @@ describe("ClearingHouse funding", () => {
                 // current mark price 156.844502866592198095
 
                 // index price 50
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("50")
                 })
 
@@ -1163,7 +1163,7 @@ describe("ClearingHouse funding", () => {
                 // current mark price 152.072967341735143415
 
                 // index price 200
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("200")
                 })
 

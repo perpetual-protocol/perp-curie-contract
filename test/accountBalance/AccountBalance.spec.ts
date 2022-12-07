@@ -37,7 +37,7 @@ describe("AccountBalance", () => {
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
     let tickSpacing: number
@@ -58,7 +58,7 @@ describe("AccountBalance", () => {
         quoteToken = fixture.quoteToken
         pool = fixture.pool
         pool2 = fixture.pool2
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
@@ -79,7 +79,7 @@ describe("AccountBalance", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("151")
             })
 

@@ -19,7 +19,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange, priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse softCircuitBreak", () => {
@@ -38,7 +38,7 @@ describe("ClearingHouse softCircuitBreak", () => {
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
@@ -62,13 +62,13 @@ describe("ClearingHouse softCircuitBreak", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
         // initialize ETH pool
         await initMarket(fixture, "1000", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // mint collateral
         await mintAndDeposit(fixture, bob, 150)

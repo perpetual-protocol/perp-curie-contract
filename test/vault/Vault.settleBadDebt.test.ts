@@ -20,7 +20,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPriceLocal, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault settleBadDebt (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -41,7 +41,7 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let wbtcDecimals: number
     let fixture: ClearingHouseFixture
@@ -64,14 +64,14 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         pool = _fixture.pool
         baseToken = _fixture.baseToken
         marketRegistry = _fixture.marketRegistry
-        mockedPriceFeedDispatcher0 = _fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
         wbtcDecimals = await wbtc.decimals()
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, 100000, baseToken.address)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity

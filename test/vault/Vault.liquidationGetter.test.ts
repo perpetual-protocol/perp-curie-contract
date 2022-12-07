@@ -7,7 +7,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPriceLocal, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -20,7 +20,7 @@ describe("Vault liquidationGetter test", () => {
     let wbtcPriceFeed: MockContract
     let pool: UniswapV3Pool
     let baseToken: BaseToken
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let accountBalance: TestAccountBalance
     let fixture: ClearingHouseFixture
@@ -35,7 +35,7 @@ describe("Vault liquidationGetter test", () => {
         wbtcPriceFeed = _fixture.mockedWbtcPriceFeedDispatcher
         pool = _fixture.pool
         baseToken = _fixture.baseToken
-        mockedPriceFeedDispatcher0 = _fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         accountBalance = _fixture.accountBalance as TestAccountBalance
         fixture = _fixture
 
@@ -43,7 +43,7 @@ describe("Vault liquidationGetter test", () => {
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity

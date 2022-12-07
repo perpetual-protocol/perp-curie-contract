@@ -2,7 +2,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { DECIMAL_PLACES_18, syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { DECIMAL_PLACES_18, syncIndexToMarketPrice } from "../shared/utilities"
 
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
@@ -21,7 +21,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
     let baseToken: BaseToken
     let pool: UniswapV3Pool
     let collateralDecimals: number
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -32,7 +32,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
         baseToken = fixture.baseToken
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         // alice
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
@@ -51,7 +51,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
         beforeEach(async () => {
             const initPrice = "151.3733069"
             await initMarket(fixture, initPrice)
-            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         })
 
         // see more desc in getTotalPositionSize test
@@ -123,7 +123,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
             // -> 1.0001 ^ 50099 = 149.8522069974
 
-            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("149.852206")
             })
 
@@ -196,7 +196,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
             // -> 1.0001 ^ 50115 = 150.0921504352
 
-            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("150.092150")
             })
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
@@ -222,7 +222,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
         const initPrice = "148.3760629"
         await initMarket(fixture, initPrice)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         const lowerTick = "50000"
         const middleTick = "50200"
@@ -299,7 +299,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
         // ((50200 * 400 + 50360 * 500) / 900) = 50288.8888888889 -> floor() -> 50288
         // -> 1.0001 ^ 50288 = 152.7112031757
 
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("152.711203")
         })
         // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")

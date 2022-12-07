@@ -34,7 +34,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -52,7 +52,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
@@ -60,7 +60,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
         const marketTicks = await initMarket(fixture, initPrice, exFeeRatio, 0)
         const lowerTick = marketTicks.minTick
         const upperTick = marketTicks.maxTick
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("151")
         })
 

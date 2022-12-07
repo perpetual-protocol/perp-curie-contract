@@ -16,7 +16,7 @@ import {
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 //docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1507179977
@@ -29,7 +29,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     let accountBalance: AccountBalance
     let orderBook: OrderBook
     let baseToken: BaseToken
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
@@ -58,13 +58,13 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
         accountBalance = fixture.accountBalance
         orderBook = fixture.orderBook
         baseToken = fixture.baseToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
 
         const initPrice = "10"
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, initPrice, 0, 0)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther(initPrice.toString())
         })
 
@@ -86,7 +86,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
             // alice double the liquidity
             // pool: 80/1250 => 160/2500
-            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, alice, 80, 1250, lowerTick, upperTick)
             orderIdsBefore = await getOrderIds(fixture, alice)
             orderBefore = await orderBook.getOpenOrderById(orderIdsBefore[0])
@@ -144,7 +144,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
         describe("has 2 order", () => {
             beforeEach(async () => {
-                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
                 const orderIds = await getOrderIds(fixture, alice)
                 expect(orderIds.length).gt(1)
@@ -239,7 +239,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
         describe("has 2 order", () => {
             beforeEach(async () => {
-                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
                 const orderIds = await getOrderIds(fixture, alice)
                 expect(orderIds.length).gt(1)

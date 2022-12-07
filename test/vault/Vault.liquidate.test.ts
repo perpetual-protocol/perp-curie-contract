@@ -22,7 +22,7 @@ import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helpe
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPriceLocal, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -43,7 +43,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let wbtcDecimals: number
     let fixture: ClearingHouseFixture
@@ -66,14 +66,14 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         pool = _fixture.pool
         baseToken = _fixture.baseToken
         marketRegistry = _fixture.marketRegistry
-        mockedPriceFeedDispatcher0 = _fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
         wbtcDecimals = await wbtc.decimals()
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
@@ -879,13 +879,13 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
                 // alice continue to open long position
                 await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
-                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await q2bExactInput(fixture, alice, 10000)
 
                 // bob short to make alice has bad debt
                 await b2qExactOutput(fixture, bob, 80000)
                 await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
-                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             })
 
             it("do not settle bad debt if user still has position after liquidation", async () => {

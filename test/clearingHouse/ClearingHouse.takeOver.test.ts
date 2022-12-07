@@ -28,7 +28,7 @@ import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import {
     calculateLiquidatePositionSize,
     getMarginRatio,
-    syncIndexToMarketPriceLocal,
+    syncIndexToMarketPrice,
     syncMarkPriceToMarketPrice,
 } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -47,7 +47,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
     const blockTimeStamp = 1
 
@@ -86,19 +86,19 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
 
         let initPrice = "1000"
         await initMarket(fixture, initPrice)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         // mock mark price to make account value calculation easier
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         initPrice = "10000"
         // initialize BTC pool
         await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher2, pool2)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
         // mock mark price to make account value calculation easier
         await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
 

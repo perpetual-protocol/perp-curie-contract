@@ -27,7 +27,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
@@ -41,13 +41,13 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "100"
         const { maxTick, minTick } = await initMarket(fixture, initPrice)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther(initPrice)
         })
 

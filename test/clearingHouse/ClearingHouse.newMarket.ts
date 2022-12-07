@@ -34,7 +34,7 @@ describe("ClearingHouse new market listing", () => {
     let quoteToken: QuoteToken
     let baseToken: BaseToken
     let baseToken3: BaseToken
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher3: MockContract
     let pool3Addr: string
 
@@ -53,7 +53,7 @@ describe("ClearingHouse new market listing", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         collateralDecimals = await collateral.decimals()
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         const _token0Fixture = await token0Fixture(quoteToken.address)
         baseToken3 = _token0Fixture.baseToken
@@ -73,7 +73,7 @@ describe("ClearingHouse new market listing", () => {
         const initPrice = "148"
         // initial baseToken market
         await initMarket(fixture, initPrice, uniAndExFeeTier, ifFeeRatio, 1000, baseToken.address)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther(initPrice.toString())
         })
 

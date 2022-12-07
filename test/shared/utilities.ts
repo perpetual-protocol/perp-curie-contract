@@ -71,11 +71,11 @@ export function filterLogs(receipt: TransactionReceipt, topic: string, baseContr
     return receipt.logs.filter(log => log.topics[0] === topic).map(log => baseContract.interface.parseLog(log))
 }
 
-export async function syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0: MockContract, pool: UniswapV3Pool) {
+export async function syncIndexToMarketPrice(mockedPriceFeedDispatcher: MockContract, pool: UniswapV3Pool) {
     const slot0 = await pool.slot0()
     const sqrtPrice = slot0.sqrtPriceX96
     const price = formatSqrtPriceX96ToPrice(sqrtPrice, 0)
-    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
         return parseEther(price)
     })
 }

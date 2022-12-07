@@ -14,7 +14,7 @@ import {
     UniswapV3Factory,
     Vault,
 } from "../../typechain"
-import { createBaseTokenFixture } from "../shared/fixtures"
+import { createQuoteTokenFixture } from "../shared/fixtures"
 
 interface MockedVaultFixture {
     vault: Vault
@@ -86,7 +86,7 @@ export async function mockedVaultFixture(): Promise<MockedVaultFixture> {
     )
     const mockedCollateralManager = await smockit(collateralManager)
 
-    const { baseToken: quoteToken } = await createBaseTokenFixture("RandomTestToken0", "randomToken0")()
+    const quoteToken = await createQuoteTokenFixture("RandomTestToken1", "randomToken1")()
     mockedExchange.smocked.getOrderBook.will.return.with(orderBook.address)
     const clearingHouseFactory = await ethers.getContractFactory("ClearingHouse")
     const clearingHouse = (await clearingHouseFactory.deploy()) as ClearingHouse

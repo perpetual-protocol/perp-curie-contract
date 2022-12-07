@@ -16,7 +16,7 @@ import {
 import { addOrder, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
@@ -32,7 +32,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
     let baseAmount: BigNumber
@@ -47,12 +47,12 @@ describe("ClearingHouse cancelExcessOrders", () => {
         baseToken = fixture.baseToken
         baseToken2 = fixture.baseToken2
         quoteToken = fixture.quoteToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("100")
         })
 
@@ -261,7 +261,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
             // 3. bob add liquidity
             // sync index price to market price to pass price spread checking
-            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, bob, 1, 0, 92400, 92800, false, baseToken.address)
 
             // 4. set mark price lower to withdraw bob's collateral

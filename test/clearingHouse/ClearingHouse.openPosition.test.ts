@@ -20,7 +20,7 @@ import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition", () => {
@@ -39,7 +39,7 @@ describe("ClearingHouse openPosition", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
@@ -58,14 +58,14 @@ describe("ClearingHouse openPosition", () => {
         baseToken = fixture.baseToken
         baseToken2 = fixture.baseToken2
         quoteToken = fixture.quoteToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("151")
         })
 
@@ -225,7 +225,7 @@ describe("ClearingHouse openPosition", () => {
                 // market price = 151.373306858723226652
                 // index price = 170
                 // liquidity = 884690658835870366575
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("170")
                 })
             })
@@ -271,7 +271,7 @@ describe("ClearingHouse openPosition", () => {
                 // market price = 151.373306858723226652
                 // index price = 133
                 // liquidity = 884690658835870366575
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("133")
                 })
             })
@@ -566,7 +566,7 @@ describe("ClearingHouse openPosition", () => {
             // when a position has a profit, the freeCollateral becomes less and thus cannot increase position
 
             // mock index price to market price
-            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("382395")
             })
 
@@ -731,7 +731,7 @@ describe("ClearingHouse openPosition", () => {
             })
 
             // mock index price to market price
-            mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("103.12129")
             })
 
@@ -1306,7 +1306,7 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 // To fixed market twap and ignore funding payment
-                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await forwardBothTimestamps(clearingHouse, 1800)
 
                 freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()

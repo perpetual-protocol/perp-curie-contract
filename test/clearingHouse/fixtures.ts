@@ -49,13 +49,13 @@ export interface ClearingHouseFixture {
     USDC: TestERC20
     WETH: TestERC20
     WBTC: TestERC20
-    mockedPriceFeedDispatcher0: MockContract
+    mockedPriceFeedDispatcher: MockContract
+    mockedPriceFeedDispatcher2: MockContract
     mockedWethPriceFeedDispatcher: MockContract
     mockedWbtcPriceFeedDispatcher: MockContract
     quoteToken: QuoteToken
     baseToken: BaseToken
     baseToken2: BaseToken
-    mockedPriceFeedDispatcher2: MockContract
     pool2: UniswapV3Pool
 }
 
@@ -98,8 +98,8 @@ export function createClearingHouseFixture(
 
         const usdcDecimals = await USDC.decimals()
 
-        let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
-        const { token0, mockedAggregator0, mockedPriceFeedDispatcher0, token1 } = await tokensFixture()
+        let baseToken: BaseToken, quoteToken: QuoteToken
+        const { token0, mockedPriceFeedDispatcher, token1 } = await tokensFixture()
 
         // price feed for weth and wbtc
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
@@ -147,7 +147,6 @@ export function createClearingHouseFixture(
         // we assume (base, quote) == (token0, token1)
         baseToken = token0
         quoteToken = token1
-        mockedBaseAggregator = mockedAggregator0
 
         // deploy UniV3 factory
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
@@ -313,7 +312,7 @@ export function createClearingHouseFixture(
             USDC,
             WETH,
             WBTC,
-            mockedPriceFeedDispatcher0,
+            mockedPriceFeedDispatcher,
             mockedWethPriceFeedDispatcher,
             mockedWbtcPriceFeedDispatcher,
             quoteToken,

@@ -13,7 +13,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseWithDelegateApprovalFixture, createClearingHouseWithDelegateApprovalFixture } from "./fixtures"
 
 describe("ClearingHouse openPositionFor", () => {
@@ -25,7 +25,7 @@ describe("ClearingHouse openPositionFor", () => {
     let accountBalance: TestAccountBalance
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let delegateApproval: DelegateApproval
     let limitOrderBook: TestLimitOrderBook
 
@@ -36,7 +36,7 @@ describe("ClearingHouse openPositionFor", () => {
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         accountBalance = fixture.accountBalance as TestAccountBalance
         baseToken = fixture.baseToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         delegateApproval = fixture.delegateApproval
         limitOrderBook = fixture.limitOrderBook
@@ -46,7 +46,7 @@ describe("ClearingHouse openPositionFor", () => {
 
         const initPrice = "2960"
         await initMarket(fixture, initPrice, undefined, 0)
-        await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher0, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // prepare collateral for maker
         await mintAndDeposit(fixture, maker, 1_000_000_000_000)

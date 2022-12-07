@@ -20,7 +20,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { filterLogs, syncIndexToMarketPriceLocal } from "../shared/utilities"
+import { filterLogs, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate maker", () => {
@@ -38,7 +38,7 @@ describe("ClearingHouse liquidate maker", () => {
     let collateral: TestERC20
     let quoteToken: QuoteToken
     let baseToken: BaseToken
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
@@ -63,7 +63,7 @@ describe("ClearingHouse liquidate maker", () => {
         collateral = fixture.USDC
         quoteToken = fixture.quoteToken
         baseToken = fixture.baseToken
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         baseToken2 = fixture.baseToken2
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool2 = fixture.pool2
@@ -71,7 +71,7 @@ describe("ClearingHouse liquidate maker", () => {
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther(initPrice)
         })
 
@@ -416,7 +416,7 @@ describe("ClearingHouse liquidate maker", () => {
             beforeEach(async () => {
                 const initPrice = "10"
                 await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-                await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher2, pool2)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
                 // alice add v2 style liquidity in pool2
                 await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
@@ -695,7 +695,7 @@ describe("ClearingHouse liquidate maker", () => {
         beforeEach(async () => {
             const initPrice = "10"
             await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-            await syncIndexToMarketPriceLocal(mockedPriceFeedDispatcher2, pool2)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
             // alice add v2 style liquidity on pool2
             await collateral.mint(alice.address, parseUnits("200", collateralDecimals))

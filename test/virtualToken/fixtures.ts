@@ -37,7 +37,7 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
 
     const baseTokenFactory = await ethers.getContractFactory("BaseToken")
     const baseToken = (await baseTokenFactory.deploy()) as BaseToken
-    await baseToken.initialize("RandomTestToken0", "RandomTestToken0", priceFeedDispatcher.address)
+    await baseToken.initialize("RandomToken0", "RT0", priceFeedDispatcher.address)
 
     return { baseToken, chainlinkPriceFeedV3, priceFeedDispatcher, mockedAggregator }
 }

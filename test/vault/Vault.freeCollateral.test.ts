@@ -31,7 +31,7 @@ describe("Vault getFreeCollateral", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedPriceFeedDispatcher0: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -48,14 +48,14 @@ describe("Vault getFreeCollateral", () => {
         pool = fixture.pool
         baseToken = fixture.baseToken
         marketRegistry = fixture.marketRegistry
-        mockedPriceFeedDispatcher0 = fixture.mockedPriceFeedDispatcher0
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         fixture = fixture
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("151")
         })
 
@@ -101,7 +101,7 @@ describe("Vault getFreeCollateral", () => {
 
             it("long then get free collateral", async () => {
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("150")
                 })
 
@@ -292,7 +292,7 @@ describe("Vault getFreeCollateral", () => {
                 })
 
                 it("trader's settlement token balance < 0", async () => {
-                    mockedPriceFeedDispatcher0.smocked.getDispatchedPrice.will.return.with(async () => {
+                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                         return parseEther("100")
                     })
                     await forwardBothTimestamps(clearingHouse, 360)
