@@ -186,7 +186,7 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
             expect(await vault.getBalance(insuranceFund.address)).to.be.eq("-1081016")
         })
 
-        it("settle bad debt after liquidate collateral", async () => {
+        it.only("settle bad debt after liquidate collateral", async () => {
             // mint usdc to liquidator
             await collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
             await collateral.connect(admin).approve(vault.address, parseUnits("10000", collateralDecimals))
