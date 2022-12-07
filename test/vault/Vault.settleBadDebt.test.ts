@@ -31,8 +31,8 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let insuranceFund: InsuranceFund
     let accountBalance: TestAccountBalance
     let exchange: Exchange
@@ -54,8 +54,8 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeedDispatcher
+        wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         insuranceFund = _fixture.insuranceFund
         accountBalance = _fixture.accountBalance as TestAccountBalance
         exchange = _fixture.exchange
@@ -79,8 +79,8 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", 8))
-        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("38583.34253324", 8))
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", 8))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("38583.34253324", 8))
 
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)

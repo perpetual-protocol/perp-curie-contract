@@ -27,8 +27,8 @@ describe("Vault test", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let clearingHouse: TestClearingHouse
     let insuranceFund: InsuranceFund
     let accountBalance: TestAccountBalance
@@ -44,8 +44,8 @@ describe("Vault test", () => {
         usdc = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeed = fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeed = fixture.mockedWbtcPriceFeedDispatcher
+        wethPriceFeedDispatcher = fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = fixture.mockedWbtcPriceFeedDispatcher
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         insuranceFund = fixture.insuranceFund
         accountBalance = fixture.accountBalance as TestAccountBalance
@@ -69,10 +69,10 @@ describe("Vault test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(async () => {
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("3000")
         })
-        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(async () => {
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
             return parseEther("40000")
         })
         await weth.mint(alice.address, parseEther("10"))

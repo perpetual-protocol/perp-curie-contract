@@ -12,7 +12,7 @@ describe("Vault deposit test", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
     let clearingHouseConfig: ClearingHouseConfig
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
@@ -25,7 +25,7 @@ describe("Vault deposit test", () => {
         usdc = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeed = fixture.mockedWethPriceFeedDispatcher
+        wethPriceFeedDispatcher = fixture.mockedWethPriceFeedDispatcher
         clearingHouseConfig = fixture.clearingHouseConfig
         collateralManager = fixture.collateralManager
         pool = fixture.pool
@@ -171,7 +171,7 @@ describe("Vault deposit test", () => {
             weth9 = (await weth9Factory.deploy()) as TestWETH9
 
             await collateralManager.addCollateral(weth9.address, {
-                priceFeed: wethPriceFeed.address,
+                priceFeed: wethPriceFeedDispatcher.address,
                 collateralRatio: (0.7e6).toString(),
                 discountRatio: (0.1e6).toString(),
                 depositCap: parseEther("1000"),

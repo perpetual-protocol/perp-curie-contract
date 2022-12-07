@@ -16,8 +16,8 @@ describe("Vault liquidationGetter test", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let mockedPriceFeedDispatcher: MockContract
@@ -31,8 +31,8 @@ describe("Vault liquidationGetter test", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeedDispatcher
+        wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         pool = _fixture.pool
         baseToken = _fixture.baseToken
         mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
@@ -51,8 +51,8 @@ describe("Vault liquidationGetter test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
         await weth.mint(alice.address, parseEther("1"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))

@@ -11,7 +11,7 @@ describe("InsuranceFund Test", () => {
     let vault: Vault
     let usdc: TestERC20
     let wbtc: TestERC20
-    let wbtcPriceFeed: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let insuranceFund: InsuranceFund
     let accountBalance: TestAccountBalance
@@ -22,7 +22,7 @@ describe("InsuranceFund Test", () => {
         accountBalance = _fixture.accountBalance as TestAccountBalance
         usdc = _fixture.USDC
         wbtc = _fixture.WBTC
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         usdcDecimals = await usdc.decimals()
         insuranceFund = _fixture.insuranceFund
 
@@ -73,7 +73,7 @@ describe("InsuranceFund Test", () => {
         })
 
         it("non-collateral will not affect IF capacity", async () => {
-            wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("40000", 8))
+            wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("40000", 8))
 
             await wbtc.mint(admin.address, parseUnits("100", await wbtc.decimals()))
             await wbtc.connect(admin).approve(vault.address, ethers.constants.MaxUint256)
