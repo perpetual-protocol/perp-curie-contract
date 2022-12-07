@@ -74,7 +74,7 @@ export function filterLogs(receipt: TransactionReceipt, topic: string, baseContr
 export async function syncIndexToMarketPrice(mockedPriceFeedDispatcher: MockContract, pool: UniswapV3Pool) {
     const slot0 = await pool.slot0()
     const sqrtPrice = slot0.sqrtPriceX96
-    const price = formatSqrtPriceX96ToPrice(sqrtPrice, 0)
+    const price = formatSqrtPriceX96ToPrice(sqrtPrice)
     mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
         return parseEther(price)
     })
@@ -87,11 +87,11 @@ export async function syncMarkPriceToMarketPrice(
 ) {
     const slot0 = await pool.slot0()
     const sqrtPrice = slot0.sqrtPriceX96
-    const price = formatSqrtPriceX96ToPrice(sqrtPrice, 18)
+    const price = formatSqrtPriceX96ToPrice(sqrtPrice)
     await accountBalance.mockMarkPrice(baseToken, parseEther(price))
 }
 
 export async function getMarketTwap(exchange: Exchange, baseToken: BaseToken, interval: number) {
     const sqrtPrice = await exchange.getSqrtMarkTwapX96(baseToken.address, interval)
-    return formatSqrtPriceX96ToPrice(sqrtPrice, 18)
+    return formatSqrtPriceX96ToPrice(sqrtPrice)
 }
