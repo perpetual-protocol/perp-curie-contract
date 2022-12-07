@@ -30,8 +30,6 @@ import { IVault } from "./interface/IVault.sol";
 import { IWETH9 } from "./interface/external/IWETH9.sol";
 import { ICollateralManager } from "./interface/ICollateralManager.sol";
 
-import "hardhat/console.sol";
-
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, VaultStorageV2 {
     using SafeMathUpgradeable for uint256;
