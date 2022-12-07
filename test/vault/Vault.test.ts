@@ -306,7 +306,7 @@ describe("Vault test", () => {
                 // mock mark price to make trader has loss
                 await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
 
-                // mock index price to calculate founding payment
+                // mock index price to calculate funding payment
                 mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                     return parseEther("100")
                 })
@@ -565,7 +565,7 @@ describe("Vault test", () => {
 
             // mock mark price to make trader has profit
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
-            // mock index price to calculate founding payment
+            // mock index price to calculate funding payment
             mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
                 return parseEther("180")
             })

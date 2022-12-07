@@ -31,7 +31,7 @@
     "typechain-openzeppelin": "typechain --target ethers-v5 --out-dir ./typechain/openzeppelin './node_modules/@openzeppelin/contracts/build/contracts/**/*.json'",
     "typechain-perp-oracle": "typechain --target ethers-v5 --out-dir ./typechain/perp-oracle './node_modules/@perp/perp-oracle-contract/artifacts/contracts/**/*.json'",
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
-    "test": "hardhat test",
+    "test": "hardhat --max-memory 8042 test",
     "parallel-test": "hardhat test --parallel",
     "foundry-test": "forge test -vvv",
     "foundry-build-uniswap": "forge build --contracts node_modules/@uniswap/v3-core/contracts/UniswapV3Factory.sol",
