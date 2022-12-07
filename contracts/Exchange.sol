@@ -350,7 +350,6 @@ contract Exchange is
         uint256 indexTwap =
             IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
         uint256 spread = markPrice > indexTwap ? markPrice.sub(indexTwap) : indexTwap.sub(markPrice);
-
         return spread > PerpMath.mulRatio(indexTwap, _MAX_PRICE_SPREAD_RATIO);
     }
 
