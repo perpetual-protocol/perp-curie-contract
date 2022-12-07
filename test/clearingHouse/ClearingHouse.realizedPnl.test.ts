@@ -20,8 +20,8 @@ import {
     removeOrder,
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
+import { IGNORABLE_DUST } from "../shared/constant"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse realizedPnl", () => {

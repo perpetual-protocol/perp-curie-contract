@@ -16,8 +16,8 @@ import {
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
+import { IGNORABLE_DUST } from "../shared/constant"
 import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {

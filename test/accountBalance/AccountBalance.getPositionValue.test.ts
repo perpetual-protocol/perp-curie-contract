@@ -2,12 +2,13 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { DECIMAL_PLACES_18, syncIndexToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { DECIMAL_PLACES_18 } from "../shared/constant"
 import { forwardBothTimestamps } from "../shared/time"
 
 describe("AccountBalance.getTotalPositionValue", () => {

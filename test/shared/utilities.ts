@@ -9,8 +9,6 @@ import { parseEther } from "ethers/lib/utils"
 
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
 
-export const DECIMAL_PLACES_18 = BigNumber.from((10 ** 18).toString())
-
 export function encodePriceSqrt(reserve1: BigNumberish, reserve0: BigNumberish): BigNumber {
     return BigNumber.from(
         new bn(reserve1.toString())

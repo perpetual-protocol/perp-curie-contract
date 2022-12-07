@@ -4,7 +4,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
 import { PriceFeedDispatcher } from "../../typechain/perp-oracle"
-import { CACHED_TWAP_INTERVAL } from "../shared/fixtures"
+import { CACHED_TWAP_INTERVAL } from "../shared/constant"
 import { forwardRealTimestamp, getRealTimestamp, setRealTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 

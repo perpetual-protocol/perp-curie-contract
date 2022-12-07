@@ -2,9 +2,8 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken, QuoteToken, UniswapV3Factory, UniswapV3Pool, VirtualToken } from "../../typechain"
 import { ChainlinkPriceFeedV3, EmergencyPriceFeed, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { CACHED_TWAP_INTERVAL, CHAINLINK_AGGREGATOR_DECIMALS, PRICEFEEDDISPATCHER_DECIMALS } from "./constant"
 import { isAscendingTokenOrder } from "./utilities"
-
-export const CACHED_TWAP_INTERVAL = 15 * 60
 
 interface TokensFixture {
     token0: BaseToken
@@ -43,7 +42,7 @@ export function createBaseTokenFixture(
         const mockedAggregator = await smockit(aggregator)
 
         mockedAggregator.smocked.decimals.will.return.with(async () => {
-            return 6
+            return CHAINLINK_AGGREGATOR_DECIMALS
         })
 
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
@@ -65,7 +64,7 @@ export function createBaseTokenFixture(
         const mockedPriceFeedDispatcher = await smockit(priceFeedDispatcher)
 
         mockedPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return 18
+            return PRICEFEEDDISPATCHER_DECIMALS
         })
 
         await baseToken.initialize(name, symbol, mockedPriceFeedDispatcher.address)

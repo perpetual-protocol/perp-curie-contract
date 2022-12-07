@@ -2,7 +2,7 @@ import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken } from "../../typechain"
 import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
-import { CACHED_TWAP_INTERVAL } from "../shared/fixtures"
+import { CACHED_TWAP_INTERVAL } from "../shared/constant"
 
 interface BaseTokenFixture {
     baseToken: BaseToken

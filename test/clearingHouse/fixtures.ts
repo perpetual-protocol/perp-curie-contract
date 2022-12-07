@@ -20,18 +20,19 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import {
-    CACHED_TWAP_INTERVAL,
-    createQuoteTokenFixture,
-    token0Fixture,
-    tokensFixture,
-    uniswapV3FactoryFixture,
-} from "../shared/fixtures"
+import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 import { ethers } from "hardhat"
 import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
+import {
+    CACHED_TWAP_INTERVAL,
+    CHAINLINK_AGGREGATOR_DECIMALS,
+    USDC_DECIMALS,
+    WBTC_DECIMALS,
+    WETH_DECIMALS,
+} from "../shared/constant"
 
 export interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
@@ -90,11 +91,11 @@ export function createClearingHouseFixture(
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
-        await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
+        await USDC.__TestERC20_init("TestUSDC", "USDC", USDC_DECIMALS)
         const WETH = (await tokenFactory.deploy()) as TestERC20
-        await WETH.__TestERC20_init("TestWETH", "WETH", 18)
+        await WETH.__TestERC20_init("TestWETH", "WETH", WETH_DECIMALS)
         const WBTC = (await tokenFactory.deploy()) as TestERC20
-        await WBTC.__TestERC20_init("TestWBTC", "WBTC", 8)
+        await WBTC.__TestERC20_init("TestWBTC", "WBTC", WBTC_DECIMALS)
 
         const usdcDecimals = await USDC.decimals()
 
@@ -106,7 +107,7 @@ export function createClearingHouseFixture(
         const aggregator = await aggregatorFactory.deploy()
         const mockedAggregator = await smockit(aggregator)
         mockedAggregator.smocked.decimals.will.return.with(async () => {
-            return 8
+            return CHAINLINK_AGGREGATOR_DECIMALS
         })
 
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
@@ -132,7 +133,7 @@ export function createClearingHouseFixture(
         )) as PriceFeedDispatcher
         const mockedWethPriceFeedDispatcher = await smockit(wethPriceFeedDispatcher)
         mockedWethPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return 18
+            return WETH_DECIMALS
         })
 
         const wbtcPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
@@ -141,7 +142,7 @@ export function createClearingHouseFixture(
         )) as PriceFeedDispatcher
         const mockedWbtcPriceFeedDispatcher = await smockit(wbtcPriceFeedDispatcher)
         mockedWbtcPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return 8
+            return WBTC_DECIMALS
         })
 
         // we assume (base, quote) == (token0, token1)
@@ -347,9 +348,9 @@ interface MockedClearingHouseFixture {
     mockedMarketRegistry: MockContract
 }
 
-export const ADDR_GREATER_THAN = true
-export const ADDR_LESS_THAN = false
-export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string): Promise<MockContract> {
+const ADDR_GREATER_THAN = true
+const ADDR_LESS_THAN = false
+async function mockedBaseTokenToken(longerThan: boolean, targetAddr: string): Promise<MockContract> {
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     let mockedToken: MockContract
     while (
@@ -363,7 +364,7 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         const mockedAggregator = await smockit(aggregator)
 
         mockedAggregator.smocked.decimals.will.return.with(async () => {
-            return 8
+            return CHAINLINK_AGGREGATOR_DECIMALS
         })
 
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
@@ -440,7 +441,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const mockedAccountBalance = await smockit(accountBalance)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
-    const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
+    const mockedBaseToken = await mockedBaseTokenToken(ADDR_LESS_THAN, mockedQuoteToken.address)
 
     mockedExchange.smocked.getOrderBook.will.return.with(mockedOrderBook.address)
 

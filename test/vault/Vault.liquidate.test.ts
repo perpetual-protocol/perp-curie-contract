@@ -22,6 +22,7 @@ import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helpe
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
+import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
 import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
@@ -255,7 +256,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             const mockedAggregator = await smockit(aggregator)
 
             mockedAggregator.smocked.decimals.will.return.with(async () => {
-                return 8
+                return CHAINLINK_AGGREGATOR_DECIMALS
             })
 
             const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
