@@ -38,8 +38,8 @@ describe("ClearingHouse softCircuitBreak", () => {
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
     async function mockPool1MarkPrice(price: BigNumberish) {
@@ -62,13 +62,13 @@ describe("ClearingHouse softCircuitBreak", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
         // initialize ETH pool
         await initMarket(fixture, "1000", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // mint collateral
         await mintAndDeposit(fixture, bob, 150)

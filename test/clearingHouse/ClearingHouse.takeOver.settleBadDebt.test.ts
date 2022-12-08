@@ -5,10 +5,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
-    Exchange,
     InsuranceFund,
-    OrderBook,
-    QuoteToken,
     TestAccountBalance,
     TestClearingHouse,
     TestERC20,
@@ -20,7 +17,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate (assume zero IF fee)", () => {
@@ -30,46 +27,40 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
     let hundred: BigNumber
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let exchange: Exchange
-    let orderBook: OrderBook
     let accountBalance: TestAccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let baseToken: BaseToken
-    let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
 
         clearingHouse = fixture.clearingHouse as TestClearingHouse
-        orderBook = fixture.orderBook
-        exchange = fixture.exchange
         accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
         insuranceFund = fixture.insuranceFund
         collateral = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeed = fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeed = fixture.mockedWbtcPriceFeedDispatcher
+        wethPriceFeedDispatcher = fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = fixture.mockedWbtcPriceFeedDispatcher
         baseToken = fixture.baseToken
-        quoteToken = fixture.quoteToken
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
         million = parseUnits("1000000", collateralDecimals)
@@ -77,15 +68,15 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
 
         // initialize ETH pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // initialize BTC pool
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken2.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
         // set weth as collateral
-        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
+        await mockIndexPrice(wethPriceFeedDispatcher, "100")
+        await mockIndexPrice(wbtcPriceFeedDispatcher, "100")
 
         // mint
         collateral.mint(alice.address, hundred)
@@ -195,7 +186,7 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
             expect(await vault.getBalance(insuranceFund.address)).to.be.eq("-1081016")
         })
 
-        it("settle bad debt after liquidate collateral)", async () => {
+        it("settle bad debt after liquidate collateral", async () => {
             // mint usdc to liquidator
             await collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
             await collateral.connect(admin).approve(vault.address, parseUnits("10000", collateralDecimals))

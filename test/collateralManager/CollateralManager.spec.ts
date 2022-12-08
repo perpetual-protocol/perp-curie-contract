@@ -6,6 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { ClearingHouseConfig, CollateralManager, TestERC20, Vault } from "../../typechain"
 import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
 
 describe("CollateralManager spec", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -70,7 +71,7 @@ describe("CollateralManager spec", () => {
         const aggregator = await aggregatorFactory.deploy()
         const mockedAggregator = await smockit(aggregator)
         mockedAggregator.smocked.decimals.will.return.with(async () => {
-            return 8
+            return CHAINLINK_AGGREGATOR_DECIMALS
         })
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
         const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
@@ -436,7 +437,7 @@ describe("CollateralManager spec", () => {
             const aggregator = await aggregatorFactory.deploy()
             const mockedAggregator = await smockit(aggregator)
             mockedAggregator.smocked.decimals.will.return.with(async () => {
-                return 8
+                return CHAINLINK_AGGREGATOR_DECIMALS
             })
             const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
             const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(

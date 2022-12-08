@@ -16,7 +16,7 @@ import {
 import { addOrder, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { encodePriceSqrt, mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
@@ -32,8 +32,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
     let baseAmount: BigNumber
 
@@ -47,18 +47,14 @@ describe("ClearingHouse cancelExcessOrders", () => {
         baseToken = fixture.baseToken
         baseToken2 = fixture.baseToken2
         quoteToken = fixture.quoteToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("50000", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "50000")
 
         // mint
         collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
@@ -261,7 +257,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
             // 3. bob add liquidity
             // sync index price to market price to pass price spread checking
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, bob, 1, 0, 92400, 92800, false, baseToken.address)
 
             // 4. set mark price lower to withdraw bob's collateral

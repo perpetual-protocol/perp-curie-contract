@@ -12,8 +12,3 @@ export function priceToTick(price: number, tickSpacing: number): number {
     const tick = getBaseLog(1.0001, price)
     return Math.round(tick / tickSpacing) * tickSpacing
 }
-
-// There might be dust position or open notional after reducing position or removing liquidity.
-// Ignore the dust position or notional in tests, the value is according to the experience.
-// IGNORABLE_DUST represents the dust in wei.
-export const IGNORABLE_DUST = 500

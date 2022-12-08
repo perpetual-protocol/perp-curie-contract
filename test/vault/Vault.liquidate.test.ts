@@ -22,7 +22,8 @@ import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helpe
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
+import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -33,8 +34,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let insuranceFund: InsuranceFund
     let accountBalance: TestAccountBalance
     let exchange: TestExchange
@@ -43,7 +44,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let wbtcDecimals: number
     let fixture: ClearingHouseFixture
@@ -56,8 +57,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeedDispatcher
+        wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         insuranceFund = _fixture.insuranceFund
         accountBalance = _fixture.accountBalance as TestAccountBalance
         exchange = _fixture.exchange as TestExchange
@@ -66,14 +67,14 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         pool = _fixture.pool
         baseToken = _fixture.baseToken
         marketRegistry = _fixture.marketRegistry
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
         wbtcDecimals = await wbtc.decimals()
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
@@ -81,8 +82,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", 8))
-        wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("38583.34253324", 8))
+        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
+        await mockIndexPrice(wbtcPriceFeedDispatcher, "38583.34253324")
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
@@ -212,8 +213,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 await closePosition(fixture, alice)
                 expect(await vault.isLiquidatable(alice.address)).to.be.false
 
-                wethPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("200", 8))
-                wbtcPriceFeed.smocked.getDispatchedPrice.will.return.with(parseUnits("2000", 8))
+                await mockIndexPrice(wethPriceFeedDispatcher, "200")
+                await mockIndexPrice(wbtcPriceFeedDispatcher, "2000")
                 // non-settlement token value: (1 * 200 * 0.7) + (0.1 * 2000 * 0.7) = 280
                 // debt > non-settlement token value * 0.75: 276.55275771 > 280 * 0.75
                 expect(await vault.isLiquidatable(alice.address)).to.be.true
@@ -255,7 +256,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             const mockedAggregator = await smockit(aggregator)
 
             mockedAggregator.smocked.decimals.will.return.with(async () => {
-                return 8
+                return CHAINLINK_AGGREGATOR_DECIMALS
             })
 
             const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
@@ -271,11 +272,10 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 ethers.constants.AddressZero,
                 chainlinkPriceFeedV3.address,
             )) as PriceFeedDispatcher
-            const xxxPriceFeed = priceFeedDispatcher
-            const mockedXxxPriceFeed = await smockit(xxxPriceFeed)
+            const mockedXxxPriceFeed = await smockit(priceFeedDispatcher)
 
             // set xxx oracle price with 18 decimals
-            mockedXxxPriceFeed.smocked.getPrice.will.return.with(parseEther("101.123456789012345678"))
+            await mockIndexPrice(mockedXxxPriceFeed, "101.123456789012345678")
             mockedXxxPriceFeed.smocked.decimals.will.return.with(18)
 
             // add xxx token as collateral
@@ -880,13 +880,13 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
                 // alice continue to open long position
                 await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await q2bExactInput(fixture, alice, 10000)
 
                 // bob short to make alice has bad debt
                 await b2qExactOutput(fixture, bob, 80000)
                 await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             })
 
             it("do not settle bad debt if user still has position after liquidation", async () => {

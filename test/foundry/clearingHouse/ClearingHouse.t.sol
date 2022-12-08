@@ -6,7 +6,7 @@ import "../helper/Setup.sol";
 import "../../../contracts/interface/IExchange.sol";
 import "../../../contracts/interface/IClearingHouse.sol";
 import "../../../contracts/BaseToken.sol";
-import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
+import "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol";
 
 contract ClearingHouseTest is Setup {
     uint256 traderPrivateKey = uint256(1);
@@ -33,7 +33,7 @@ contract ClearingHouseTest is Setup {
         // mock priceFeed oracle
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(100 * 1e8)
         );
         usdcDecimals = usdc.decimals();

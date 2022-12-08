@@ -20,7 +20,7 @@ import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { encodePriceSqrt, mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition", () => {
@@ -39,8 +39,8 @@ describe("ClearingHouse openPosition", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
     const upperTick: number = 100000
@@ -58,21 +58,17 @@ describe("ClearingHouse openPosition", () => {
         baseToken = fixture.baseToken
         baseToken2 = fixture.baseToken2
         quoteToken = fixture.quoteToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -225,9 +221,7 @@ describe("ClearingHouse openPosition", () => {
                 // market price = 151.373306858723226652
                 // index price = 170
                 // liquidity = 884690658835870366575
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("170", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "170")
             })
             it("force error, Q2B, due to not enough collateral for mint", async () => {
                 const quoteAmount = calcQuoteAmountForLong(
@@ -271,9 +265,7 @@ describe("ClearingHouse openPosition", () => {
                 // market price = 151.373306858723226652
                 // index price = 133
                 // liquidity = 884690658835870366575
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("133", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "133")
             })
             it("force error, Q2B, due to not enough collateral for mint", async () => {
                 await expect(
@@ -566,9 +558,7 @@ describe("ClearingHouse openPosition", () => {
             // when a position has a profit, the freeCollateral becomes less and thus cannot increase position
 
             // mock index price to market price
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("382395", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "382395")
 
             // indexPrice = p -> positionValue = 0.026150976705867546 * p
             // pnl = 0.026150976705867546 * p - 4
@@ -731,9 +721,7 @@ describe("ClearingHouse openPosition", () => {
             })
 
             // mock index price to market price
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("103.12129", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "103.12129")
 
             // base debt and available will be 0
             {
@@ -1306,7 +1294,7 @@ describe("ClearingHouse openPosition", () => {
                 })
 
                 // To fixed market twap and ignore funding payment
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await forwardBothTimestamps(clearingHouse, 1800)
 
                 freeCollateralBefore = (await vault.getFreeCollateral(taker.address)).toString()

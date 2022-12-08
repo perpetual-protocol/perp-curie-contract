@@ -16,7 +16,7 @@ import {
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse verify accounting", () => {
@@ -32,7 +32,7 @@ describe("ClearingHouse verify accounting", () => {
     let decimals: number
     let insuranceFund: InsuranceFund
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let lowerTick: number
     let upperTick: number
     let baseTokenList: string[]
@@ -44,7 +44,7 @@ describe("ClearingHouse verify accounting", () => {
         decimals = await fixture.USDC.decimals()
         insuranceFund = fixture.insuranceFund
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         // mint 1000 to every wallets and store balanceBefore
         for (const wallet of wallets) {
@@ -55,9 +55,7 @@ describe("ClearingHouse verify accounting", () => {
         const initPrice = "10"
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -126,9 +124,7 @@ describe("ClearingHouse verify accounting", () => {
         beforeEach(async () => {
             const initPrice = "10"
             await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined, fixture.baseToken2.address)
-            fixture.mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
-            })
+            await mockIndexPrice(fixture.mockedPriceFeedDispatcher2, initPrice)
 
             await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick, false, fixture.baseToken2.address)
             baseTokenList.push(fixture.baseToken2.address)
@@ -175,7 +171,7 @@ describe("ClearingHouse verify accounting", () => {
             await q2bExactInput(fixture, bob, 100)
 
             // alice
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
             await removeOrder(fixture, alice, 0, lowerTick, upperTick)
             await closePosition(fixture, alice)

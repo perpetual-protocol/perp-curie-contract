@@ -20,18 +20,20 @@ import {
     UniswapV3Pool,
     Vault,
 } from "../../typechain"
-import {
-    CACHED_TWAP_INTERVAL,
-    createQuoteTokenFixture,
-    token0Fixture,
-    tokensFixture,
-    uniswapV3FactoryFixture,
-} from "../shared/fixtures"
+import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 import { ethers } from "hardhat"
 import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
+import {
+    CACHED_TWAP_INTERVAL,
+    CHAINLINK_AGGREGATOR_DECIMALS,
+    PRICEFEEDDISPATCHER_DECIMALS,
+    USDC_DECIMALS,
+    WBTC_DECIMALS,
+    WETH_DECIMALS,
+} from "../shared/constant"
 
 export interface ClearingHouseFixture {
     clearingHouse: TestClearingHouse | ClearingHouse
@@ -49,13 +51,13 @@ export interface ClearingHouseFixture {
     USDC: TestERC20
     WETH: TestERC20
     WBTC: TestERC20
+    mockedPriceFeedDispatcher: MockContract
+    mockedPriceFeedDispatcher2: MockContract
     mockedWethPriceFeedDispatcher: MockContract
     mockedWbtcPriceFeedDispatcher: MockContract
     quoteToken: QuoteToken
     baseToken: BaseToken
-    mockedBaseAggregator: MockContract
     baseToken2: BaseToken
-    mockedBaseAggregator2: MockContract
     pool2: UniswapV3Pool
 }
 
@@ -90,23 +92,23 @@ export function createClearingHouseFixture(
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
-        await USDC.__TestERC20_init("TestUSDC", "USDC", 6)
+        await USDC.__TestERC20_init("TestUSDC", "USDC", USDC_DECIMALS)
         const WETH = (await tokenFactory.deploy()) as TestERC20
-        await WETH.__TestERC20_init("TestWETH", "WETH", 18)
+        await WETH.__TestERC20_init("TestWETH", "WETH", WETH_DECIMALS)
         const WBTC = (await tokenFactory.deploy()) as TestERC20
-        await WBTC.__TestERC20_init("TestWBTC", "WBTC", 8)
+        await WBTC.__TestERC20_init("TestWBTC", "WBTC", WBTC_DECIMALS)
 
         const usdcDecimals = await USDC.decimals()
 
-        let baseToken: BaseToken, quoteToken: QuoteToken, mockedBaseAggregator: MockContract
-        const { token0, mockedAggregator0, token1 } = await tokensFixture()
+        let baseToken: BaseToken, quoteToken: QuoteToken
+        const { token0, mockedPriceFeedDispatcher, token1 } = await tokensFixture()
 
         // price feed for weth and wbtc
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
         const aggregator = await aggregatorFactory.deploy()
         const mockedAggregator = await smockit(aggregator)
         mockedAggregator.smocked.decimals.will.return.with(async () => {
-            return 8
+            return CHAINLINK_AGGREGATOR_DECIMALS
         })
 
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
@@ -124,22 +126,29 @@ export function createClearingHouseFixture(
             10, // 10s
             0,
         )) as ChainlinkPriceFeedV3
+
         const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
         const wethPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
             ethers.constants.AddressZero,
             wethChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWethPriceFeedDispatcher = await smockit(wethPriceFeedDispatcher)
+        mockedWethPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
+            return PRICEFEEDDISPATCHER_DECIMALS
+        })
+
         const wbtcPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
             ethers.constants.AddressZero,
             wbtcChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWbtcPriceFeedDispatcher = await smockit(wbtcPriceFeedDispatcher)
+        mockedWbtcPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
+            return PRICEFEEDDISPATCHER_DECIMALS
+        })
 
         // we assume (base, quote) == (token0, token1)
         baseToken = token0
         quoteToken = token1
-        mockedBaseAggregator = mockedAggregator0
 
         // deploy UniV3 factory
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
@@ -214,13 +223,13 @@ export function createClearingHouseFixture(
             parseUnits("500", usdcDecimals), // collateralValueDust
         )
         await collateralManager.addCollateral(WETH.address, {
-            priceFeed: wethPriceFeedDispatcher.address,
+            priceFeed: mockedWethPriceFeedDispatcher.address,
             collateralRatio: (0.7e6).toString(),
             discountRatio: (0.1e6).toString(),
             depositCap: parseEther("1000"),
         })
         await collateralManager.addCollateral(WBTC.address, {
-            priceFeed: wbtcPriceFeedDispatcher.address,
+            priceFeed: mockedWbtcPriceFeedDispatcher.address,
             collateralRatio: (0.7e6).toString(),
             discountRatio: (0.1e6).toString(),
             depositCap: parseUnits("1000", await WBTC.decimals()),
@@ -239,7 +248,7 @@ export function createClearingHouseFixture(
         // deploy another pool
         const _token0Fixture = await token0Fixture(quoteToken.address)
         const baseToken2 = _token0Fixture.baseToken
-        const mockedBaseAggregator2 = _token0Fixture.mockedAggregator
+        const mockedPriceFeedDispatcher2 = _token0Fixture.mockedPriceFeedDispatcher
         await uniV3Factory.createPool(baseToken2.address, quoteToken.address, uniFeeTier)
         const pool2Addr = await uniV3Factory.getPool(baseToken2.address, quoteToken.address, uniFeeTier)
         const pool2 = poolFactory.attach(pool2Addr) as UniswapV3Pool
@@ -305,13 +314,13 @@ export function createClearingHouseFixture(
             USDC,
             WETH,
             WBTC,
+            mockedPriceFeedDispatcher,
             mockedWethPriceFeedDispatcher,
             mockedWbtcPriceFeedDispatcher,
             quoteToken,
             baseToken,
-            mockedBaseAggregator,
             baseToken2,
-            mockedBaseAggregator2,
+            mockedPriceFeedDispatcher2,
             pool2,
         }
     }
@@ -340,9 +349,9 @@ interface MockedClearingHouseFixture {
     mockedMarketRegistry: MockContract
 }
 
-export const ADDR_GREATER_THAN = true
-export const ADDR_LESS_THAN = false
-export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string): Promise<MockContract> {
+const ADDR_GREATER_THAN = true
+const ADDR_LESS_THAN = false
+async function mockedBaseTokenToken(longerThan: boolean, targetAddr: string): Promise<MockContract> {
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     let mockedToken: MockContract
     while (
@@ -356,7 +365,7 @@ export async function mockedBaseTokenTo(longerThan: boolean, targetAddr: string)
         const mockedAggregator = await smockit(aggregator)
 
         mockedAggregator.smocked.decimals.will.return.with(async () => {
-            return 8
+            return CHAINLINK_AGGREGATOR_DECIMALS
         })
 
         const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
@@ -433,7 +442,7 @@ export async function mockedClearingHouseFixture(): Promise<MockedClearingHouseF
     const mockedAccountBalance = await smockit(accountBalance)
 
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
-    const mockedBaseToken = await mockedBaseTokenTo(ADDR_LESS_THAN, mockedQuoteToken.address)
+    const mockedBaseToken = await mockedBaseTokenToken(ADDR_LESS_THAN, mockedQuoteToken.address)
 
     mockedExchange.smocked.getOrderBook.will.return.with(mockedOrderBook.address)
 

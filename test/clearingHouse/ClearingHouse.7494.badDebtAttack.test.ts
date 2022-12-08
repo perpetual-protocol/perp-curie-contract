@@ -27,7 +27,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -43,13 +43,13 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         // simulating SAND pool
         const initPrice = "1.3"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // prepare collateral for makers
         const makerAmount = parseUnits("500000", collateralDecimals)
