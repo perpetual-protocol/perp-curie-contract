@@ -15,6 +15,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { WBTC_DECIMALS } from "../shared/constant"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 
 describe("Vault getFreeCollateral", () => {
@@ -64,8 +65,8 @@ describe("Vault getFreeCollateral", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", WBTC_DECIMALS))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("40000", WBTC_DECIMALS))
 
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
@@ -187,8 +188,12 @@ describe("Vault getFreeCollateral", () => {
     describe("# getFreeCollateralByToken", async () => {
         describe("without position", async () => {
             beforeEach(async () => {
-                wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3031.39326836"))
-                wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40275.56504427"))
+                wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(
+                    parseUnits("3031.39326836", WBTC_DECIMALS),
+                )
+                wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(
+                    parseUnits("40275.56504427", WBTC_DECIMALS),
+                )
             })
 
             it("weth free collateral equals trader's balance", async () => {
@@ -261,7 +266,7 @@ describe("Vault getFreeCollateral", () => {
                     )
 
                     // weth price drops to 1
-                    wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("1"))
+                    wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("1", WBTC_DECIMALS))
 
                     // free collateral of weth: max(((10 * 1 * 0.7) - (100 * 10%)) / 1 / 0.7, 0) = 0
                     expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq("0")

@@ -7,6 +7,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { WBTC_DECIMALS } from "../shared/constant"
 import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
@@ -51,8 +52,8 @@ describe("Vault liquidationGetter test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", WBTC_DECIMALS))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("40000", WBTC_DECIMALS))
         await weth.mint(alice.address, parseEther("1"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))

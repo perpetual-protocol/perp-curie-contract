@@ -16,6 +16,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { WBTC_DECIMALS } from "../shared/constant"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
@@ -69,12 +70,8 @@ describe("Vault test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("3000")
-        })
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("40000")
-        })
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", WBTC_DECIMALS))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("40000", WBTC_DECIMALS))
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("5", await wbtc.decimals()))
@@ -522,9 +519,7 @@ describe("Vault test", () => {
             // mock mark price to make trader has loss
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
             // mock index price to calculate founding payment
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("100")
-            })
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("100"))
 
             await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
@@ -541,9 +536,7 @@ describe("Vault test", () => {
             // mock mark price to make trader has profit
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
             // mock index price to calculate founding payment
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("180")
-            })
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
@@ -566,9 +559,7 @@ describe("Vault test", () => {
             // mock mark price to make trader has profit
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
             // mock index price to calculate funding payment
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("180")
-            })
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
@@ -592,9 +583,7 @@ describe("Vault test", () => {
             // mock mark price to make trader has profit
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
             // mock index price to calculate founding payment
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("180")
-            })
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 
@@ -616,9 +605,7 @@ describe("Vault test", () => {
             // mock mark price to make trader has losee
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
             // mock index price to calculate founding payment
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("180")
-            })
+            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("180"))
 
             await forwardBothTimestamps(clearingHouse, 360)
 

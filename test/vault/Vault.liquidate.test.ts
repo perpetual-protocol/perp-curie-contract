@@ -22,7 +22,7 @@ import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helpe
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
+import { CHAINLINK_AGGREGATOR_DECIMALS, WBTC_DECIMALS } from "../shared/constant"
 import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
@@ -82,8 +82,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("38583.34253324"))
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", WBTC_DECIMALS))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("38583.34253324", WBTC_DECIMALS))
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
@@ -213,8 +213,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 await closePosition(fixture, alice)
                 expect(await vault.isLiquidatable(alice.address)).to.be.false
 
-                wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("200"))
-                wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("2000"))
+                wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("200", WBTC_DECIMALS))
+                wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("2000", WBTC_DECIMALS))
                 // non-settlement token value: (1 * 200 * 0.7) + (0.1 * 2000 * 0.7) = 280
                 // debt > non-settlement token value * 0.75: 276.55275771 > 280 * 0.75
                 expect(await vault.isLiquidatable(alice.address)).to.be.true

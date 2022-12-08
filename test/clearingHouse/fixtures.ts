@@ -29,7 +29,6 @@ import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import {
     CACHED_TWAP_INTERVAL,
     CHAINLINK_AGGREGATOR_DECIMALS,
-    PRICEFEEDDISPATCHER_DECIMALS,
     USDC_DECIMALS,
     WBTC_DECIMALS,
     WETH_DECIMALS,
@@ -133,18 +132,14 @@ export function createClearingHouseFixture(
             wethChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWethPriceFeedDispatcher = await smockit(wethPriceFeedDispatcher)
-        mockedWethPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return PRICEFEEDDISPATCHER_DECIMALS
-        })
+        mockedWethPriceFeedDispatcher.smocked.decimals.will.return.with(WBTC_DECIMALS)
 
         const wbtcPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
             ethers.constants.AddressZero,
             wbtcChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWbtcPriceFeedDispatcher = await smockit(wbtcPriceFeedDispatcher)
-        mockedWbtcPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return PRICEFEEDDISPATCHER_DECIMALS
-        })
+        mockedWbtcPriceFeedDispatcher.smocked.decimals.will.return.with(WBTC_DECIMALS)
 
         // we assume (base, quote) == (token0, token1)
         baseToken = token0
