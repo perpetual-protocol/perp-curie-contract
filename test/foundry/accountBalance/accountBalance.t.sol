@@ -89,7 +89,7 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     function test_getMarkPrice_should_return_index_price_with_premium_if_enable_mark_price() public {
         accountBalance.setMarketRegistry(address(marketRegistry));
 
-        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfigs();
+        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
         // mock current market price, price = 100
         uint256 sqrtPrice = 10;
@@ -119,20 +119,20 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     }
 
     function _mockMarkPriceMarketTwapInterval(uint32 interval) internal {
-        (, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfigs();
+        (, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
         vm.mockCall(
             address(clearingHouseConfig),
-            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfigs.selector),
+            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfig.selector),
             abi.encode(interval, premiumInterval)
         );
     }
 
     function _mockMarkPricePremiumInterval(uint32 interval) internal {
-        (uint32 marketTwapInterval, ) = clearingHouseConfig.getMarkPriceConfigs();
+        (uint32 marketTwapInterval, ) = clearingHouseConfig.getMarkPriceConfig();
         vm.mockCall(
             address(clearingHouseConfig),
-            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfigs.selector),
+            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfig.selector),
             abi.encode(marketTwapInterval, interval)
         );
     }
