@@ -16,8 +16,8 @@ Contract source code and metadata are also published as npm packages:
 
 Please check out:
 
-- [Perpetual Protocol v2 Smart Contract Documentation](https://perpetual-protocol.github.io/lushan-docs/docs/Contracts/ClearingHouse)
-- [Perpetual Protocol v2 Docs](https://v2docs.perp.fi/)
+- [Perpetual Protocol v2 Smart Contract Documentation](https://docs.perp.com/)
+- [Perpetual Protocol v2 User Docs](https://support.perp.com//)
 
 ## Deployments
 
@@ -26,7 +26,7 @@ Perpetual Protocol Curie (v2) are deployed on Optimism mainnet (an Ethereum Laye
 Contract addresses:
 
 - https://metadata.perp.exchange/v2/optimism.json (Optimism mainnet)
-- https://metadata.perp.exchange/v2/optimism-kovan.json (Optimism Kovan testnet)
+- https://metadata.perp.exchange/v2/optimism-goerli.json (Optimism Goerli testnet)
 
 You could also find the deployed contract addresses inside the npm package [@perp/curie-deployments](https://www.npmjs.com/package/@perp/curie-deployments).
 
