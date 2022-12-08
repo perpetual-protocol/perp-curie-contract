@@ -31,5 +31,5 @@ interface IClearingHouseConfig {
 
     /// @return marketTwapInterval MarketTwapInterval is the interval of market twap used for mark price calculations
     /// @return premiumInterval PremiumInterval is the interval of premium used for mark price calculations
-    function getMarkPriceConfigs() external view returns (uint32 marketTwapInterval, uint32 premiumInterval);
+    function getMarkPriceConfig() external view returns (uint32 marketTwapInterval, uint32 premiumInterval);
 }

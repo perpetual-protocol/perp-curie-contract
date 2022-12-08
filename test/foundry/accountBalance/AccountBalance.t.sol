@@ -86,10 +86,10 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
         assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
     }
 
-    function test_getMarkPrice_should_return_index_price_with_premium_if_enable_mark_price() public {
+    function test_getMarkPrice_should_return_index_price_with_premium_if_mark_price_enabled() public {
         accountBalance.setMarketRegistry(address(marketRegistry));
 
-        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfigs();
+        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
         // mock current market price, price = 100
         uint256 sqrtPrice = 10;
@@ -114,25 +114,21 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
         assertApproxEqAbs(result, 97 * (10**18), 10**15); // result should be 97 +/- 0.001, due to tick math
     }
 
-    function _toUint160(uint256 value) internal pure returns (uint160 returnValue) {
-        require(((returnValue = uint160(value)) == value), "SafeCast: value doesn't fit in 160 bits");
-    }
-
     function _mockMarkPriceMarketTwapInterval(uint32 interval) internal {
-        (, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfigs();
+        (, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
         vm.mockCall(
             address(clearingHouseConfig),
-            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfigs.selector),
+            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfig.selector),
             abi.encode(interval, premiumInterval)
         );
     }
 
     function _mockMarkPricePremiumInterval(uint32 interval) internal {
-        (uint32 marketTwapInterval, ) = clearingHouseConfig.getMarkPriceConfigs();
+        (uint32 marketTwapInterval, ) = clearingHouseConfig.getMarkPriceConfig();
         vm.mockCall(
             address(clearingHouseConfig),
-            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfigs.selector),
+            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfig.selector),
             abi.encode(marketTwapInterval, interval)
         );
     }
@@ -178,5 +174,9 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
             abi.encodeWithSelector(IUniswapV3PoolDerivedState.observe.selector, secondsAgos),
             abi.encode(tickCumulatives, secondsPerLiquidityCumulativeX128s)
         );
+    }
+
+    function _toUint160(uint256 value) internal pure returns (uint160 returnValue) {
+        require(((returnValue = uint160(value)) == value), "SafeCast: value doesn't fit in 160 bits");
     }
 }

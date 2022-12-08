@@ -530,14 +530,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
-        IClearingHouseConfig chConfig = IClearingHouseConfig(_clearingHouseConfig);
-        (uint32 marketTwapInterval, uint32 premiumInterval) = chConfig.getMarkPriceConfigs();
+        IClearingHouseConfig clearingHouseConfig = IClearingHouseConfig(_clearingHouseConfig);
+        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
         // Use index twap:
-        //   1. For backward compatible, returns index twap when not switch to mark price yet.
+        //   1. For backward compatibility, returns index twap when not switched to mark price yet.
         //   2. For paused market, returns index twap as mark price.
-        if (!_isEnableMarkPrice(marketTwapInterval, premiumInterval) || !IBaseToken(baseToken).isOpen()) {
-            return _getIndexPrice(baseToken, chConfig.getTwapInterval());
+        if (!_isMarkPriceEnabled(marketTwapInterval, premiumInterval) || !IBaseToken(baseToken).isOpen()) {
+            return _getIndexPrice(baseToken, clearingHouseConfig.getTwapInterval());
         }
 
         uint256 marketPrice = _getMarketPrice(baseToken, 0);
@@ -562,12 +562,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return IIndexPrice(baseToken).getIndexPrice(twapInterval);
     }
 
-    function _isEnableMarkPrice(uint32 marketTwapInterval, uint32 premiumInterval) internal view returns (bool) {
+    function _isMarkPriceEnabled(uint32 marketTwapInterval, uint32 premiumInterval) internal view returns (bool) {
         // sanity check params for mark price
-        if (_marketRegistry == address(0) || marketTwapInterval == 0 || premiumInterval == 0) {
-            return false;
-        }
-        return true;
+        return _marketRegistry != address(0) && marketTwapInterval != 0 && premiumInterval != 0;
     }
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {
