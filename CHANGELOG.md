@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.4.0] - 2022-12-02 
+### Added
+- Add `CollateralManager.getDebtThresholdByTrader()`
+- Add `CollateralManager.getTotalWhitelistedDebtThreshold()`
+
+## [2.3.0] - 2022-12-02 
+### Added
+- Add `Insurance.distributeFee()`
+- Add `Insurance.getThreshold()`
+- Add `Insurance.getSurplusBeneficiary()`
+- Add new event `ThresholdChanged`, `SurplusBeneficiaryChanged`, `FeeDistributed` to `InsuranceFund`
+
+## [2.2.4] - 2022-12-02
+- Support remove all liquidity in `quitMarket()` if user has orders in closed market
+
 ## [2.2.3] - 2022-10-24
 ### Changed
 - Fix rounding issue (expect amount is not equal to response) when open position with `isBaseToQuote: false` and `isExactInput: true`

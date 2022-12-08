@@ -20,6 +20,7 @@ import {
 import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { withdrawAll } from "../helper/vaultHelper"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import { filterLogs } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -354,10 +355,6 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
                 await pauseMarket(baseToken)
                 await closeMarket(baseToken, 100)
-            })
-
-            it("force error, trader still has order in closed market, can not close position", async () => {
-                await expect(clearingHouse.quitMarket(alice.address, baseToken.address)).to.be.revertedWith("CH_HOICM")
             })
 
             it("should be able to quitMarket after removeLiquidity in closed market", async () => {
@@ -767,6 +764,109 @@ describe("Clearinghouse StopMarket", async () => {
 
                 expect(totalPositionNotional).to.be.eq("0")
                 expect(totalRealizedPnl).to.be.closeTo("0", 2)
+            })
+        })
+
+        describe("settleBadDebt", async () => {
+            beforeEach(async () => {
+                await withdrawAll(fixture, bob)
+                await deposit(bob, vault, 10, collateral)
+
+                await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
+                // bob open notional: -15.336664251894505922
+
+                await pauseMarket(baseToken)
+                await closeMarket(baseToken, 1)
+            })
+
+            it("quitMarket should settleBadDebt", async () => {
+                // check: bob account value should be negative
+                // positionNotional = 0.1
+                // collateral + positionNotional + openNotional
+                // 10 + 0.1 + (-15.336664251894505922) = -5.23666425
+                expect(await vault.getAccountValue(bob.address)).eq("-5236674")
+                // check: IF account value should be 0
+                expect(await vault.getAccountValue(insuranceFund.address)).eq("0")
+                // call quitMarket
+                expect(await clearingHouse.quitMarket(bob.address, baseToken.address))
+                    .to.emit(vault, "BadDebtSettled")
+                    .withArgs(bob.address, "5236674")
+                // check: bob account value should 0
+                expect(await vault.getAccountValue(bob.address)).eq("0")
+                // check: IF account value should be negative
+                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236674")
+            })
+        })
+
+        describe("quitMarket with remove orders", async () => {
+            describe("multiple orders and a position in a closed market", () => {
+                beforeEach(async () => {
+                    const tickSpacing = await pool.tickSpacing()
+
+                    // add another order
+                    await addOrder(
+                        fixture,
+                        alice,
+                        50,
+                        5000,
+                        lowerTick + tickSpacing * 10,
+                        upperTick - tickSpacing * 10,
+                        false,
+                        baseToken.address,
+                    )
+
+                    await q2bExactInput(fixture, bob, 10, baseToken.address)
+
+                    await pauseMarket(baseToken)
+                    await closeMarket(baseToken, 1)
+                })
+
+                it("should be able to removeAllOrders in a closed market via quitMarket", async () => {
+                    // alice open orders in baseToken market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken.address)).length).eq(2)
+                    // alice open orders in baseToken2 market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken2.address)).length).eq(1)
+                    // alice quitMarket baseToken
+                    expect(await clearingHouse.quitMarket(alice.address, baseToken.address))
+                    // alice open orders in baseToken market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken.address)).length).eq(0)
+                    // alice open orders in baseToken2 market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken2.address)).length).eq(1)
+                })
+            })
+
+            describe("multiple orders and without a position in a closed market", () => {
+                beforeEach(async () => {
+                    const tickSpacing = await pool.tickSpacing()
+
+                    // add another order
+                    await addOrder(
+                        fixture,
+                        alice,
+                        50,
+                        5000,
+                        lowerTick + tickSpacing * 10,
+                        upperTick - tickSpacing * 10,
+                        false,
+                        baseToken.address,
+                    )
+
+                    await pauseMarket(baseToken)
+                    await closeMarket(baseToken, 1)
+                })
+
+                it("should be able to removeAllOrders in a closed market via quitMarket", async () => {
+                    // alice open orders in baseToken market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken.address)).length).eq(2)
+                    // alice open orders in baseToken2 market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken2.address)).length).eq(1)
+                    // alice quitMarket baseToken
+                    expect(await clearingHouse.quitMarket(alice.address, baseToken.address))
+                    // alice open orders in baseToken market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken.address)).length).eq(0)
+                    // alice open orders in baseToken2 market
+                    expect((await orderBook.getOpenOrderIds(alice.address, baseToken2.address)).length).eq(1)
+                })
             })
         })
     })

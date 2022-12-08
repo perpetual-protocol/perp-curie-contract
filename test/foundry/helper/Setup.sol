@@ -257,7 +257,7 @@ contract Setup is Test, DeployConfig {
         marketRegistry.setMaxOrdersPerMarket(MAX_ORDERS_PER_MARKET);
 
         // insuranceFund
-        insuranceFund.setBorrower(address(vault));
+        insuranceFund.setVault(address(vault));
 
         // orderBook
         orderBook.setClearingHouse(address(clearingHouse));

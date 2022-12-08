@@ -3,16 +3,18 @@ pragma solidity 0.7.6;
 pragma abicoder v2;
 
 import { OwnerPausable } from "./base/OwnerPausable.sol";
-import { CollateralManagerStorageV1 } from "./storage/CollateralManagerStorage.sol";
+import { CollateralManagerStorageV2 } from "./storage/CollateralManagerStorage.sol";
 import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
 import { Collateral } from "./lib/Collateral.sol";
 import { ICollateralManager } from "./interface/ICollateralManager.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IVault } from "./interface/IVault.sol";
+import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 
-contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManagerStorageV1 {
+contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManagerStorageV2 {
     using AddressUpgradeable for address;
+    using SafeMathUpgradeable for uint256;
 
     uint24 private constant _ONE_HUNDRED_PERCENT_RATIO = 1e6;
 
@@ -169,6 +171,16 @@ contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManag
         emit DebtThresholdChanged(debtThreshold);
     }
 
+    function setWhitelistedDebtThreshold(address trader, uint256 whitelistedDebtThreshold) external onlyOwner {
+        uint256 whitelistedDebtThresholdBefore = _whitelistedDebtThresholdMap[trader];
+        _whitelistedDebtThresholdMap[trader] = whitelistedDebtThreshold;
+        _totalWhitelistedDebtThreshold = whitelistedDebtThresholdBefore > whitelistedDebtThreshold
+            ? _totalWhitelistedDebtThreshold.sub(whitelistedDebtThresholdBefore - whitelistedDebtThreshold)
+            : _totalWhitelistedDebtThreshold.add(whitelistedDebtThreshold - whitelistedDebtThresholdBefore);
+
+        emit WhitelistedDebtThresholdChanged(trader, whitelistedDebtThreshold);
+    }
+
     /// @dev Same decimals as the settlement token
     function setCollateralValueDust(uint256 collateralValueDust) external onlyOwner {
         _collateralValueDust = collateralValueDust;
@@ -233,6 +245,16 @@ contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManag
     /// @inheritdoc ICollateralManager
     function getDebtThreshold() external view override returns (uint256) {
         return _debtThreshold;
+    }
+
+    /// @inheritdoc ICollateralManager
+    function getDebtThresholdByTrader(address trader) external view override returns (uint256) {
+        return _whitelistedDebtThresholdMap[trader] == 0 ? _debtThreshold : _whitelistedDebtThresholdMap[trader];
+    }
+
+    /// @inheritdoc ICollateralManager
+    function getTotalWhitelistedDebtThreshold() external view override returns (uint256) {
+        return _totalWhitelistedDebtThreshold;
     }
 
     /// @inheritdoc ICollateralManager

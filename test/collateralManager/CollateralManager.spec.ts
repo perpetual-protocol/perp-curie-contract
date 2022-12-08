@@ -296,6 +296,36 @@ describe("CollateralManager spec", () => {
         })
     })
 
+    describe("# setWhitelistedDebtThreshold", () => {
+        it("increase whitelisted debt threshold", async () => {
+            await expect(collateralManager.setWhitelistedDebtThreshold(alice.address, parseEther("2000"))).to.emit(
+                collateralManager,
+                "WhitelistedDebtThresholdChanged",
+            )
+
+            expect(await collateralManager.getDebtThresholdByTrader(alice.address)).to.be.eq(parseEther("2000"))
+            expect(await collateralManager.getTotalWhitelistedDebtThreshold()).to.be.eq(parseEther("2000"))
+        })
+
+        it("decrease whitelisted debt threshold", async () => {
+            await collateralManager.setWhitelistedDebtThreshold(alice.address, parseEther("2000"))
+            await collateralManager.setWhitelistedDebtThreshold(alice.address, parseEther("100"))
+
+            expect(await collateralManager.getDebtThresholdByTrader(alice.address)).to.be.eq(parseEther("100"))
+            expect(await collateralManager.getTotalWhitelistedDebtThreshold()).to.be.eq(parseEther("100"))
+        })
+
+        it("total whitelisted debt threshold", async () => {
+            await collateralManager.setWhitelistedDebtThreshold(alice.address, parseEther("2000"))
+            await collateralManager.setWhitelistedDebtThreshold(bob.address, parseEther("300"))
+            expect(await collateralManager.getTotalWhitelistedDebtThreshold()).to.be.eq(parseEther("2300"))
+
+            await collateralManager.setWhitelistedDebtThreshold(alice.address, parseEther("3000"))
+            await collateralManager.setWhitelistedDebtThreshold(bob.address, parseEther("400"))
+            expect(await collateralManager.getTotalWhitelistedDebtThreshold()).to.be.eq(parseEther("3400"))
+        })
+    })
+
     describe("# setCollateralValueDust", () => {
         it("update collateral value dust", async () => {
             await expect(collateralManager.setCollateralValueDust("100000")).to.emit(
