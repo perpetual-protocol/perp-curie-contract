@@ -16,7 +16,7 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup {
         vm.assume(newMarketTwapInterval != 0);
 
         (, uint32 premiumIntervalBefore) = clearingHouseConfig.getMarkPriceConfig();
-        vm.expectEmit(true, false, false, true, address(clearingHouseConfig));
+        vm.expectEmit(false, false, false, true, address(clearingHouseConfig));
         emit MarkPriceMarketTwapIntervalChanged(newMarketTwapInterval);
         clearingHouseConfig.setMarkPriceMarketTwapInterval(newMarketTwapInterval);
         (uint32 marketTwapIntervalAfter, uint32 premiumIntervalAfter) = clearingHouseConfig.getMarkPriceConfig();
@@ -39,7 +39,7 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup {
         vm.assume(newPremiumInterval != 0);
 
         (uint32 marketTwapIntervalBefore, ) = clearingHouseConfig.getMarkPriceConfig();
-        vm.expectEmit(true, false, false, true, address(clearingHouseConfig));
+        vm.expectEmit(false, false, false, true, address(clearingHouseConfig));
         emit MarkPricePremiumIntervalChanged(newPremiumInterval);
         clearingHouseConfig.setMarkPricePremiumInterval(newPremiumInterval);
         (uint32 marketTwapIntervalAfter, uint32 premiumIntervalAfter) = clearingHouseConfig.getMarkPriceConfig();
