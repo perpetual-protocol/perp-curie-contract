@@ -86,7 +86,7 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
         assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
     }
 
-    function test_getMarkPrice_should_return_index_price_with_premium_if_enable_mark_price() public {
+    function test_getMarkPrice_should_return_index_price_with_premium_if_mark_price_enabled() public {
         accountBalance.setMarketRegistry(address(marketRegistry));
 
         (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
