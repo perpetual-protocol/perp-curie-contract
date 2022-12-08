@@ -241,6 +241,12 @@ interface IAccountBalance {
     ) external view returns (int256);
 
     /// @notice Get mark price of baseToken market
+    /// @dev Mark price is the median of three prices as below.
+    ///        1. current market price
+    ///        2. market twap with 30 mins
+    ///        3. index price + premium with 15 mins
+    /// @dev If the parameters to calculate mark price are not set, returns index twap instead for backward compatible
+    /// @dev If the market is paused, returns index twap instead, that will be the index twap while pausing market
     /// @param baseToken The address of baseToken
     /// @return price The mark price of baseToken market
     function getMarkPrice(address baseToken) external view returns (uint256);
