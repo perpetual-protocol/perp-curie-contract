@@ -685,6 +685,7 @@ contract ClearingHouse is
         (int256 liquidatedPositionSize, int256 liquidatedPositionNotional) =
             _getLiquidatedPositionSizeAndNotional(trader, baseToken, accountValue, positionSizeToBeLiquidated);
         _modifyPositionAndRealizePnl(trader, baseToken, liquidatedPositionSize, liquidatedPositionNotional, 0, 0);
+
         // trader pays liquidation penalty
         uint256 liquidationPenalty = liquidatedPositionNotional.abs().mulRatio(_getLiquidationPenaltyRatio());
         _modifyOwedRealizedPnl(trader, liquidationPenalty.neg256());
@@ -1158,6 +1159,7 @@ contract ClearingHouse is
                 IAccountBalance(_accountBalance).getMarkPrice(baseToken).toInt256(),
                 1e18
             );
+
         return (liquidatedPositionSize, liquidatedPositionNotional);
     }
 
