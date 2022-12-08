@@ -30,8 +30,6 @@ import { IVault } from "./interface/IVault.sol";
 import { IWETH9 } from "./interface/external/IWETH9.sol";
 import { ICollateralManager } from "./interface/ICollateralManager.sol";
 
-import "hardhat/console.sol";
-
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRecipient, VaultStorageV2 {
     using SafeMathUpgradeable for uint256;
@@ -538,20 +536,9 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             discountedIndexTwap,
             priceFeedDecimals
         );
-        console.log("indexTwap");
-        console.log(indexTwap);
-        console.log("discountedIndexTwap");
-        console.log(discountedIndexTwap);
 
         uint256 tokenBalance = getBalanceByToken(trader, token).toUint256();
-        console.log("maxRepaidSettlementX10_18");
-        console.log(maxRepaidSettlementX10_18);
-        console.log("maxLiquidatableCollateral");
-        console.log(maxLiquidatableCollateral);
-        console.log("tokenBalance");
-        console.log(tokenBalance);
         if (maxLiquidatableCollateral > tokenBalance) {
-            console.log("maxLiquidatableCollateral > tokenBalance");
             maxLiquidatableCollateral = tokenBalance;
 
             // Deliberately rounding down when calculating settlement. Thus, when calculating
@@ -566,13 +553,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         }
 
         maxRepaidSettlementX10_S = maxRepaidSettlementX10_18.formatSettlementToken(_decimals);
-
-        console.log("maxRepaidSettlementX10_18");
-        console.log(maxRepaidSettlementX10_18);
-        console.log("maxRepaidSettlementX10_S");
-        console.log(maxRepaidSettlementX10_S);
-        console.log("maxLiquidatableCollateral");
-        console.log(maxLiquidatableCollateral);
 
         return (maxRepaidSettlementX10_S, maxLiquidatableCollateral);
     }
@@ -962,9 +942,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     ) internal view returns (uint256 collateral) {
         uint8 collateralTokenDecimals = _getTokenDecimals(token);
 
-        console.log("collateralTokenDecimals");
-        console.log(collateralTokenDecimals);
-
         // Convert token decimals with as much precision as possible
         return
             collateralTokenDecimals > 18
@@ -1006,11 +983,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         uint256 settlementTokenDebtX10_18 =
             settlementTokenValueX10_18 < 0 ? settlementTokenValueX10_18.neg256().toUint256() : 0;
 
-        console.log("settlementTokenValueX10_18");
-        console.logInt(settlementTokenValueX10_18);
-        console.log("settlementTokenDebtX10_18");
-        console.log(settlementTokenDebtX10_18);
-
         uint256 totalMarginRequirementX10_18 =
             _getTotalMarginRequirement(trader, IClearingHouseConfig(_clearingHouseConfig).getImRatio());
 
@@ -1021,11 +993,6 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
             maxDebtX10_18 > collateralValueDustX10_18
                 ? maxDebtX10_18.mulRatio(ICollateralManager(_collateralManager).getLiquidationRatio())
                 : maxDebtX10_18;
-
-        console.log("totalMarginRequirementX10_18");
-        console.log(totalMarginRequirementX10_18);
-        console.log("maxDebtX10_18");
-        console.log(maxDebtX10_18);
 
         return
             maxRepaidSettlementWithoutInsuranceFundFeeX10_18.divRatio(

@@ -79,8 +79,8 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("3000", 8))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("38583.34253324", 8))
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("38583.34253324"))
 
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)

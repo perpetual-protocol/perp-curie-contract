@@ -75,8 +75,8 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
         // set weth as collateral
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("100", 8))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("100", 8))
+        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("100"))
+        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("100"))
 
         // mint
         collateral.mint(alice.address, hundred)
@@ -186,7 +186,7 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
             expect(await vault.getBalance(insuranceFund.address)).to.be.eq("-1081016")
         })
 
-        it.only("settle bad debt after liquidate collateral", async () => {
+        it("settle bad debt after liquidate collateral", async () => {
             // mint usdc to liquidator
             await collateral.mint(admin.address, parseUnits("10000", collateralDecimals))
             await collateral.connect(admin).approve(vault.address, parseUnits("10000", collateralDecimals))

@@ -73,7 +73,7 @@ describe("InsuranceFund Test", () => {
         })
 
         it("non-collateral will not affect IF capacity", async () => {
-            wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseUnits("40000", 8))
+            wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
 
             await wbtc.mint(admin.address, parseUnits("100", await wbtc.decimals()))
             await wbtc.connect(admin).approve(vault.address, ethers.constants.MaxUint256)

@@ -32,8 +32,6 @@ import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV2 } from "./storage/ClearingHouseStorage.sol";
 
-import "hardhat/console.sol";
-
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
     IUniswapV3MintCallback,
@@ -687,8 +685,6 @@ contract ClearingHouse is
         (int256 liquidatedPositionSize, int256 liquidatedPositionNotional) =
             _getLiquidatedPositionSizeAndNotional(trader, baseToken, accountValue, positionSizeToBeLiquidated);
         _modifyPositionAndRealizePnl(trader, baseToken, liquidatedPositionSize, liquidatedPositionNotional, 0, 0);
-        console.logInt(liquidatedPositionSize);
-        console.logInt(liquidatedPositionNotional);
         // trader pays liquidation penalty
         uint256 liquidationPenalty = liquidatedPositionNotional.abs().mulRatio(_getLiquidationPenaltyRatio());
         _modifyOwedRealizedPnl(trader, liquidationPenalty.neg256());
@@ -1162,7 +1158,6 @@ contract ClearingHouse is
                 IAccountBalance(_accountBalance).getMarkPrice(baseToken).toInt256(),
                 1e18
             );
-        console.logInt(IAccountBalance(_accountBalance).getMarkPrice(baseToken).toInt256());
         return (liquidatedPositionSize, liquidatedPositionNotional);
     }
 
