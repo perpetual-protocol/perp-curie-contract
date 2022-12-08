@@ -84,7 +84,7 @@ describe("ClearingHouse new market listing", () => {
             0,
             baseToken3.address,
         )
-        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
+        await mockIndexPrice(mockedPriceFeedDispatcher3, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
