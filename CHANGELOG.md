@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add `AccountBalance.getMarketRegistry()` to return the address of MarketRegistry contract.
 - Add `AccountBalance.getMarkPrice(address)` to return the mark price of given market.
+- Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
 - Add new event `MarketRegistryChanged` to `AccountBalance`, will emit in `setMarketRegistry(address)`
 
 ## [2.2.3] - 2022-10-24
