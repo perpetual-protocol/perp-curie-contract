@@ -530,14 +530,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
-        IClearingHouseConfig chConfig = IClearingHouseConfig(_clearingHouseConfig);
-        (uint32 marketTwapInterval, uint32 premiumInterval) = chConfig.getMarkPriceConfigs();
+        IClearingHouseConfig clearingHouseConfig = IClearingHouseConfig(_clearingHouseConfig);
+        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfigs();
 
         // Use index twap:
         //   1. For backward compatible, returns index twap when not switch to mark price yet.
         //   2. For paused market, returns index twap as mark price.
         if (!_isEnableMarkPrice(marketTwapInterval, premiumInterval) || !IBaseToken(baseToken).isOpen()) {
-            return _getIndexPrice(baseToken, chConfig.getTwapInterval());
+            return _getIndexPrice(baseToken, clearingHouseConfig.getTwapInterval());
         }
 
         uint256 marketPrice = _getMarketPrice(baseToken, 0);
