@@ -242,7 +242,7 @@ interface IAccountBalance {
 
     /// @notice Get mark price of baseToken market
     /// @dev Mark price is the median of three prices as below.
-    ///        1. current mark price
+    ///        1. current market price
     ///        2. market twap with 30 mins
     ///        3. index price + premium with 15 mins
     /// @dev If the parameters to calculate mark price are not set, returns index twap instead for backward compatible
