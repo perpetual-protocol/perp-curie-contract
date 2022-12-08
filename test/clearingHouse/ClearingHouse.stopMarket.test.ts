@@ -831,9 +831,10 @@ describe("Clearinghouse StopMarket", async () => {
             it("quitMarket should settleBadDebt", async () => {
                 // check: bob account value should be negative
                 // positionNotional = 0.1
+                // pendingFundingPayment: 0.00000748866404135
                 // collateral + positionNotional + openNotional
-                // 10 + 0.1 + (-15.336664251894505922) = -5.23666425
-                expect(await vault.getAccountValue(bob.address)).eq("-5236674")
+                // 10 - 0.00000748866404135 + 0.1 + (-15.336664251894505922) = -5.236672
+                expect(await vault.getAccountValue(bob.address)).eq("-5236672")
                 // check: IF account value should be 0
                 expect(await vault.getAccountValue(insuranceFund.address)).eq("0")
                 // call quitMarket
@@ -843,7 +844,7 @@ describe("Clearinghouse StopMarket", async () => {
                 // check: bob account value should 0
                 expect(await vault.getAccountValue(bob.address)).eq("0")
                 // check: IF account value should be negative
-                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236674")
+                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236672")
             })
         })
 
