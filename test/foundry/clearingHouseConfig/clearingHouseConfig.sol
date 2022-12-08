@@ -15,11 +15,11 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup {
     function test_setMarkPriceMarketTwapInterval_should_emit_event(uint32 newMarketTwapInterval) public {
         vm.assume(newMarketTwapInterval != 0);
 
-        (, uint32 premiumIntervalBefore) = clearingHouseConfig.getMarkPriceConfigs();
+        (, uint32 premiumIntervalBefore) = clearingHouseConfig.getMarkPriceConfig();
         vm.expectEmit(true, false, false, true, address(clearingHouseConfig));
         emit MarkPriceMarketTwapIntervalChanged(newMarketTwapInterval);
         clearingHouseConfig.setMarkPriceMarketTwapInterval(newMarketTwapInterval);
-        (uint32 marketTwapIntervalAfter, uint32 premiumIntervalAfter) = clearingHouseConfig.getMarkPriceConfigs();
+        (uint32 marketTwapIntervalAfter, uint32 premiumIntervalAfter) = clearingHouseConfig.getMarkPriceConfig();
         assertEq(uint256(marketTwapIntervalAfter), newMarketTwapInterval);
         assertEq(uint256(premiumIntervalAfter), premiumIntervalBefore);
     }
@@ -38,11 +38,11 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup {
     function test_setMarkPricePremiumInterval_should_emit_event(uint32 newPremiumInterval) public {
         vm.assume(newPremiumInterval != 0);
 
-        (uint32 marketTwapIntervalBefore, ) = clearingHouseConfig.getMarkPriceConfigs();
+        (uint32 marketTwapIntervalBefore, ) = clearingHouseConfig.getMarkPriceConfig();
         vm.expectEmit(true, false, false, true, address(clearingHouseConfig));
         emit MarkPricePremiumIntervalChanged(newPremiumInterval);
         clearingHouseConfig.setMarkPricePremiumInterval(newPremiumInterval);
-        (uint32 marketTwapIntervalAfter, uint32 premiumIntervalAfter) = clearingHouseConfig.getMarkPriceConfigs();
+        (uint32 marketTwapIntervalAfter, uint32 premiumIntervalAfter) = clearingHouseConfig.getMarkPriceConfig();
         assertEq(uint256(marketTwapIntervalAfter), marketTwapIntervalBefore);
         assertEq(uint256(premiumIntervalAfter), newPremiumInterval);
     }
