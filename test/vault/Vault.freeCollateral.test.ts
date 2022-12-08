@@ -67,9 +67,6 @@ describe("Vault getFreeCollateral", () => {
         wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
         wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("5", await wbtc.decimals()))
@@ -89,6 +86,10 @@ describe("Vault getFreeCollateral", () => {
             useTakerBalance: false,
             deadline: ethers.constants.MaxUint256,
         })
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("# getFreeCollateral", () => {
@@ -115,6 +116,9 @@ describe("Vault getFreeCollateral", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
+
+                // mock mark price for fixed position value
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("150"))
 
                 // openNotional = -10
                 // positionValue = 0.065379992856491801 * 150 = 9.8069989285
@@ -150,9 +154,8 @@ describe("Vault getFreeCollateral", () => {
                 await marketRegistry.setFeeRatio(baseToken.address, 0.5e6)
                 await q2bExactInput(fixture, alice, 100)
 
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("80", 6), 0, 0, 0]
-                })
+                // mock mark price for fixed debt value and position value
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("80"))
 
                 // bob debt value: 16000 (baseDebt) + 28004.62178853 (quoteDebt) = 44004.62178853
                 // as bob has a profit, using totalCollateralValue for free collateral
@@ -167,9 +170,8 @@ describe("Vault getFreeCollateral", () => {
                 await marketRegistry.setFeeRatio(baseToken.address, 0.5e6)
                 await q2bExactInput(fixture, alice, 100)
 
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("200", 6), 0, 0, 0]
-                })
+                // mock mark price for fixed debt value and position value
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
 
                 // bob debt value: 40000 (baseDebt) + 28004.62178853 (quoteDebt) = 68004.62178853
                 // bob unrealizedPnl: -15.9536614113
@@ -207,10 +209,10 @@ describe("Vault getFreeCollateral", () => {
                 await deposit(alice, vault, 10, weth)
                 // alice position size: 0.651895044478514505
                 await q2bExactInput(fixture, alice, 100, baseToken.address)
+
                 // alice has negative pnl
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("100", 6), 0, 0, 0]
-                })
+                // mock mark price for fixed debt value and position value
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
             })
 
             // when settlement token value < 0, free collaterals of all collaterals are always 0
@@ -230,9 +232,8 @@ describe("Vault getFreeCollateral", () => {
             describe("trader has positive unrealized pnl", async () => {
                 beforeEach(async () => {
                     // alice has positive unrealized pnl
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("200", 6), 0, 0, 0]
-                    })
+                    // mock mark price for fixed debt value and position value
+                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
                 })
 
                 it("deposit only weth, free collateral of weth greater than 0", async () => {
@@ -298,9 +299,8 @@ describe("Vault getFreeCollateral", () => {
 
                     await clearingHouse.connect(alice).settleAllFunding(alice.address)
 
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("200", 6), 0, 0, 0]
-                    })
+                    // alice has positive unrealized pnl
+                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
 
                     // though settlement token balance < 0, as long as settlement token value > 0, can withdraw other collaterals
                     expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq(parseEther("10"))
@@ -314,9 +314,7 @@ describe("Vault getFreeCollateral", () => {
             describe("trader has negative unrealized pnl", async () => {
                 beforeEach(async () => {
                     // alice has negative unrealized pnl
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("100", 6), 0, 0, 0]
-                    })
+                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
                 })
 
                 it("deposit weth & usdc, free collateral of weth greater than 0", async () => {

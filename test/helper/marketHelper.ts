@@ -1,8 +1,10 @@
+import { getMaxTick, getMaxTickRange, getMinTick } from "./number"
+
 import { BigNumberish } from "ethers"
 import { ethers } from "hardhat"
 import { ClearingHouseFixture } from "../clearingHouse/fixtures"
+import { forwardRealTimestamp } from "../shared/time"
 import { encodePriceSqrt } from "../shared/utilities"
-import { getMaxTick, getMaxTickRange, getMinTick } from "./number"
 
 // 1. uniFeeRatio comes from createClearingHouseFixture()
 // 2. for tests irrelevant to fees, we often skip the assignments of exFeeRatio & ifFeeRatio
@@ -33,6 +35,10 @@ export async function initMarket(
     if (maxTickCrossedWithinBlock != 0) {
         await fixture.exchange.setMaxTickCrossedWithinBlock(baseToken, maxTickCrossedWithinBlock)
     }
+
+    // In order to calculate mark price, we need market twap (30m) and market twap (15m)
+    // Will get `OLD` revert message, if we don't forward timestamp
+    await forwardRealTimestamp(2000)
 
     const tickSpacing = await uniPool.tickSpacing()
     return { minTick: getMinTick(tickSpacing), maxTick: getMaxTick(tickSpacing) }

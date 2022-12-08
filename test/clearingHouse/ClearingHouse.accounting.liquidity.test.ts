@@ -2,18 +2,19 @@ import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { ContractTransaction } from "ethers"
-import { parseUnits } from "ethers/lib/utils"
+import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
-import { BaseToken, MarketRegistry, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import { BaseToken, TestAccountBalance, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { addOrder, findLiquidityChangedEvents, removeAllOrders } from "../helper/clearingHouseHelper"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse accounting (liquidity)", () => {
     const [admin, maker1, maker2] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let marketRegistry: MarketRegistry
+    let accountBalance: TestAccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -34,26 +35,20 @@ describe("ClearingHouse accounting (liquidity)", () => {
     beforeEach(async () => {
         const uniFeeRatio = 500 // 0.05%
         const exFeeRatio = 1000 // 0.1%
+        const ifFeeRatio = 100000 // 10%
 
         fixture = await loadFixture(createClearingHouseFixture(undefined, uniFeeRatio))
         vault = fixture.vault
-        marketRegistry = fixture.marketRegistry
+        accountBalance = fixture.accountBalance as TestAccountBalance
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
         mockedBaseAggregator = fixture.mockedBaseAggregator
         collateralDecimals = await collateral.decimals()
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
-        })
-
-        await pool.initialize(encodePriceSqrt("100", "1")) // tick = 46000 (1.0001^46000 = 99.4614384055)
-        await pool.increaseObservationCardinalityNext((2 ^ 16) - 1)
-
-        await marketRegistry.addPool(baseToken.address, uniFeeRatio)
-        await marketRegistry.setFeeRatio(baseToken.address, exFeeRatio)
-        await marketRegistry.setInsuranceFundFeeRatio(baseToken.address, 100000) // 10%
+        const initPrice = "100"
+        await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
+        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // prepare collateral for makers
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))
@@ -112,10 +107,8 @@ describe("ClearingHouse accounting (liquidity)", () => {
             await extractLiquidityDelta(await addOrder(fixture, maker2, 10, 1000, m2r1LowerTick, m2r1UpperTick)),
         )
 
-        // raise index price a lot so the maker orders are under-collateralized
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("10000", 6), 0, 0, 0]
-        })
+        // raise mark price a lot so the maker orders are under-collateralized
+        await accountBalance.mockMarkPrice(baseToken.address, parseEther("10000"))
 
         liquidityBalance = liquidityBalance.add(
             await extractLiquidityDelta(

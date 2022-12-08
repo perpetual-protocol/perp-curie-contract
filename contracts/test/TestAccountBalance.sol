@@ -9,6 +9,7 @@ contract TestAccountBalance is AccountBalance {
     using AddressUpgradeable for address;
 
     uint256 private _testBlockTimestamp;
+    mapping(address => uint256) internal _mockedMarkPriceMap;
 
     // copy paste from AccountBalance.initialize to avoid it to be public
     function __TestAccountBalance_init(address clearingHouseConfigArg, address orderBookArg) external initializer {
@@ -46,5 +47,20 @@ contract TestAccountBalance is AccountBalance {
 
     function testModifyOwedRealizedPnl(address trader, int256 owedRealizedPnlDelta) external {
         _modifyOwedRealizedPnl(trader, owedRealizedPnlDelta);
+    }
+
+    function mockMarkPrice(address baseToken, uint256 price) external {
+        _mockedMarkPriceMap[baseToken] = price;
+    }
+
+    function revertMockedMarkPrice(address baseToken) external {
+        delete (_mockedMarkPriceMap[baseToken]);
+    }
+
+    function _getMarkPrice(address baseToken) internal view override returns (uint256) {
+        if (_mockedMarkPriceMap[baseToken] == 0) {
+            return super._getMarkPrice(baseToken);
+        }
+        return _mockedMarkPriceMap[baseToken];
     }
 }

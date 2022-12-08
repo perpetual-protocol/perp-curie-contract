@@ -17,9 +17,10 @@ import {
     UniswapV3Pool,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { addOrder, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
+import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault settleBadDebt (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -71,6 +72,7 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, 100000, baseToken.address)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)

@@ -15,7 +15,7 @@ import { addOrder, closePosition, q2bExactInput } from "../helper/clearingHouseH
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { formatSqrtPriceX96ToPrice } from "../shared/utilities"
+import { formatSqrtPriceX96ToPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse 7494 bad debt attack", () => {
@@ -49,9 +49,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         // simulating SAND pool
         const initPrice = "1.3"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
-        })
+        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
 
         // prepare collateral for makers
         const makerAmount = parseUnits("500000", collateralDecimals)
@@ -61,6 +59,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         await addOrder(fixture, maker, 1500000, 500000, minTick, maxTick)
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
     })
 

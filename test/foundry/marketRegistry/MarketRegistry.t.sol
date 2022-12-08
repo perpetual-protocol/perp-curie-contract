@@ -5,9 +5,9 @@ import "forge-std/Test.sol";
 import "../helper/Setup.sol";
 import "../../../contracts/ClearingHouse.sol";
 import "../interface/IMarketRegistryEvent.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { IUniswapV3PoolState } from "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
+import { UniswapV3Pool } from "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
 
 contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
     function setUp() public virtual override {

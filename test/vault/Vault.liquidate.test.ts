@@ -4,13 +4,13 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
-    ClearingHouse,
     ClearingHouseConfig,
     CollateralManager,
     InsuranceFund,
     MarketRegistry,
     OrderBook,
     TestAccountBalance,
+    TestClearingHouse,
     TestERC20,
     TestExchange,
     TestVault,
@@ -18,21 +18,16 @@ import {
 } from "../../typechain"
 import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    b2qExactOutput,
-    closePosition,
-    q2bExactInput,
-    syncIndexToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
-    let clearingHouse: ClearingHouse
+    let clearingHouse: TestClearingHouse
     let clearingHouseConfig: ClearingHouseConfig
     let vault: TestVault
     let usdc: TestERC20
@@ -55,7 +50,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
     beforeEach(async () => {
         const _fixture = await loadFixture(createClearingHouseFixture())
-        clearingHouse = _fixture.clearingHouse
+        clearingHouse = _fixture.clearingHouse as TestClearingHouse
         clearingHouseConfig = _fixture.clearingHouseConfig
         vault = _fixture.vault as TestVault
         usdc = _fixture.USDC
@@ -79,6 +74,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, getMaxTickRange(), baseToken.address)
         await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
@@ -120,9 +116,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
             describe("collateral margin ratio below 6.45% (6.25% mmRatio + 0.2% mmRatioBuffer)", async () => {
                 it("trader is not liquidatable when he/she doesn't have collateral token", async () => {
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("116", 6), 0, 0, 0]
-                    })
+                    // mock mark price for fixed debt value and position value
+                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("116"))
                     // account value: 1000 + (18.88437579 * 116 - 3000) = 190.58759164
                     expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("190.587591", usdcDecimals))
                     // margin ratio: 190.58759164 / 3000 = 0.0635292
@@ -131,9 +126,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
                 it("trader doesn't have usdc debt", async () => {
                     await deposit(alice, vault, 0.01, weth)
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("110", 6), 0, 0, 0]
-                    })
+                    // mock mark price for fixed debt value and position value
+                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("110"))
                     // usdc value: 1000 + (18.88437579 * 110 - 3000) = 77.2813369 > 0
                     expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                         parseUnits("77.281336", usdcDecimals),
@@ -147,9 +141,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
                 it("trader has usdc debt", async () => {
                     await deposit(alice, vault, 0.4, weth)
-                    mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                        return [0, parseUnits("65", 6), 0, 0, 0]
-                    })
+                    // mock mark price for fixed debt value and position value
+                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("65"))
                     // usdc value: 1000 + (18.88437579 * 65 - 3000) = -772.51557365 < 0
                     expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                         parseUnits("-772.515574", usdcDecimals),
@@ -164,9 +157,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
             it("usdc debt is greater than the non-settlement token value multiply the debt ratio", async () => {
                 await deposit(alice, vault, 0.7, weth)
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("40", 6), 0, 0, 0]
-                })
+                // mock mark price for fixed debt value and position value
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("40"))
                 // usdc debt: 1000 + (18.88437579 * 40 - 3000) = -1244.6249684
                 // non-settlement token value: 0.7 * 3000 * 0.7 = 1470
                 // account value: 1000 + 0.7 * 3000 * 0.7 + (18.88437579 * 40 - 3000) = 225.3750316
@@ -182,9 +174,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             it("usdc debt is greater than the debt threshold", async () => {
                 await deposit(alice, vault, 20, weth)
                 await q2bExactInput(fixture, alice, 27000)
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("75", 6), 0, 0, 0]
-                })
+                // mock mark price for fixed debt value and position value
+                await accountBalance.mockMarkPrice(baseToken.address, parseEther("75"))
                 // position size: 141.180531
                 // usdc debt: 1000 + (141.180531 * 75 - 30000) = -18411.460175
                 // account value: 1000 + 20 * 3000 * 0.7 + (141.180531 * 75 - 30000) = 23588.539825
@@ -305,9 +296,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         })
 
         it("force error, liquidator doesn't have enough settlement token for liquidation", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0", 6), 0, 0, 0]
-            })
+            // Make position has loss and account should be liquidatable
+            await accountBalance.mockMarkPrice(baseToken.address, 1)
 
             await expect(
                 vault
@@ -329,9 +319,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             await q2bExactInput(fixture, david, 400)
 
             // david has 400 usdc debt
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0", 6), 0, 0, 0]
-            })
+            // Make position has loss and account should be liquidatable
+            await accountBalance.mockMarkPrice(baseToken.address, 1)
 
             // liquidate david's weth with maximum amount
             const maxRepaidSettlement = (
@@ -361,9 +350,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             beforeEach(async () => {
                 // usdc debt: 5000.000000
                 // max liquidatable value: 2577.319587
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("0", 6), 0, 0, 0]
-                })
+                // Make position has loss and account should be liquidatable
+                await accountBalance.mockMarkPrice(baseToken.address, 1)
             })
 
             it("force error, cannot liquidate more than max liquidatable settlement amount", async () => {
@@ -620,9 +608,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             beforeEach(async () => {
                 // usdc debt: 5000
                 // max liquidatable amount: 0.954562
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("0", 6), 0, 0, 0]
-                })
+                // Make position has loss and account should be liquidatable
+                await accountBalance.mockMarkPrice(baseToken.address, 1)
             })
 
             it("force error, cannot liquidate more than max liquidatable non-settlement amount", async () => {
@@ -881,11 +868,13 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 await collateralManager.setCollateralValueDust(parseUnits("100000", usdcDecimals))
 
                 // alice continue to open long position
+                await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
                 await syncIndexToMarketPrice(mockedBaseAggregator, pool)
                 await q2bExactInput(fixture, alice, 10000)
 
                 // bob short to make alice has bad debt
                 await b2qExactOutput(fixture, bob, 80000)
+                await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
                 await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             })
 
@@ -959,7 +948,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 const IFSettlementTokenValueBefore = await vault.getSettlementTokenValue(insuranceFund.address)
 
                 // in last liquidation, settle bad debt
-                const badDebt = parseUnits("11269.339945", usdcDecimals)
+                const badDebt = parseUnits("11269.339981", usdcDecimals)
                 const IFFee = parseUnits("24.536583", usdcDecimals) // 817.886106 * 0.03 = 24.536583
                 await expect(
                     vault

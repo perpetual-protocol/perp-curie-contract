@@ -1,7 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
-import bn from "bignumber.js"
 import { expect } from "chai"
-import { BigNumberish, Wallet } from "ethers"
+import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -19,7 +18,8 @@ import { q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange, priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
-import { calculateLiquidatePositionSize, getMarginRatio, syncIndexToMarketPrice } from "../shared/utilities"
+import { initiateBothTimestamps } from "../shared/time"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse softCircuitBreak", () => {
@@ -41,35 +41,9 @@ describe("ClearingHouse softCircuitBreak", () => {
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
     let collateralDecimals: number
-    const oracleDecimals = 6
-    const blockTimeStamp = 1
 
-    function setPool1IndexPrice(price: BigNumberish) {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price.toString(), oracleDecimals), 0, 0, 0]
-        })
-    }
-
-    async function _getMarginRatio(trader: Wallet) {
-        const accountValue = await clearingHouse.getAccountValue(trader.address)
-        const totalPositionValue = await accountBalance.getTotalAbsPositionValue(trader.address)
-        const marginRatio = accountValue.lte(0) ? new bn(0) : getMarginRatio(accountValue, totalPositionValue)
-
-        return marginRatio
-    }
-
-    async function _calculateLiquidatePositionSize(trader: Wallet, baseToken: BaseToken) {
-        const positionSize = await accountBalance.getTakerPositionSize(trader.address, baseToken.address)
-        const totalAbsPositionValue = await accountBalance.getTotalAbsPositionValue(trader.address)
-        const absPositionValue = (await accountBalance.getTotalPositionValue(trader.address, baseToken.address)).abs()
-
-        const marginRatio = await _getMarginRatio(trader)
-
-        const liquidatePositionSize = marginRatio.lt(0.0625 / 2)
-            ? positionSize
-            : calculateLiquidatePositionSize(positionSize, totalAbsPositionValue, absPositionValue)
-
-        return liquidatePositionSize
+    async function mockPool1MarkPrice(price: BigNumberish) {
+        await accountBalance.mockMarkPrice(baseToken.address, parseEther(price.toString()))
     }
 
     beforeEach(async () => {
@@ -114,8 +88,9 @@ describe("ClearingHouse softCircuitBreak", () => {
             deadline: ethers.constants.MaxUint256,
         })
 
-        // set blockTimestamp
-        await clearingHouse.setBlockTimestamp(blockTimeStamp)
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("liquidation in different insuranceFund capacity case", () => {
@@ -127,13 +102,10 @@ describe("ClearingHouse softCircuitBreak", () => {
 
             // mint & deposit usdc to davis
             await mintAndDeposit(fixture, davis, 10000)
-
-            // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
         })
 
         it("trader has positive accountValue after liquidation", async () => {
-            setPool1IndexPrice(900)
+            await mockPool1MarkPrice(900)
 
             // after liquidation, trader's accountValue: 29.847554
             await expect(
@@ -142,19 +114,25 @@ describe("ClearingHouse softCircuitBreak", () => {
         })
 
         it("trader has negative accountValue but insuranceFund capacity can cover that", async () => {
-            setPool1IndexPrice(800)
+            await mockPool1MarkPrice(800)
 
             // mint usdc to insuranceFund wallet
             await collateral.mint(insuranceFund.address, parseUnits("100", 6))
+            const ifCapacityBefore = await insuranceFund.getInsuranceFundCapacity()
 
             // after liquidation, trader's accountValue: -77.813129
             await expect(
                 clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken.address),
             ).emit(clearingHouse, "PositionLiquidated")
+
+            const accountValue = await clearingHouse.getAccountValue(bob.address)
+            expect(accountValue).to.be.eq("0")
+            const ifCapacityAfter = await insuranceFund.getInsuranceFundCapacity()
+            expect(ifCapacityAfter).to.be.lt(ifCapacityBefore)
         })
 
         it("trader has negative accountValue but insuranceFund capacity can't cover that", async () => {
-            setPool1IndexPrice(800)
+            await mockPool1MarkPrice(800)
 
             // mint usdc to insuranceFund wallet
             await collateral.mint(insuranceFund.address, parseUnits("30", 6))

@@ -1,13 +1,14 @@
-import { MockContract } from "@eth-optimism/smock"
-import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { DECIMAL_PLACES_18, syncIndexToMarketPrice } from "../shared/utilities"
+
+import { MockContract } from "@eth-optimism/smock"
+import { expect } from "chai"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("AccountBalance.getTotalPositionValue", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -125,20 +126,19 @@ describe("AccountBalance.getTotalPositionValue", () => {
                 return [0, parseUnits("149.852206", 6), 0, 0, 0]
             })
 
-            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(
-                parseEther("0.408410420499999999"),
-            )
-            // 149.852206 * 0.408410420499999999 = 61.2012024653
+            const markPrice = await accountBalance.getMarkPrice(baseToken.address)
+            // current mark price: 149.863445975554800998
+
+            const alicePositionSize = parseEther("0.408410420499999999")
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(alicePositionSize)
             expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(
-                parseEther("61.201202465312622850"),
+                alicePositionSize.mul(markPrice).div(DECIMAL_PLACES_18),
             )
 
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(
-                parseEther("-0.4084104205"),
-            )
-            // 149.852206 * -0.4084104205 = -61.2012024653
+            const bobPositionSize = parseEther("-0.4084104205")
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(bobPositionSize)
             expect(await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).eq(
-                parseEther("-61.201202465312623000"),
+                bobPositionSize.mul(markPrice).div(DECIMAL_PLACES_18),
             )
         })
 
@@ -167,7 +167,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            // mark price should be 150.6155385 (tick = 50149.8122)
+            // market price should be 150.6155385 (tick = 50149.8122)
 
             await forwardBothTimestamps(clearingHouse, 300)
 
@@ -187,7 +187,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             // Note CH actually shorts 0.2042052103 * 2 / 0.99 = 0.4125357784 base tokens
             // but the extra tokens have been collected as base token fees and does not count toward Alice's position size.
 
-            // which makes the mark price become 149.863446 (tick = 50099.75001)
+            // which makes the market price become 149.863446 (tick = 50099.75001)
 
             await forwardBothTimestamps(clearingHouse, 600)
 
@@ -200,21 +200,20 @@ describe("AccountBalance.getTotalPositionValue", () => {
             })
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
-            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(
-                parseEther("0.408410420599999999"),
-            )
-            // 150.092150 * 0.408410420599999999 = 61.2991981103
+            const markPrice = await accountBalance.getMarkPrice(baseToken.address)
+            // current mark price: 150.092150435211957755
+
+            const alicePositionSize = parseEther("0.408410420599999999")
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(alicePositionSize)
             expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(
-                parseEther("61.299198110258289849"),
+                alicePositionSize.mul(markPrice).div(DECIMAL_PLACES_18),
             )
 
             // short
-            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(
-                parseEther("-0.4084104206"),
-            )
-            // 150.092150 * -0.4084104206 = -61.2991981103
+            const bobPositionSize = parseEther("-0.4084104206")
+            expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(bobPositionSize)
             expect(await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).eq(
-                parseEther("-61.299198110258290000"),
+                bobPositionSize.mul(markPrice).div(DECIMAL_PLACES_18),
             )
         })
     })
@@ -275,7 +274,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             referralCode: ethers.constants.HashZero,
         }
         await clearingHouse.connect(bob).openPosition(swapParams1)
-        // mark price should be 151.3733069 (tick = 50200)
+        // market price should be 151.3733069 (tick = 50200)
 
         await forwardBothTimestamps(clearingHouse, 400)
 
@@ -291,7 +290,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             referralCode: ethers.constants.HashZero,
         }
         await clearingHouse.connect(bob).openPosition(swapParams2)
-        // mark price should be 153.8170921 (tick = 50360.15967)
+        // market price should be 153.8170921 (tick = 50360.15967)
 
         await forwardBothTimestamps(clearingHouse, 500)
 
@@ -304,31 +303,34 @@ describe("AccountBalance.getTotalPositionValue", () => {
         })
         // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 
+        // current mark price:  148.361226800394579524
+
         // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996
         expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).eq(
             parseEther("-1.465065799750044640"),
         )
-        // 152.711203 * -1.465065799750044640 = -223.731960754
+
+        // 148.361226800394579524 * -1.465065799750044640 = -217.3589593942
         expect(await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).eq(
-            parseEther("-223.731960753986416278"),
+            parseEther("-217.358959394217841111"),
         )
 
         // 1.633641682 + 0.6482449586 = 2.2818866406
         expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).eq(
             parseEther("2.281886640750044638"),
         )
-        // 152.711203 * 2.281886640750044638 = 348.4696540186
+        // 148.361226800394579524 * 2.281886640750044638 = 338.5435014411
         expect(await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).eq(
-            parseEther("348.469654018568138972"),
+            parseEther("338.543501441107880392"),
         )
 
         // -1.633641682 / 2 = -0.816820841
         expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(
             parseEther("-0.816820841"),
         )
-        // 152.711203 * -0.816820841 = -124.7376932646
+        // 148.361226800394579524 * -0.816820841 = -121.1845420469
         expect(await accountBalance.getTotalPositionValue(carol.address, baseToken.address)).eq(
-            parseEther("-124.737693264581723000"),
+            parseEther("-121.184542046890039578"),
         )
     })
 })

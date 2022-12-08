@@ -12,6 +12,7 @@ import {
     MarketRegistry,
     OrderBook,
     QuoteToken,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -27,6 +28,7 @@ describe("ClearingHouse liquidate maker", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
+    let accountBalance: TestAccountBalance
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
@@ -44,21 +46,14 @@ describe("ClearingHouse liquidate maker", () => {
     let upperTick: number
     let collateralDecimals: number
 
-    enum Pool {
-        Pool1,
-        Pool2,
-    }
-
-    function setPoolIndexPrice(price: BigNumberish, pool: Pool) {
-        const aggregator: MockContract = pool == Pool.Pool1 ? mockedBaseAggregator : mockedBaseAggregator2
-        aggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price.toString(), 6), 0, 0, 0]
-        })
+    async function mockMarkPrice(baseToken: BaseToken, price: BigNumberish) {
+        await accountBalance.mockMarkPrice(baseToken.address, parseEther(price.toString()))
     }
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
+        accountBalance = fixture.accountBalance as TestAccountBalance
         orderBook = fixture.orderBook
         exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
@@ -134,7 +129,7 @@ describe("ClearingHouse liquidate maker", () => {
             referralCode: ethers.constants.HashZero,
         })
 
-        setPoolIndexPrice(100000, Pool.Pool1)
+        await mockMarkPrice(baseToken, 100000)
 
         await expect(
             clearingHouse.connect(davis)["liquidate(address,address,int256)"](alice.address, baseToken.address, 0),
@@ -158,7 +153,7 @@ describe("ClearingHouse liquidate maker", () => {
         })
         // price after swap: 39.601
 
-        setPoolIndexPrice(115, Pool.Pool1)
+        await mockMarkPrice(baseToken, 115)
 
         // alice's liquidity = 31.622776601683793320
         // removed/remaining base = 31.622776601683793320 * (1/sqrt(39.601) - 1/sqrt(1.0001^887200)) = 5.0251256281
@@ -241,7 +236,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
             // price after swap: 39.601
 
-            setPoolIndexPrice(115, Pool.Pool1)
+            await mockMarkPrice(baseToken, 115)
 
             const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, "50000", upperTick)
@@ -350,7 +345,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
             // price after swap: 39.601
 
-            setPoolIndexPrice(115, Pool.Pool1)
+            await mockMarkPrice(baseToken, 115)
 
             const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, "50000", upperTick)
@@ -481,9 +476,9 @@ describe("ClearingHouse liquidate maker", () => {
                     referralCode: ethers.constants.HashZero,
                 })
 
-                // index prices of both pool1 and pool2 go up so that alice can be liquidated in both pools
-                setPoolIndexPrice(115, Pool.Pool1)
-                setPoolIndexPrice(115, Pool.Pool2)
+                // mark prices of both pool1 and pool2 go up so that alice can be liquidated in both pools
+                await mockMarkPrice(baseToken, 115)
+                await mockMarkPrice(baseToken2, 115)
 
                 const order = await orderBook.getOpenOrder(alice.address, baseToken2.address, lowerTick, upperTick)
                 // cancel maker's order on all markets
@@ -567,7 +562,7 @@ describe("ClearingHouse liquidate maker", () => {
                     })
                     // price after swap: 38.805748602
 
-                    setPoolIndexPrice(83, Pool.Pool1)
+                    await mockMarkPrice(baseToken, 83)
 
                     const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                     const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, 25000, 35000)
@@ -670,8 +665,8 @@ describe("ClearingHouse liquidate maker", () => {
                         referralCode: ethers.constants.HashZero,
                     })
 
-                    // only pool1 index price goes up
-                    setPoolIndexPrice(100000, Pool.Pool1)
+                    // only pool1 mark price goes up
+                    await mockMarkPrice(baseToken, 100000)
 
                     // cancel maker's order on all markets
                     await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
@@ -679,7 +674,6 @@ describe("ClearingHouse liquidate maker", () => {
 
                     // notice that in this case, liquidation happens in pool2 first, which is different from the above case
                     // since the loss is incurred in pool1, liquidating position in pool2 doesn't help margin ratio much
-                    await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
                     await expect(
                         clearingHouse
                             .connect(davis)
@@ -761,9 +755,9 @@ describe("ClearingHouse liquidate maker", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // pool1 and pool2 index price goes up so that alice can be liquidated
-            setPoolIndexPrice(100000, Pool.Pool1)
-            setPoolIndexPrice(100000, Pool.Pool2)
+            // pool1 and pool2 mark price goes up so that alice can be liquidated
+            await mockMarkPrice(baseToken, 100000)
+            await mockMarkPrice(baseToken2, 100000)
 
             // cancel maker's order on all markets
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
@@ -810,8 +804,9 @@ describe("ClearingHouse liquidate maker", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            // only pool1 index price goes up
-            setPoolIndexPrice(105, Pool.Pool1)
+
+            // only pool1 mark price goes up
+            await mockMarkPrice(baseToken, 105)
 
             // cancel maker's order on all markets
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
@@ -861,8 +856,8 @@ describe("ClearingHouse liquidate maker", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // only pool1 index price goes up
-            setPoolIndexPrice(100000, Pool.Pool1)
+            // only pool1 mark price goes up
+            await mockMarkPrice(baseToken, 100000)
 
             // cancel maker's order on all markets
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)

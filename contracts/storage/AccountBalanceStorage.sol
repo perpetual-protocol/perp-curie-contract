@@ -21,3 +21,7 @@ abstract contract AccountBalanceStorageV1 {
     // first key: trader, second key: baseToken
     mapping(address => mapping(address => AccountMarket.Info)) internal _accountMarketMap;
 }
+
+abstract contract AccountBalanceStorageV2 is AccountBalanceStorageV1 {
+    address internal _marketRegistry;
+}

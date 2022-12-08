@@ -3,7 +3,16 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, OrderBook, QuoteToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
+import {
+    BaseToken,
+    OrderBook,
+    QuoteToken,
+    TestAccountBalance,
+    TestClearingHouse,
+    TestERC20,
+    UniswapV3Pool,
+    Vault,
+} from "../../typechain"
 import { addOrder, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
@@ -15,6 +24,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
+    let accountBalance: TestAccountBalance
     let orderBook: OrderBook
     let vault: Vault
     let collateral: TestERC20
@@ -30,6 +40,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
+        accountBalance = fixture.accountBalance as TestAccountBalance
         orderBook = fixture.orderBook
         vault = fixture.vault
         collateral = fixture.USDC
@@ -87,9 +98,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
     describe("cancel alice's all open orders (single order)", () => {
         beforeEach(async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100000", 6), 0, 0, 0]
-            })
+            // mock mark price to make alice is liquidatable
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100000"))
             const tx = await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
             await expect(tx).to.emit(clearingHouse, "LiquidityChanged")
             await expect(tx).to.emit(clearingHouse, "PositionChanged").withArgs(
@@ -139,9 +149,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100000", 6), 0, 0, 0]
-            })
+            // mock mark price to make alice is liquidatable
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100000"))
 
             const tx = await clearingHouse.connect(bob).cancelAllExcessOrders(alice.address, baseToken.address)
             await expect(tx).to.emit(clearingHouse, "LiquidityChanged")
@@ -192,9 +201,9 @@ describe("ClearingHouse cancelExcessOrders", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("162", 6), 0, 0, 0]
-            })
+
+            // mock mark price to make alice is liquidatable
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("162"))
             // alice unrealizedPnl = 5 + 162 * -0.000490465148677081 = 4.9205446459
             // pos value = |-0.000490465148677081 * 162| = 0.07945535409
             // total debt value = base debt * price + quote debt = 1 * 162 + 0 = 162
@@ -255,10 +264,9 @@ describe("ClearingHouse cancelExcessOrders", () => {
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, bob, 1, 0, 92400, 92800, false, baseToken.address)
 
-            // 4. set index price lower to withdraw bob's collateral
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100", 6), 0, 0, 0]
-            })
+            // 4. set mark price lower to withdraw bob's collateral
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+
             await vault.connect(bob).withdraw(collateral.address, parseUnits("1980", await collateral.decimals()))
 
             // 4. carol opens a long position and bob incurs a short position
@@ -266,9 +274,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
             // bob position size: 0 -> -0.000961493924477756
             await q2bExactInput(fixture, carol, "10", baseToken.address)
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("1000", 6), 0, 0, 0]
-            })
+            // mock mark price to cancel bob's order
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("1000"))
 
             // 5. cancel bob's open orders
             // bob's taker base = 0.000490465148677081
@@ -295,9 +302,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     })
 
     it("force fail, alice has enough free collateral so shouldn't be canceled", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("160", 6), 0, 0, 0]
-        })
+        await accountBalance.mockMarkPrice(baseToken.address, parseEther("160"))
 
         const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore.length == 1).to.be.true
@@ -312,9 +317,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
     })
 
     it("force fail, alice has only baseToken open orders, but want to cancel orders in baseToken2", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100000", 6), 0, 0, 0]
-        })
+        await accountBalance.mockMarkPrice(baseToken.address, parseEther("100000"))
 
         const openOrderIdsBefore = await orderBook.getOpenOrderIds(alice.address, baseToken.address)
         expect(openOrderIdsBefore.length == 1).to.be.true
@@ -330,15 +333,11 @@ describe("ClearingHouse cancelExcessOrders", () => {
 
     describe("cancel excess orders when account is liquidable", () => {
         beforeEach(async () => {
-            // mock eth index price = 100
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100", 6), 0, 0, 0]
-            })
+            // mock eth mark price = 100
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
 
             // mock btc index price = 50000
-            mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("50000", 6), 0, 0, 0]
-            })
+            await accountBalance.mockMarkPrice(baseToken2.address, parseEther("50000"))
 
             await collateral.transfer(alice.address, parseUnits("10000", await collateral.decimals()))
             await deposit(alice, vault, 10000, collateral)
@@ -437,9 +436,7 @@ describe("ClearingHouse cancelExcessOrders", () => {
             //
             // when 103.3656364041 < x < 108.7965769147, bob's account is liquidable but can't cancel order
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("105", 6), 0, 0, 0]
-            })
+            await accountBalance.mockMarkPrice(baseToken2.address, parseEther("105"))
 
             // Bob has no order in ETH market, and can cancel order in ETH market successfully
             const tx = await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
@@ -488,10 +485,8 @@ describe("ClearingHouse cancelExcessOrders", () => {
         })
         expect(aliceOrderId).not.eq(bobOrderId)
 
-        // move the price to make alice's position liquidatable
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100000", 6), 0, 0, 0]
-        })
+        // mock mark price to make alice's position liquidatable
+        await accountBalance.mockMarkPrice(baseToken.address, parseEther("100000"))
 
         await expect(
             clearingHouse.connect(bob).cancelExcessOrders(alice.address, baseToken.address, [aliceOrderId, bobOrderId]),

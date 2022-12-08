@@ -14,12 +14,14 @@ import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
-import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
+import { AccountBalanceStorageV2, AccountMarket } from "./storage/AccountBalanceStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
+import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
+import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV1 {
+contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV2 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;
@@ -59,6 +61,13 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         require(vaultArg.isContract(), "AB_VNC");
         _vault = vaultArg;
         emit VaultChanged(vaultArg);
+    }
+
+    function setMarketRegistry(address marketRegistryArg) external onlyOwner {
+        // market registry address is not contract
+        require(marketRegistryArg.isContract(), "AB_MRNC");
+        _marketRegistry = marketRegistryArg;
+        emit MarketRegistryChanged(marketRegistryArg);
     }
 
     /// @inheritdoc IAccountBalance
@@ -191,6 +200,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getVault() external view override returns (address) {
         return _vault;
+    }
+
+    /// @inheritdoc IAccountBalance
+    function getMarketRegistry() external view override returns (address) {
+        return _marketRegistry;
     }
 
     /// @inheritdoc IAccountBalance
@@ -332,6 +346,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return positionSize.mulRatio(maxLiquidateRatio);
     }
 
+    /// @inheritdoc IAccountBalance
+    function getMarkPrice(address baseToken) external view override returns (uint256) {
+        return _getMarkPrice(baseToken);
+    }
+
     //
     // PUBLIC VIEW
     //
@@ -402,6 +421,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     //
+
     // INTERNAL NON-VIEW
     //
     function _modifyTakerBalance(
@@ -474,18 +494,15 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function _getPositionValue(address baseToken, int256 positionSize) internal view returns (int256) {
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = _getReferencePrice(baseToken);
-        // both positionSize & indexTwap are in 10^18 already
+        uint256 price = _getReferencePrice(baseToken);
+        // both positionSize & price are in 10^18 already
         // overflow inspection:
         // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
-        return positionSize.mulDiv(indexTwap.toInt256(), 1e18);
+        return positionSize.mulDiv(price.toInt256(), 1e18);
     }
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
-        return
-            IBaseToken(baseToken).isClosed()
-                ? IBaseToken(baseToken).getClosedPrice()
-                : IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : _getMarkPrice(baseToken);
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
@@ -510,6 +527,44 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         netQuoteBalance = totalTakerQuoteBalance.add(totalMakerQuoteBalance);
 
         return (netQuoteBalance, pendingFee);
+    }
+
+    function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
+        IClearingHouseConfig clearingHouseConfig = IClearingHouseConfig(_clearingHouseConfig);
+        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
+
+        // Use index twap:
+        //   1. For backward compatibility, returns index twap when not switched to mark price yet.
+        //   2. For paused market, returns index twap as mark price.
+        if (!_isMarkPriceEnabled(marketTwapInterval, premiumInterval) || !IBaseToken(baseToken).isOpen()) {
+            return _getIndexPrice(baseToken, clearingHouseConfig.getTwapInterval());
+        }
+
+        uint256 marketPrice = _getMarketPrice(baseToken, 0);
+        uint256 marketTwap = _getMarketPrice(baseToken, marketTwapInterval);
+        int256 premium =
+            _getMarketPrice(baseToken, premiumInterval).toInt256().sub(
+                _getIndexPrice(baseToken, premiumInterval).toInt256()
+            );
+        uint256 indexWithPremium = _getIndexPrice(baseToken, 0).toInt256().add(premium).toUint256();
+        return PerpMath.findMedianOfThree(marketPrice, marketTwap, indexWithPremium);
+    }
+
+    function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        return
+            UniswapV3Broker
+                .getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval)
+                .formatSqrtPriceX96ToPriceX96()
+                .formatX96ToX10_18();
+    }
+
+    function _getIndexPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        return IIndexPrice(baseToken).getIndexPrice(twapInterval);
+    }
+
+    function _isMarkPriceEnabled(uint32 marketTwapInterval, uint32 premiumInterval) internal view returns (bool) {
+        // sanity check params for mark price
+        return _marketRegistry != address(0) && marketTwapInterval != 0 && premiumInterval != 0;
     }
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {

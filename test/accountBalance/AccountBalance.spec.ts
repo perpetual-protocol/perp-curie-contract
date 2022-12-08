@@ -1,7 +1,3 @@
-import { MockContract } from "@eth-optimism/smock"
-import { parseEther } from "@ethersproject/units"
-import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     AccountBalance,
@@ -16,8 +12,13 @@ import {
     Vault,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { initMarket } from "../helper/marketHelper"
 import { getMaxTick, getMinTick } from "../helper/number"
+
+import { MockContract } from "@eth-optimism/smock"
+import { parseEther } from "@ethersproject/units"
+import { expect } from "chai"
+import { parseUnits } from "ethers/lib/utils"
+import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 
 describe("AccountBalance", () => {

@@ -8,6 +8,9 @@ interface IAccountBalance {
     /// @param vault The address of the vault contract
     event VaultChanged(address indexed vault);
 
+    /// @param marketRegistry The address of the marketRegistry contract
+    event MarketRegistryChanged(address indexed marketRegistry);
+
     /// @dev Emit whenever a trader's `owedRealizedPnl` is updated
     /// @param trader The address of the trader
     /// @param amount The amount changed
@@ -121,6 +124,10 @@ interface IAccountBalance {
     /// @return vault The address of Vault
     function getVault() external view returns (address vault);
 
+    /// @notice Get `MarketRegistry` address
+    /// @return marketRegistry The address of MarketRegistry
+    function getMarketRegistry() external view returns (address marketRegistry);
+
     /// @notice Get trader registered baseTokens
     /// @param trader The address of trader
     /// @return baseTokens The array of baseToken address
@@ -211,7 +218,7 @@ interface IAccountBalance {
 
     /// @notice Get total position value of trader's baseToken market
     /// @dev A negative returned value is only be used when calculating pnl,
-    /// @dev we use `15 mins` twap to calc position value
+    /// @dev we use mark price to calc position value
     /// @param trader The address of trader
     /// @param baseToken The address of baseToken
     /// @return totalPositionValue Total position value of trader's baseToken market
@@ -232,4 +239,15 @@ interface IAccountBalance {
         address baseToken,
         int256 accountValue
     ) external view returns (int256);
+
+    /// @notice Get mark price of baseToken market
+    /// @dev Mark price is the median of three prices as below.
+    ///        1. current market price
+    ///        2. market twap with 30 mins
+    ///        3. index price + premium with 15 mins
+    /// @dev If the parameters to calculate mark price are not set, returns index twap instead for backward compatible
+    /// @dev If the market is paused, returns index twap instead, that will be the index twap while pausing market
+    /// @param baseToken The address of baseToken
+    /// @return price The mark price of baseToken market
+    function getMarkPrice(address baseToken) external view returns (uint256);
 }

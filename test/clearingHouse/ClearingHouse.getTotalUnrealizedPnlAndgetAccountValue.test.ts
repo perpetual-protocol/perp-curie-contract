@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, Vault } from "../../typechain"
+import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
@@ -13,7 +13,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
@@ -27,7 +27,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
-        accountBalance = fixture.accountBalance
+        accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
@@ -83,9 +83,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("101.855079", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("101.855079"))
 
             // price after swap: 101.855079
             // position size = 0.980943170969551031
@@ -119,9 +118,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("103.727208", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("103.727208"))
 
             // price after swap: 103.727208
             // taker1
@@ -155,9 +153,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("101.855079", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("101.855079"))
 
             // price after swap: 101.855079
             // position size = 0.980943170969551031
@@ -188,9 +185,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
             // B2QFee: CH actually shorts 198 / 0.99 = 200
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("98.125012", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.125012"))
 
             // price after swap: 98.125012
             // taker1
@@ -221,9 +217,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("98.143490", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.143490"))
 
             // price after swap: 98.143490
             // position size = -1.009413830572328542
@@ -253,9 +248,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("99.981348", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("99.981348"))
 
             // price after swap: 99.981348
             // taker1
@@ -286,9 +280,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("98.143490", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.143490"))
 
             // price after swap: 98.143490
             // position size = -1.009413830572328542
@@ -319,9 +312,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
             // B2QFee: CH actually shorts 198 / 0.99 = 200
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("94.446032", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("94.446032"))
 
             // price after swap: 94.446032
             // taker1
@@ -353,9 +345,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("101.855079", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("101.855079"))
 
             // price after swap: 101.855079
             // taker
@@ -394,9 +385,8 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("98.143490", 6), 0, 0, 0]
-            })
+            // mock mark price to make calculation simpler
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.143490"))
 
             // price after swap: 98.143490
             // taker

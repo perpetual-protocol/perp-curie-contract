@@ -14,24 +14,23 @@ import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { SettlementTokenMath } from "./lib/SettlementTokenMath.sol";
 import { Funding } from "./lib/Funding.sol";
+import { AccountMarket } from "./lib/AccountMarket.sol";
+import { OpenOrder } from "./lib/OpenOrder.sol";
 import { OwnerPausable } from "./base/OwnerPausable.sol";
+import { BlockContext } from "./base/BlockContext.sol";
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
+import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IInsuranceFund } from "./interface/IInsuranceFund.sol";
-import { IBaseToken } from "./interface/IBaseToken.sol";
-import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IDelegateApproval } from "./interface/IDelegateApproval.sol";
+import { IClearingHouse } from "./interface/IClearingHouse.sol";
 import { BaseRelayRecipient } from "./gsn/BaseRelayRecipient.sol";
 import { ClearingHouseStorageV2 } from "./storage/ClearingHouseStorage.sol";
-import { BlockContext } from "./base/BlockContext.sol";
-import { IClearingHouse } from "./interface/IClearingHouse.sol";
-import { AccountMarket } from "./lib/AccountMarket.sol";
-import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouse is
@@ -1151,10 +1150,6 @@ contract ClearingHouse is
         return IAccountBalance(_accountBalance).getMarginRequirementForLiquidation(trader);
     }
 
-    function _getIndexPrice(address baseToken) internal view returns (uint256) {
-        return IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-    }
-
     function _getLiquidationPenaltyRatio() internal view returns (uint24) {
         return IClearingHouseConfig(_clearingHouseConfig).getLiquidationPenaltyRatio();
     }
@@ -1189,7 +1184,10 @@ contract ClearingHouse is
 
         int256 liquidatedPositionSize = positionSizeToBeLiquidated.neg256();
         int256 liquidatedPositionNotional =
-            positionSizeToBeLiquidated.mulDiv(_getIndexPrice(baseToken).toInt256(), 1e18);
+            positionSizeToBeLiquidated.mulDiv(
+                IAccountBalance(_accountBalance).getMarkPrice(baseToken).toInt256(),
+                1e18
+            );
 
         return (liquidatedPositionSize, liquidatedPositionNotional);
     }
