@@ -20,6 +20,7 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 
 describe("AccountBalance", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -79,14 +80,10 @@ describe("AccountBalance", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("151")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
-            mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("151")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
         })
 
         it("alice add liquidity", async () => {

@@ -6,6 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getTotalPositionSize", () => {
@@ -49,9 +50,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
         beforeEach(async () => {
             const initPrice = "151.3733069"
             await initMarket(fixture, initPrice)
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("151")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
         })
 
         it("size = 0, if no swap", async () => {
@@ -173,9 +172,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
         const initPrice = "148.3760629"
         await initMarket(fixture, initPrice)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("148")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "148")
 
         const lowerTick = "50000"
         const middleTick = "50200"

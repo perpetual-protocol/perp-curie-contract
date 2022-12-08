@@ -20,7 +20,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { filterLogs, syncIndexToMarketPrice } from "../shared/utilities"
+import { filterLogs, mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate maker", () => {
@@ -71,9 +71,7 @@ describe("ClearingHouse liquidate maker", () => {
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice)
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick

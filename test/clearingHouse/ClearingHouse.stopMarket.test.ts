@@ -21,7 +21,7 @@ import { addOrder, closePosition, q2bExactInput, q2bExactOutput, removeOrder } f
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { filterLogs, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { filterLogs, mockIndexPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -68,14 +68,10 @@ describe("Clearinghouse StopMarket", async () => {
 
         const initPrice = "151.3733069"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-        mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseUnits("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
 
         lowerTick = minTick
         upperTick = maxTick
@@ -120,9 +116,7 @@ describe("Clearinghouse StopMarket", async () => {
             // bob open a long position
             await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("100")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "100")
         })
 
         it("force error, can not operate in paused market", async () => {
@@ -219,9 +213,7 @@ describe("Clearinghouse StopMarket", async () => {
                 )
 
                 // mock index price for pausing market
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("1000")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "1000")
                 await pauseMarket(baseToken)
 
                 const pendingFundingPaymentAfter = await exchange.getPendingFundingPayment(
@@ -248,9 +240,7 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
                 // make profit on baseToken market
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("200")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "200")
                 await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
                 // For market1
                 //   openNotional: -10.0
@@ -258,9 +248,7 @@ describe("Clearinghouse StopMarket", async () => {
                 //   unrealizedPnl: 3.0543976842513928
 
                 // make loss on baseToken2 market
-                mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("50")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher2, "50")
                 await accountBalance.mockMarkPrice(baseToken2.address, parseEther("50"))
                 // For market2
                 //   openNotional: -10.0
@@ -295,9 +283,7 @@ describe("Clearinghouse StopMarket", async () => {
                 // open position on two market
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("50")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "50")
 
                 await pauseMarket(baseToken)
             })
@@ -617,9 +603,7 @@ describe("Clearinghouse StopMarket", async () => {
                 // open position on two market
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("100")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
                 await pauseMarket(baseToken)
                 await closeMarket(baseToken, 50)
@@ -859,9 +843,7 @@ describe("Clearinghouse StopMarket", async () => {
             await pauseMarket(baseToken)
 
             // drop price on baseToken market
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("0.000001")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "0.000001")
             await expect(
                 clearingHouse["liquidate(address,address,int256)"](bob.address, baseToken.address, 0),
             ).to.be.revertedWith("CH_MNO")

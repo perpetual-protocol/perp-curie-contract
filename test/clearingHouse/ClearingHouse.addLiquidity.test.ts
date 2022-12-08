@@ -20,6 +20,7 @@ import {
 import { b2qExactInput, b2qExactOutput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse addLiquidity", () => {
@@ -68,12 +69,8 @@ describe("ClearingHouse addLiquidity", () => {
         await collateral.transfer(bob.address, amount)
         await deposit(bob, vault, 1000, collateral)
 
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
-        mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
     })
 
     it("# TVL is token balances", async () => {

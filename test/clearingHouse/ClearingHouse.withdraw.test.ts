@@ -6,7 +6,7 @@ import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, Vault } fr
 import { b2qExactInput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse withdraw", () => {
@@ -33,9 +33,7 @@ describe("ClearingHouse withdraw", () => {
 
         const initPrice = "151.3733069"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
     })
 
     describe("# withdraw with maker fee", () => {

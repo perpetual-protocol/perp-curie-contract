@@ -27,7 +27,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
@@ -523,9 +523,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await forwardBothTimestamps(clearingHouse, 300)
 
             // index price change and funding rate reversed
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("15")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "15")
 
             // taker open reverse
             await b2qExactOutput(fixture, taker, 30)
@@ -573,9 +571,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("4"))
             // set index price to let taker pay funding fee
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("4")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "4")
 
             // taker is not liquidatable yet, even he has loss
             const marginRequirement = await accountBalance.getMarginRequirementForLiquidation(taker.address)
@@ -644,9 +640,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await addOrder(fixture, maker, 10, 1000, 22000, 24000)
 
             // set index price to let taker pay funding fee
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("4")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "4")
             // prepare collateral
             await mintAndDeposit(fixture, taker, 1000)
 

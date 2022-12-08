@@ -16,6 +16,7 @@ import {
 import { addOrder, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity without fee", () => {
@@ -56,9 +57,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         // prepare collateral for carol
         await mintAndDeposit(fixture, carol, 1000)
 
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
     })
 
     it("remove zero liquidity; no swap no fee", async () => {
@@ -457,9 +456,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("151")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             baseTokenBalanceInit = await baseToken.balanceOf(clearingHouse.address)
             quoteTokenBalanceInit = await quoteToken.balanceOf(clearingHouse.address)

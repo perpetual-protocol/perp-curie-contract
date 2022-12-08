@@ -15,6 +15,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse partial close in xyk pool", () => {
@@ -49,9 +50,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice)
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick

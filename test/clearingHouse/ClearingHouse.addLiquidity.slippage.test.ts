@@ -5,6 +5,7 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse addLiquidity slippage", () => {
@@ -33,9 +34,7 @@ describe("ClearingHouse addLiquidity slippage", () => {
         await collateral.transfer(alice.address, amount)
         await deposit(alice, vault, 1000, collateral)
 
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
     })
 
     describe("# addLiquidity failed at tick 50199", () => {

@@ -9,6 +9,7 @@ import { AccountBalance, BaseToken, OrderBook, QuoteToken, TestClearingHouse, Te
 import { addOrder, b2qExactInput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity with fee", () => {
@@ -71,9 +72,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             it("a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
                 const initPrice = "151.3733069"
                 await initMarket(fixture, initPrice, undefined, 0)
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("151")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
                 const lowerTick = "50000"
                 const upperTick = "50200"
@@ -200,9 +199,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
                 beforeEach(async () => {
                     const initPrice = "148.3760629"
                     await initMarket(fixture, initPrice, undefined, 0)
-                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                        return parseEther("148")
-                    })
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "148")
                 })
 
                 it("a trader swaps quote to base, thus the maker receives quote fee in Uniswap", async () => {
@@ -447,9 +444,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             beforeEach(async () => {
                 const initPrice = "148.3760629"
                 await initMarket(fixture, initPrice, undefined, 0)
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("148")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "148")
             })
 
             it("alice receives 3/4 of fee, while carol receives only 1/4", async () => {
@@ -937,9 +932,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         it("one maker; a trader swaps base to quote, thus the maker receives B2QFee in ClearingHouse (B2QFee)", async () => {
             const initPrice = "151.3733069"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("151")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -1022,9 +1015,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         it("two makers; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
             const initPrice = "148.3760629"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("148")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "148")
 
             const base = 0.000816820841
 
@@ -1185,9 +1176,7 @@ describe("ClearingHouse removeLiquidity with fee", () => {
         beforeEach(async () => {
             const initPrice = "151.3733069"
             const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("151")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             lowerTick = minTick
             upperTick = maxTick

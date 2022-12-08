@@ -22,6 +22,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { IGNORABLE_DUST } from "../shared/constant"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse realizedPnl", () => {
@@ -55,9 +56,7 @@ describe("ClearingHouse realizedPnl", () => {
 
         const initPrice = "100"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice)
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)

@@ -2,7 +2,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
@@ -123,10 +123,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             // 1. instead of the exact mark price 149.863446, whose tick index is 50099.75001 -> floor() -> 50099
             // 2. when considering the accumulator, we also need floor(): (50099 * 900 / 900) = 50099 -> floor() -> 50099
             // -> 1.0001 ^ 50099 = 149.8522069974
-
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("149.852206")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "149.852206")
 
             const markPrice = await accountBalance.getMarkPrice(baseToken.address)
             // current mark price: 149.863445975554800998
@@ -197,9 +194,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             // ((50149 * 300 + 50099 * 600) / 900) = 50115.6666666667 -> floor() -> 50115
             // -> 1.0001 ^ 50115 = 150.0921504352
 
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("150.092150")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "150.092150")
             // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
             const markPrice = await accountBalance.getMarkPrice(baseToken.address)
@@ -300,9 +295,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
         // ((50200 * 400 + 50360 * 500) / 900) = 50288.8888888889 -> floor() -> 50288
         // -> 1.0001 ^ 50288 = 152.7112031757
 
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("152.711203")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "152.711203")
         // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 
         // -(1.633641682 / 2 + 0.6482449586) = -1.4650657996

@@ -18,6 +18,7 @@ import { b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse funding", () => {
@@ -52,9 +53,7 @@ describe("ClearingHouse funding", () => {
 
         const initPrice = "154.4310961"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("154")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "154")
 
         // alice add long limit order
         await collateral.mint(alice.address, parseUnits("10000", collateralDecimals))
@@ -130,9 +129,7 @@ describe("ClearingHouse funding", () => {
         describe("one maker provides order in range and another maker provides order above current price", async () => {
             beforeEach(async () => {
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("150.953124")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
                 // alice provides liquidity with the range inside
                 await clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -249,9 +246,7 @@ describe("ClearingHouse funding", () => {
 
     describe("# _settleFundingAndUpdateFundingGrowth", () => {
         it("markTwap & indexTwap are not zero in the first tx of the market", async () => {
-            mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther("150.953124")
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
             await expect(
                 clearingHouse.connect(alice).addLiquidity({
                     baseToken: baseToken.address,
@@ -289,9 +284,7 @@ describe("ClearingHouse funding", () => {
             // can notice that markTwaps in this case are different from those in "two takers; first positive then negative funding"
             it("with twap; two takers; positive, negative then positive funding", async () => {
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("150.953124")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
 
                 // bob's position 0 -> -0.099
                 await clearingHouse.connect(bob).openPosition({
@@ -332,9 +325,7 @@ describe("ClearingHouse funding", () => {
                 await forwardBothTimestamps(clearingHouse, 450)
 
                 // set index price for a negative funding
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("156.953124")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "156.953124")
 
                 // notice that markTwap here is not 154.3847760162 as in "two takers; first positive then negative funding", though having the same amount swapped
                 // bob's funding payment = -0.099 * ((153.9531248192 - 150.953124) * 300 + (154.1996346489 - 156.953124) * 450) / 86400 = 0.0003885176651
@@ -373,9 +364,7 @@ describe("ClearingHouse funding", () => {
                 await forwardBothTimestamps(clearingHouse, 250)
 
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("152.953124")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "152.953124")
 
                 // bob's funding payment = -0.0990000001 * (154.2767498877 - 152.953124) * 250 / 86400 = -0.0003791636661
                 expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
@@ -396,9 +385,7 @@ describe("ClearingHouse funding", () => {
                 // basic examples
                 it("one taker swaps once; positive funding", async () => {
                     // set index price for a positive funding
-                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                        return parseEther("150.953124")
-                    })
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
 
                     // bob's position 0 -> -0.099
                     await clearingHouse.connect(bob).openPosition({
@@ -461,9 +448,7 @@ describe("ClearingHouse funding", () => {
 
                 it("one taker swaps twice; add liquidity in between; negative funding", async () => {
                     // set index price for a negative funding
-                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                        return parseEther("156.953124")
-                    })
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "156.953124")
 
                     // bob's position 0 -> -0.099
                     await clearingHouse.connect(bob).openPosition({
@@ -535,9 +520,7 @@ describe("ClearingHouse funding", () => {
 
                 it("two takers; first positive then negative funding", async () => {
                     // set index price for a positive funding
-                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                        return parseEther("150.953124")
-                    })
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
 
                     // bob's position 0 -> -0.099
                     await clearingHouse.connect(bob).openPosition({
@@ -573,9 +556,7 @@ describe("ClearingHouse funding", () => {
                     await forwardBothTimestamps(clearingHouse, 3600)
 
                     // set index price for a negative funding
-                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                        return parseEther("156.953124")
-                    })
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "156.953124")
 
                     // bob's funding payment = -0.099 * ((153.9531248192 - 150.953124) * 3600 + (154.3847760162 - 156.953124) * 3600) / 86400 = -0.001780567946
                     expect(await exchange.getPendingFundingPayment(bob.address, baseToken.address)).to.eq(
@@ -658,9 +639,7 @@ describe("ClearingHouse funding", () => {
                 })
 
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("150.953124")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
             })
 
             it("one maker; reduce one order and then remove both", async () => {
@@ -856,9 +835,7 @@ describe("ClearingHouse funding", () => {
                     })
 
                     // set index price for a positive funding
-                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                        return parseEther("150.953124")
-                    })
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
 
                     // bob's position 0 -> -1.2
                     await clearingHouse.connect(bob).openPosition({
@@ -1109,9 +1086,7 @@ describe("ClearingHouse funding", () => {
 
         describe("max funding rate exceeded", async () => {
             beforeEach(async () => {
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("150.953124")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "150.953124")
 
                 // set max funding rate to 10%
                 await clearingHouseConfig.setMaxFundingRate(0.1e6)
@@ -1139,9 +1114,7 @@ describe("ClearingHouse funding", () => {
                 // current mark price 156.844502866592198095
 
                 // index price 50
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("50")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "50")
 
                 await forwardBothTimestamps(clearingHouse, 100)
 
@@ -1163,9 +1136,7 @@ describe("ClearingHouse funding", () => {
                 // current mark price 152.072967341735143415
 
                 // index price 200
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("200")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "200")
 
                 await forwardBothTimestamps(clearingHouse, 100)
 

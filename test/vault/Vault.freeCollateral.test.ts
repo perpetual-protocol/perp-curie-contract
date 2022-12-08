@@ -16,6 +16,7 @@ import { closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import { mockIndexPrice } from "../shared/utilities"
 
 describe("Vault getFreeCollateral", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -55,17 +56,15 @@ describe("Vault getFreeCollateral", () => {
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
+        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
+        await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
 
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
@@ -101,9 +100,7 @@ describe("Vault getFreeCollateral", () => {
 
             it("long then get free collateral", async () => {
                 // set index price for a positive funding
-                mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                    return parseEther("150")
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "150")
 
                 // alice long 0.065379992856491801 ETH for 10 USD
                 await clearingHouse.connect(alice).openPosition({
@@ -187,8 +184,8 @@ describe("Vault getFreeCollateral", () => {
     describe("# getFreeCollateralByToken", async () => {
         describe("without position", async () => {
             beforeEach(async () => {
-                wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3031.39326836"))
-                wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40275.56504427"))
+                await mockIndexPrice(wethPriceFeedDispatcher, "3031.39326836")
+                await mockIndexPrice(wbtcPriceFeedDispatcher, "40275.56504427")
             })
 
             it("weth free collateral equals trader's balance", async () => {
@@ -261,7 +258,7 @@ describe("Vault getFreeCollateral", () => {
                     )
 
                     // weth price drops to 1
-                    wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("1"))
+                    await mockIndexPrice(wethPriceFeedDispatcher, "1")
 
                     // free collateral of weth: max(((10 * 1 * 0.7) - (100 * 10%)) / 1 / 0.7, 0) = 0
                     expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq("0")
@@ -292,9 +289,7 @@ describe("Vault getFreeCollateral", () => {
                 })
 
                 it("trader's settlement token balance < 0", async () => {
-                    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-                        return parseEther("100")
-                    })
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "100")
                     await forwardBothTimestamps(clearingHouse, 360)
 
                     await clearingHouse.connect(alice).settleAllFunding(alice.address)

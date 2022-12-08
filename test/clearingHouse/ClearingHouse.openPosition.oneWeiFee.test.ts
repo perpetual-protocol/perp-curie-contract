@@ -17,6 +17,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition oneWeiFee", () => {
@@ -60,9 +61,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
         const marketTicks = await initMarket(fixture, initPrice, exFeeRatio, 0)
         const lowerTick = marketTicks.minTick
         const upperTick = marketTicks.maxTick
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("151")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)

@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumber, BigNumberish, Wallet } from "ethers"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { InsuranceFund, UniswapV3Pool, Vault } from "../../typechain"
 import {
@@ -16,7 +16,7 @@ import {
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse verify accounting", () => {
@@ -55,9 +55,7 @@ describe("ClearingHouse verify accounting", () => {
         const initPrice = "10"
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice.toString())
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -126,9 +124,7 @@ describe("ClearingHouse verify accounting", () => {
         beforeEach(async () => {
             const initPrice = "10"
             await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, undefined, fixture.baseToken2.address)
-            fixture.mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther(initPrice.toString())
-            })
+            await mockIndexPrice(fixture.mockedPriceFeedDispatcher2, initPrice)
 
             await addOrder(fixture, maker, 100, 1000, lowerTick, upperTick, false, fixture.baseToken2.address)
             baseTokenList.push(fixture.baseToken2.address)

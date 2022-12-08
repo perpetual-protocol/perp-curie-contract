@@ -14,6 +14,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
@@ -47,9 +48,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
 
         const initPrice = "100"
         const { maxTick, minTick } = await initMarket(fixture, initPrice)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice)
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick

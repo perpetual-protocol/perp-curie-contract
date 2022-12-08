@@ -7,6 +7,7 @@ import { AccountBalance, BaseToken, Exchange, TestClearingHouse, TestERC20, Vaul
 import { addOrder, b2qExactInput, b2qExactOutput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse isIncreasePosition when trader is both of maker and taker", () => {
@@ -37,9 +38,7 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice)
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick

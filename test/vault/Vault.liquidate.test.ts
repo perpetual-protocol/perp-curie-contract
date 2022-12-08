@@ -23,7 +23,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -82,8 +82,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("3000"))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("38583.34253324"))
+        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
+        await mockIndexPrice(wbtcPriceFeedDispatcher, "38583.34253324")
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
@@ -213,8 +213,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 await closePosition(fixture, alice)
                 expect(await vault.isLiquidatable(alice.address)).to.be.false
 
-                wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("200"))
-                wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("2000"))
+                await mockIndexPrice(wethPriceFeedDispatcher, "200")
+                await mockIndexPrice(wbtcPriceFeedDispatcher, "2000")
                 // non-settlement token value: (1 * 200 * 0.7) + (0.1 * 2000 * 0.7) = 280
                 // debt > non-settlement token value * 0.75: 276.55275771 > 280 * 0.75
                 expect(await vault.isLiquidatable(alice.address)).to.be.true
@@ -275,7 +275,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             const mockedXxxPriceFeed = await smockit(priceFeedDispatcher)
 
             // set xxx oracle price with 18 decimals
-            mockedXxxPriceFeed.smocked.getDispatchedPrice.will.return.with(parseEther("101.123456789012345678"))
+            await mockIndexPrice(mockedXxxPriceFeed, "101.123456789012345678")
             mockedXxxPriceFeed.smocked.decimals.will.return.with(18)
 
             // add xxx token as collateral

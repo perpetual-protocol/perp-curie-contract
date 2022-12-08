@@ -5,6 +5,7 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken, OrderBook, TestAccountBalance, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
@@ -33,9 +34,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
 
         const initPrice = "154"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice)
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         // prepare collateral for alice
         const aliceCollateral = parseUnits("100000", collateralDecimals)

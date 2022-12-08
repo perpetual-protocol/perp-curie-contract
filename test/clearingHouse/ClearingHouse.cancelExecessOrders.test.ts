@@ -16,7 +16,7 @@ import {
 import { addOrder, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
+import { encodePriceSqrt, mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse cancelExcessOrders", () => {
@@ -52,13 +52,9 @@ describe("ClearingHouse cancelExcessOrders", () => {
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("100")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
-        mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("50000")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "50000")
 
         // mint
         collateral.mint(admin.address, parseUnits("100000", collateralDecimals))

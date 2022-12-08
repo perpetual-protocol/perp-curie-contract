@@ -56,11 +56,6 @@ export function sortedTokens(
     return { token0, token1 }
 }
 
-export interface BaseQuoteAmountPair {
-    base: BigNumberish
-    quote: BigNumberish
-}
-
 export function isAscendingTokenOrder(addr0: string, addr1: string): boolean {
     return addr0.toLowerCase() < addr1.toLowerCase()
 }
@@ -69,13 +64,16 @@ export function filterLogs(receipt: TransactionReceipt, topic: string, baseContr
     return receipt.logs.filter(log => log.topics[0] === topic).map(log => baseContract.interface.parseLog(log))
 }
 
+export async function mockIndexPrice(mockedPriceFeedDispatcher: MockContract, price: string) {
+    // decimals of PriceFeedDispatcher is 18, thus parseEther()
+    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther(price))
+}
+
 export async function syncIndexToMarketPrice(mockedPriceFeedDispatcher: MockContract, pool: UniswapV3Pool) {
     const slot0 = await pool.slot0()
     const sqrtPrice = slot0.sqrtPriceX96
     const price = formatSqrtPriceX96ToPrice(sqrtPrice)
-    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-        return parseEther(price)
-    })
+    mockIndexPrice(mockedPriceFeedDispatcher, price)
 }
 
 export async function syncMarkPriceToMarketPrice(

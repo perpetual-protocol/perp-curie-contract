@@ -18,7 +18,7 @@ import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../help
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { IGNORABLE_DUST } from "../shared/constant"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -79,8 +79,8 @@ describe("Vault withdraw test", () => {
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
         await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
-        wethPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("2500"))
-        wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
+        await mockIndexPrice(wethPriceFeedDispatcher, "2500")
+        await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
 
         // alice mint collateral tokens
         await usdc.mint(alice.address, parseUnits("100000", usdcDecimals))

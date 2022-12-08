@@ -5,6 +5,7 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { InsuranceFund, TestAccountBalance, TestERC20, Vault } from "../../typechain"
 import { createClearingHouseFixture } from "../clearingHouse/fixtures"
+import { mockIndexPrice } from "../shared/utilities"
 
 describe("InsuranceFund Test", () => {
     const [admin] = waffle.provider.getWallets()
@@ -73,7 +74,7 @@ describe("InsuranceFund Test", () => {
         })
 
         it("non-collateral will not affect IF capacity", async () => {
-            wbtcPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther("40000"))
+            await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
 
             await wbtc.mint(admin.address, parseUnits("100", await wbtc.decimals()))
             await wbtc.connect(admin).approve(vault.address, ethers.constants.MaxUint256)

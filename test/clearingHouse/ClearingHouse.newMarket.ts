@@ -18,7 +18,7 @@ import { deposit, mintAndDeposit } from "../helper/token"
 import { withdrawAll } from "../helper/vaultHelper"
 import { emergencyPriceFeedFixture, token0Fixture } from "../shared/fixtures"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { getMarketTwap } from "../shared/utilities"
+import { getMarketTwap, mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse new market listing", () => {
@@ -73,9 +73,7 @@ describe("ClearingHouse new market listing", () => {
         const initPrice = "148"
         // initial baseToken market
         await initMarket(fixture, initPrice, uniAndExFeeTier, ifFeeRatio, 1000, baseToken.address)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice.toString())
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         // initial baseToken3 market
         const { minTick, maxTick } = await initMarket(
@@ -86,9 +84,7 @@ describe("ClearingHouse new market listing", () => {
             0,
             baseToken3.address,
         )
-        mockedPriceFeedDispatcher3.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice.toString())
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick

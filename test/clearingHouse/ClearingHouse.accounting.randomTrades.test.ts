@@ -19,7 +19,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { filterLogs } from "../shared/utilities"
+import { filterLogs, mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
@@ -95,9 +95,7 @@ describe.skip("ClearingHouse accounting", () => {
             return fundingPayment
         }
 
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther("100")
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
         const initPrice = "100"
         // add pool with 0.3% fee

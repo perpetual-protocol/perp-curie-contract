@@ -6,6 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { AccountBalance, BaseToken, OrderBook, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse maker close position", () => {
@@ -40,9 +41,7 @@ describe("ClearingHouse maker close position", () => {
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-        mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(async () => {
-            return parseEther(initPrice)
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -246,9 +245,7 @@ describe("ClearingHouse maker close position", () => {
             // init BTC pool
             const initPrice = "10"
             await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-            mockedPriceFeedDispatcher2.smocked.getDispatchedPrice.will.return.with(async () => {
-                return parseEther(initPrice)
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher2, initPrice)
 
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))
