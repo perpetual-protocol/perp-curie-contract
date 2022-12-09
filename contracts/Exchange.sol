@@ -198,10 +198,10 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
-        if (!params.isClose) {
-            // over price limit after swap
-            require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
-        }
+        // if (!params.isClose) {
+        // over price limit after swap
+        require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
+        // }
 
         // when takerPositionSize < 0, it's a short position
         bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
