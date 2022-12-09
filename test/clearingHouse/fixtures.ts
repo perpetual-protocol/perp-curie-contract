@@ -236,7 +236,7 @@ export function createClearingHouseFixture(
         })
 
         await vault.setCollateralManager(collateralManager.address)
-        await insuranceFund.setBorrower(vault.address)
+        await insuranceFund.setVault(vault.address)
         await accountBalance.setVault(vault.address)
 
         // deploy a pool

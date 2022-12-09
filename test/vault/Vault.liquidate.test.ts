@@ -193,6 +193,10 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
                 // usdc debt > debt threshold: 18411.460175 > 10000, thus still liquidatable
                 expect(await vault.isLiquidatable(alice.address)).to.be.true
+
+                await collateralManager.setWhitelistedDebtThreshold(alice.address, parseUnits("20000", usdcDecimals))
+                // usdc debt < debt threshold: 18411.460175 < 20000, thus not liquidatable
+                expect(await vault.isLiquidatable(alice.address)).to.be.false
             })
         })
 
@@ -237,6 +241,9 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 // cuz index price hasn't changed yet, have to close the position to realize the loss
                 // to make the collateral liquidatable
                 expect(await vault.isLiquidatable(alice.address)).to.be.true
+
+                await collateralManager.setWhitelistedDebtThreshold(alice.address, parseUnits("20000", usdcDecimals))
+                expect(await vault.isLiquidatable(alice.address)).to.be.false
             })
         })
     })

@@ -1,6 +1,6 @@
 {
   "name": "@perp/curie-contract",
-  "version": "2.2.3",
+  "version": "2.5.0-rc",
   "description": "Perpetual Protocol Curie (V2) core contracts",
   "license": "GPL-3.0-or-later",
   "author": {
@@ -33,7 +33,7 @@
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
     "test": "hardhat --max-memory 8096 test",
     "parallel-test": "hardhat test --parallel",
-    "foundry-test": "forge test -vvv",
+    "foundry-test": "forge test",
     "foundry-build-uniswap": "forge build --contracts node_modules/@uniswap/v3-core/contracts/UniswapV3Factory.sol",
     "build": "npm run typechain && hardhat compile",
     "prepare": "husky install",
@@ -50,6 +50,7 @@
     "@openzeppelin/contracts": "3.4.1-solc-0.7-2",
     "@openzeppelin/contracts-upgradeable": "3.4.2",
     "@perp/perp-oracle-contract": "github:perpetual-protocol/perp-oracle-contract#enhance-oracle-with-artifacts",
+    "@perp/voting-escrow": "1.2.0",
     "@uniswap/v3-core": "https://github.com/Uniswap/uniswap-v3-core/tarball/v1.0.0",
     "@uniswap/v3-periphery": "1.0.1"
   },

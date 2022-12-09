@@ -36,6 +36,7 @@ const config: HardhatUserConfig = {
             "@perp/perp-oracle-contract/contracts/PriceFeedDispatcher.sol",
             "@perp/perp-oracle-contract/contracts/ChainlinkPriceFeedV3.sol",
             "@perp/perp-oracle-contract/contracts/EmergencyPriceFeed.sol",
+            "@perp/voting-escrow/contracts/SurplusBeneficiary.sol",
         ],
     },
     contractSizer: {
