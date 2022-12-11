@@ -1,9 +1,6 @@
 pragma solidity 0.7.6;
 
 contract DeployConfig {
-    // common
-    uint24 public constant MAX_RATIO = 1e6;
-
     // ClearinghouseConfig
     uint8 public constant MAX_MARKETS_PER_ACCOUNT = 5;
     uint256 public constant SETTLEMENT_TOKEN_BALANCE_CAP = 1000000;

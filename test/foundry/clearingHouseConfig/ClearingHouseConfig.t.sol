@@ -1,13 +1,11 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import "forge-std/Test.sol";
 import "../helper/Setup.sol";
+import "../helper/Constant.sol";
 import { IClearingHouseConfigEvent } from "../interface/IClearingHouseConfigEvent.sol";
 
-contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup {
-    address public nonOwnerAddress = makeAddr("nonOwnerAddress");
-
+contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup, Constant {
     function setUp() public virtual override {
         Setup.setUp();
     }
