@@ -729,7 +729,7 @@ describe("ClearingHouse closePosition", () => {
             await expect(closePosition(fixture, alice)).to.be.revertedWith("CH_PSZ")
         })
 
-        it("reduce taker position and partial close", async () => {
+        it("can not partial close if over price limit", async () => {
             // alice add liquidity
             await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
 
@@ -748,12 +748,12 @@ describe("ClearingHouse closePosition", () => {
 
             // set MaxTickCrossedWithinBlock so that trigger over price limit
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
-            await closePosition(fixture, alice)
+            await expect(closePosition(fixture, alice)).to.be.revertedWith("EX_OPLAS")
 
-            // expect partial close 5 * 25% = 1.25
-            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
-                parseEther("3.75"),
-            )
+            // // expect partial close 5 * 25% = 1.25
+            // expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
+            //     parseEther("3.75"),
+            // )
         })
     })
 })

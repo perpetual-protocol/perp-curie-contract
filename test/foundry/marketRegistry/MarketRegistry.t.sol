@@ -1,8 +1,8 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import "forge-std/Test.sol";
 import "../helper/Setup.sol";
+import "../helper/Constant.sol";
 import "../../../contracts/ClearingHouse.sol";
 import "../interface/IMarketRegistryEvent.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -114,13 +114,11 @@ contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
     }
 }
 
-contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
+contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
     uint24 private constant _ONE_HUNDRED_PERCENT_RATIO = 1e6;
-    address public nonOwnerAddress;
 
     function setUp() public virtual override {
         Setup.setUp();
-        nonOwnerAddress = makeAddr("nonOwnerAddress");
         vm.mockCall(
             address(pool),
             abi.encodeWithSelector(IUniswapV3PoolState.slot0.selector),
