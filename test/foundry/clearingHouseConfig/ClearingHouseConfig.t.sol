@@ -63,7 +63,7 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup, Constant {
 
     // setTwapInterval
 
-    function test_setTwapInterval_should_emit_event(uint32 twapInterval) public {
+    function test_setTwapInterval_as_non_zero_should_emit_event(uint32 twapInterval) public {
         vm.assume(twapInterval != 0);
 
         vm.expectEmit(false, false, false, true, address(clearingHouseConfig));
@@ -73,15 +73,18 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup, Constant {
         assertEq(uint256(twapInterval), clearingHouseConfig.getTwapInterval());
     }
 
+    function test_setTwapInterval_as_zero_should_emit_event() public {
+        vm.expectEmit(false, false, false, true, address(clearingHouseConfig));
+        emit TwapIntervalChanged(0);
+        clearingHouseConfig.setTwapInterval(0);
+
+        assertEq(uint256(0), clearingHouseConfig.getTwapInterval());
+    }
+
     function test_revert_setTwapInterval_if_called_by_non_owner() public {
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
         clearingHouseConfig.setTwapInterval(1);
-    }
-
-    function test_revert_setTwapInterval_cannot_be_0() public {
-        vm.expectRevert(bytes("CHC_ITI"));
-        clearingHouseConfig.setTwapInterval(0);
     }
 
     // setMaxMarketsPerAccount
