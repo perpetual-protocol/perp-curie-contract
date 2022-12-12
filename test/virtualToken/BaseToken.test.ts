@@ -1,10 +1,10 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { BigNumber } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
+import { PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { CACHED_TWAP_INTERVAL } from "../shared/constant"
 import { forwardRealTimestamp, getRealTimestamp, setRealTimestamp } from "../shared/time"
 import { baseTokenFixture } from "./fixtures"
 
@@ -12,36 +12,24 @@ describe("BaseToken", async () => {
     const [admin, user] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let baseToken: BaseToken
-    let chainlinkPriceFeed: ChainlinkPriceFeedV2
-    let mockedAggregator: MockContract // used by ChainlinkPriceFeedV2
-    let bandPriceFeed: BandPriceFeed
-    let mockedStdReference: MockContract // used by BandPriceFeed
+    let priceFeedDispatcher: PriceFeedDispatcher
+    let mockedAggregator: MockContract // used by ChainlinkPriceFeedV3
     let currentTime: number
     let chainlinkRoundData: any[]
-    let bandReferenceData: any[]
     const closedPrice = parseEther("200")
-
-    async function updateBandPrice(): Promise<void> {
-        mockedStdReference.smocked.getReferenceData.will.return.with(async () => {
-            return bandReferenceData[bandReferenceData.length - 1]
-        })
-        await bandPriceFeed.update()
-    }
 
     async function updateChainlinkPrice(): Promise<void> {
         mockedAggregator.smocked.latestRoundData.will.return.with(async () => {
             return chainlinkRoundData[chainlinkRoundData.length - 1]
         })
-        await chainlinkPriceFeed.update()
+        await priceFeedDispatcher.dispatchPrice(CACHED_TWAP_INTERVAL)
     }
 
     beforeEach(async () => {
         const _fixture = await loadFixture(baseTokenFixture)
         baseToken = _fixture.baseToken
         mockedAggregator = _fixture.mockedAggregator
-        bandPriceFeed = _fixture.bandPriceFeed
-        chainlinkPriceFeed = _fixture.chainlinkPriceFeed
-        mockedStdReference = _fixture.mockedStdReference
+        priceFeedDispatcher = _fixture.priceFeedDispatcher
 
         // `base` = now - _interval
         // aggregator's answer
@@ -57,32 +45,20 @@ describe("BaseToken", async () => {
         chainlinkRoundData = [
             // [roundId, answer, startedAt, updatedAt, answeredInRound]
         ]
-        bandReferenceData = [
-            // [rate, lastUpdatedBase, lastUpdatedQuote]
-        ]
 
-        chainlinkRoundData.push([0, parseUnits("400", 6), currentTime, currentTime, 0])
-        bandReferenceData.push([parseUnits("400", 18), currentTime, currentTime])
-        await updateBandPrice()
+        // start with roundId != 0 as now if roundId == 0 Chainlink will be freezed
+        chainlinkRoundData.push([1, parseUnits("400", 6), currentTime, currentTime, 1])
         await updateChainlinkPrice()
 
         currentTime += 15
         await setRealTimestamp(currentTime)
-        chainlinkRoundData.push([1, parseUnits("405", 6), currentTime, currentTime, 1])
-        bandReferenceData.push([parseUnits("405", 18), currentTime, currentTime])
-        await updateBandPrice()
+        chainlinkRoundData.push([2, parseUnits("405", 6), currentTime, currentTime, 2])
         await updateChainlinkPrice()
 
         currentTime += 15
         await setRealTimestamp(currentTime)
-        chainlinkRoundData.push([2, parseUnits("410", 6), currentTime, currentTime, 2])
-        bandReferenceData.push([parseUnits("410", 18), currentTime, currentTime])
-        await updateBandPrice()
+        chainlinkRoundData.push([3, parseUnits("410", 6), currentTime, currentTime, 3])
         await updateChainlinkPrice()
-
-        mockedAggregator.smocked.getRoundData.will.return.with((round: BigNumber) => {
-            return chainlinkRoundData[round.toNumber()]
-        })
 
         currentTime += 15
         await setRealTimestamp(currentTime)
@@ -124,14 +100,14 @@ describe("BaseToken", async () => {
 
         // WARNING: this test can fail for unknown reason for the function baseToken.getIndexPrice(), while it won't in other cases
         it("if current price < 0, ignore the current price", async () => {
-            chainlinkRoundData.push([3, parseUnits("-10", 6), 250, 250, 3])
+            chainlinkRoundData.push([4, parseUnits("-10", 6), 250, 250, 4])
             const price = await baseToken.getIndexPrice(45)
             expect(price).to.eq(parseEther("405"))
         })
 
         it("if there is a negative price in the middle, ignore that price", async () => {
-            chainlinkRoundData.push([3, parseUnits("-100", 6), currentTime + 20, currentTime + 20, 3])
-            chainlinkRoundData.push([4, parseUnits("420", 6), currentTime + 30, currentTime + 30, 4])
+            chainlinkRoundData.push([4, parseUnits("-100", 6), currentTime + 20, currentTime + 20, 4])
+            chainlinkRoundData.push([5, parseUnits("420", 6), currentTime + 30, currentTime + 30, 5])
             await forwardRealTimestamp(50)
 
             // twap price should be ((400 * 15) + (405 * 15) + (410 * 45) + (420 * 20)) / 95 = 409.736
@@ -147,50 +123,7 @@ describe("BaseToken", async () => {
 
     describe("BaseToken changes PriceFeed", async () => {
         it("forced error when non-owner calls setPriceFeed", async () => {
-            await expect(baseToken.connect(user).setPriceFeed(bandPriceFeed.address)).to.be.revertedWith("SO_CNO")
-        })
-
-        it("change from ChainlinkPrice to BandPriceFeed", async () => {
-            const spotPriceFromChainlink = await baseToken.getIndexPrice(0)
-            expect(spotPriceFromChainlink).to.eq(parseEther("410"))
-
-            const twapFromChainlink = await baseToken.getIndexPrice(45)
-            expect(twapFromChainlink).to.eq(parseEther("405"))
-
-            bandReferenceData.push([parseUnits("415", 18), currentTime, currentTime])
-            await updateBandPrice()
-
-            // hardhat will increase block timestamp by 1 for each transactions
-            await expect(baseToken.setPriceFeed(bandPriceFeed.address))
-                .to.emit(baseToken, "PriceFeedChanged")
-                .withArgs(bandPriceFeed.address)
-
-            expect(await baseToken.getPriceFeed()).to.eq(bandPriceFeed.address)
-
-            const spotPriceFromBand = await baseToken.getIndexPrice(0)
-            expect(spotPriceFromBand).to.eq(parseEther("415"))
-
-            currentTime += 15
-            await setRealTimestamp(currentTime)
-
-            // ob0 (ts, priceCumulative) = (t0,0)
-            // ob1 (ts, priceCumulative) = (t0+15,6000)
-            // ob2 (ts, priceCumulative) = (t0+30,12075)
-            // ob3 (ts, priceCumulative) = (t0+45,18225)
-            // latestBandData(ts, price): (t0+45, 415)
-            // current timestamp = t0+60
-            // currentPriceCumulative =
-            //     lastestObservation.priceCumulative +
-            //     (lastestObservation.price * (latestBandData.lastUpdatedBase - lastestObservation.timestamp)) +
-            //     (latestBandData.rate * (currentTimestamp - latestBandData.lastUpdatedBase));
-            // = 18225 + 415 * (t0+45 - (t0+45)) + 415 * (t0+60 - (t0+45))
-            // = 24450
-            // target ts: current ts - interval = t0+60-45 = t0+15
-            // targetPriceCumulative = ob1's PriceCumulative = 6000
-            // twap = (currentPriceCumulative-targetPriceCumulative) / interval
-            //      = (24450-6000) / 45 = 410
-            const twapFromBand = await baseToken.getIndexPrice(45)
-            expect(twapFromBand).to.eq(parseEther("410"))
+            await expect(baseToken.connect(user).setPriceFeed(priceFeedDispatcher.address)).to.be.revertedWith("SO_CNO")
         })
     })
 
@@ -249,7 +182,7 @@ describe("BaseToken", async () => {
             })
 
             it("verify status after market paused", async () => {
-                const indexPrice = await baseToken.getIndexPrice(15 * 60)
+                const indexPrice = await baseToken.getIndexPrice(CACHED_TWAP_INTERVAL)
                 expect(indexPrice).to.be.eq(parseEther("405.108695"))
 
                 expect(await baseToken.getPausedIndexPrice()).to.be.eq(parseEther("405.108695"))
@@ -263,7 +196,7 @@ describe("BaseToken", async () => {
 
                 expect(await baseToken.isClosed()).to.be.eq(true)
 
-                let indexPrice = await baseToken.getIndexPrice(15 * 60)
+                let indexPrice = await baseToken.getIndexPrice(CACHED_TWAP_INTERVAL)
                 let pausedIndexPrice = await baseToken.getPausedIndexPrice()
                 expect(indexPrice).to.be.eq(pausedIndexPrice)
 

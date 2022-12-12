@@ -22,7 +22,7 @@ import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { withdrawAll } from "../helper/vaultHelper"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { filterLogs, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { filterLogs, mockIndexPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -42,8 +42,8 @@ describe("Clearinghouse StopMarket", async () => {
     let baseToken2: BaseToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
     let lowerTick: number, upperTick: number
@@ -61,22 +61,18 @@ describe("Clearinghouse StopMarket", async () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         baseToken2 = fixture.baseToken2
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool = fixture.pool
         pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "151.3733069"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
 
         lowerTick = minTick
         upperTick = maxTick
@@ -121,9 +117,7 @@ describe("Clearinghouse StopMarket", async () => {
             // bob open a long position
             await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "100")
         })
 
         it("force error, can not operate in paused market", async () => {
@@ -220,9 +214,7 @@ describe("Clearinghouse StopMarket", async () => {
                 )
 
                 // mock index price for pausing market
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("1000", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "1000")
                 await pauseMarket(baseToken)
 
                 const pendingFundingPaymentAfter = await exchange.getPendingFundingPayment(
@@ -249,9 +241,7 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
                 // make profit on baseToken market
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("200", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "200")
                 await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
                 // For market1
                 //   openNotional: -10.0
@@ -259,9 +249,7 @@ describe("Clearinghouse StopMarket", async () => {
                 //   unrealizedPnl: 3.0543976842513928
 
                 // make loss on baseToken2 market
-                mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("50", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher2, "50")
                 await accountBalance.mockMarkPrice(baseToken2.address, parseEther("50"))
                 // For market2
                 //   openNotional: -10.0
@@ -296,9 +284,7 @@ describe("Clearinghouse StopMarket", async () => {
                 // open position on two market
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("50", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "50")
 
                 await pauseMarket(baseToken)
             })
@@ -614,9 +600,7 @@ describe("Clearinghouse StopMarket", async () => {
                 // open position on two market
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("100", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
                 await pauseMarket(baseToken)
                 await closeMarket(baseToken, 50)
@@ -960,9 +944,7 @@ describe("Clearinghouse StopMarket", async () => {
             await pauseMarket(baseToken)
 
             // drop price on baseToken market
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "0.000001")
             await expect(
                 clearingHouse["liquidate(address,address,int256)"](bob.address, baseToken.address, 0),
             ).to.be.revertedWith("CH_MNO")

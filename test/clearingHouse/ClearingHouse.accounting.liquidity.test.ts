@@ -19,7 +19,7 @@ describe("ClearingHouse accounting (liquidity)", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -43,12 +43,12 @@ describe("ClearingHouse accounting (liquidity)", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "100"
         await initMarket(fixture, initPrice, exFeeRatio, ifFeeRatio, 250)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // prepare collateral for makers
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))

@@ -45,7 +45,7 @@ jobs:
               run: npm run test
               env:
                 # to solve problem of memory leak https://stackoverflow.com/a/59572966
-                NODE_OPTIONS: "--max-old-space-size=4096"
+                NODE_OPTIONS: "--max-old-space-size=8192"
 
     lint:
         runs-on: ubuntu-latest

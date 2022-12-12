@@ -5,6 +5,7 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken, OrderBook, TestAccountBalance, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
@@ -17,7 +18,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -28,14 +29,12 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
         collateral = fixture.USDC
         vault = fixture.vault
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "154"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         // prepare collateral for alice
         const aliceCollateral = parseUnits("100000", collateralDecimals)

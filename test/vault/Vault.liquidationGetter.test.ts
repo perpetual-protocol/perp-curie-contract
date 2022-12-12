@@ -7,7 +7,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -16,11 +16,11 @@ describe("Vault liquidationGetter test", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let accountBalance: TestAccountBalance
     let fixture: ClearingHouseFixture
@@ -31,11 +31,11 @@ describe("Vault liquidationGetter test", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeed
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeed
+        wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         pool = _fixture.pool
         baseToken = _fixture.baseToken
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         accountBalance = _fixture.accountBalance as TestAccountBalance
         fixture = _fixture
 
@@ -43,7 +43,7 @@ describe("Vault liquidationGetter test", () => {
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
@@ -51,8 +51,8 @@ describe("Vault liquidationGetter test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
+        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
+        await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
         await weth.mint(alice.address, parseEther("1"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))

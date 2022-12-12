@@ -5,11 +5,9 @@ import { MockContract } from "@eth-optimism/smock"
 import { LogDescription } from "@ethersproject/abi"
 import { TransactionReceipt } from "@ethersproject/abstract-provider"
 import bn from "bignumber.js"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { parseEther } from "ethers/lib/utils"
 
 bn.config({ EXPONENTIAL_AT: 999999, DECIMAL_PLACES: 40 })
-
-export const DECIMAL_PLACES_18 = BigNumber.from((10 ** 18).toString())
 
 export function encodePriceSqrt(reserve1: BigNumberish, reserve0: BigNumberish): BigNumber {
     return BigNumber.from(
@@ -58,11 +56,6 @@ export function sortedTokens(
     return { token0, token1 }
 }
 
-export interface BaseQuoteAmountPair {
-    base: BigNumberish
-    quote: BigNumberish
-}
-
 export function isAscendingTokenOrder(addr0: string, addr1: string): boolean {
     return addr0.toLowerCase() < addr1.toLowerCase()
 }
@@ -71,14 +64,16 @@ export function filterLogs(receipt: TransactionReceipt, topic: string, baseContr
     return receipt.logs.filter(log => log.topics[0] === topic).map(log => baseContract.interface.parseLog(log))
 }
 
-export async function syncIndexToMarketPrice(aggregator: MockContract, pool: UniswapV3Pool) {
-    const oracleDecimals = 6
+export async function mockIndexPrice(mockedPriceFeedDispatcher: MockContract, price: string) {
+    // decimals of PriceFeedDispatcher is 18, thus parseEther()
+    mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther(price))
+}
+
+export async function syncIndexToMarketPrice(mockedPriceFeedDispatcher: MockContract, pool: UniswapV3Pool) {
     const slot0 = await pool.slot0()
     const sqrtPrice = slot0.sqrtPriceX96
-    const price = formatSqrtPriceX96ToPrice(sqrtPrice, oracleDecimals)
-    aggregator.smocked.latestRoundData.will.return.with(async () => {
-        return [0, parseUnits(price, oracleDecimals), 0, 0, 0]
-    })
+    const price = formatSqrtPriceX96ToPrice(sqrtPrice)
+    mockIndexPrice(mockedPriceFeedDispatcher, price)
 }
 
 export async function syncMarkPriceToMarketPrice(
@@ -88,11 +83,11 @@ export async function syncMarkPriceToMarketPrice(
 ) {
     const slot0 = await pool.slot0()
     const sqrtPrice = slot0.sqrtPriceX96
-    const price = formatSqrtPriceX96ToPrice(sqrtPrice, 18)
+    const price = formatSqrtPriceX96ToPrice(sqrtPrice)
     await accountBalance.mockMarkPrice(baseToken, parseEther(price))
 }
 
 export async function getMarketTwap(exchange: Exchange, baseToken: BaseToken, interval: number) {
     const sqrtPrice = await exchange.getSqrtMarkTwapX96(baseToken.address, interval)
-    return formatSqrtPriceX96ToPrice(sqrtPrice, 18)
+    return formatSqrtPriceX96ToPrice(sqrtPrice)
 }

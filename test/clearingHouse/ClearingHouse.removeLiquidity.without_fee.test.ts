@@ -16,6 +16,7 @@ import {
 import { addOrder, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity without fee", () => {
@@ -29,7 +30,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -41,7 +42,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         // mint
@@ -56,9 +57,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         // prepare collateral for carol
         await mintAndDeposit(fixture, carol, 1000)
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
     })
 
     it("remove zero liquidity; no swap no fee", async () => {
@@ -457,9 +456,7 @@ describe("ClearingHouse removeLiquidity without fee", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             baseTokenBalanceInit = await baseToken.balanceOf(clearingHouse.address)
             quoteTokenBalanceInit = await quoteToken.balanceOf(clearingHouse.address)

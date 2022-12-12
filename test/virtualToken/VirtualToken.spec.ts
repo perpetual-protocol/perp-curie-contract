@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { ethers, waffle } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { baseTokenFixture } from "./fixtures"
+import { createBaseTokenFixture } from "../shared/fixtures"
 
 describe("VirtualToken Spec", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -9,7 +9,7 @@ describe("VirtualToken Spec", () => {
     let baseToken: BaseToken
 
     beforeEach(async () => {
-        const _fixture = await loadFixture(baseTokenFixture)
+        const _fixture = await loadFixture(createBaseTokenFixture())
         baseToken = _fixture.baseToken
     })
 

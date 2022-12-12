@@ -67,9 +67,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     }
 
     function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
-        // CHC_ITI: invalid twapInterval
-        require(twapIntervalArg != 0, "CHC_ITI");
-
         _twapInterval = twapIntervalArg;
         emit TwapIntervalChanged(twapIntervalArg);
     }

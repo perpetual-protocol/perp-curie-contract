@@ -33,8 +33,8 @@ const config: HardhatUserConfig = {
         paths: [
             "@uniswap/v3-core/contracts/UniswapV3Factory.sol",
             "@uniswap/v3-core/contracts/UniswapV3Pool.sol",
-            "@perp/perp-oracle-contract/contracts/ChainlinkPriceFeedV2.sol",
-            "@perp/perp-oracle-contract/contracts/BandPriceFeed.sol",
+            "@perp/perp-oracle-contract/contracts/PriceFeedDispatcher.sol",
+            "@perp/perp-oracle-contract/contracts/ChainlinkPriceFeedV3.sol",
             "@perp/perp-oracle-contract/contracts/EmergencyPriceFeed.sol",
             "@perp/voting-escrow/contracts/SurplusBeneficiary.sol",
         ],

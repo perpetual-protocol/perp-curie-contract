@@ -20,7 +20,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault settleBadDebt (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -31,8 +31,8 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let insuranceFund: InsuranceFund
     let accountBalance: TestAccountBalance
     let exchange: Exchange
@@ -41,7 +41,7 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let wbtcDecimals: number
     let fixture: ClearingHouseFixture
@@ -54,8 +54,8 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeed
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeed
+        wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         insuranceFund = _fixture.insuranceFund
         accountBalance = _fixture.accountBalance as TestAccountBalance
         exchange = _fixture.exchange
@@ -64,14 +64,14 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         pool = _fixture.pool
         baseToken = _fixture.baseToken
         marketRegistry = _fixture.marketRegistry
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
         wbtcDecimals = await wbtc.decimals()
 
         await initMarket(fixture, "151.373306858723226652", 10000, 0, 100000, baseToken.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
@@ -79,8 +79,8 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("38583.34253324", 8))
+        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
+        await mockIndexPrice(wbtcPriceFeedDispatcher, "38583.34253324")
 
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)

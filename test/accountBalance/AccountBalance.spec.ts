@@ -20,6 +20,7 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 
 describe("AccountBalance", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -37,8 +38,8 @@ describe("AccountBalance", () => {
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
     let tickSpacing: number
     let lowerTick: number
@@ -58,8 +59,8 @@ describe("AccountBalance", () => {
         quoteToken = fixture.quoteToken
         pool = fixture.pool
         pool2 = fixture.pool2
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
         tickSpacing = await pool.tickSpacing()
@@ -79,14 +80,10 @@ describe("AccountBalance", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
-            mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
         })
 
         it("alice add liquidity", async () => {

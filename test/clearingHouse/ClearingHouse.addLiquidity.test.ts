@@ -20,6 +20,7 @@ import {
 import { b2qExactInput, b2qExactOutput, q2bExactOutput, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse addLiquidity", () => {
@@ -37,8 +38,8 @@ describe("ClearingHouse addLiquidity", () => {
     let baseToken2: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -53,8 +54,8 @@ describe("ClearingHouse addLiquidity", () => {
         baseToken2 = fixture.baseToken2
         quoteToken = fixture.quoteToken
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         marketRegistry = fixture.marketRegistry
         collateralDecimals = await collateral.decimals()
 
@@ -68,12 +69,8 @@ describe("ClearingHouse addLiquidity", () => {
         await collateral.transfer(bob.address, amount)
         await deposit(bob, vault, 1000, collateral)
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
     })
 
     it("# TVL is token balances", async () => {

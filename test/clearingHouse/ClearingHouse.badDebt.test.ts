@@ -29,7 +29,7 @@ describe("ClearingHouse badDebt", () => {
     let vault: Vault
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let lowerTick: number, upperTick: number
 
     beforeEach(async () => {
@@ -40,14 +40,14 @@ describe("ClearingHouse badDebt", () => {
         accountBalance = fixture.accountBalance as TestAccountBalance
         exchange = fixture.exchange as TestExchange
         vault = fixture.vault
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         pool = fixture.pool
 
         const initPrice = "100"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, 1000)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -82,7 +82,7 @@ describe("ClearingHouse badDebt", () => {
                 await q2bExactInput(fixture, bob, "800", baseToken.address)
 
                 // To ignore funding payment
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
                 // bob long base token for a 30 mins to manipulate mark price
                 await forwardBothTimestamps(clearingHouse, 1800)
