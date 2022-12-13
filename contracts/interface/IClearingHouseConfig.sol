@@ -14,8 +14,6 @@ interface IClearingHouseConfigEvent {
 
     event MaxFundingRateChanged(uint24 rate);
 
-    event BackstopLiquidityProviderChanged(address indexed account, bool indexed isProvider);
-
     event MarkPriceMarketTwapIntervalChanged(uint32 twapInterval);
 
     event MarkPricePremiumIntervalChanged(uint32 premiumInterval);
@@ -45,9 +43,6 @@ interface IClearingHouseConfig is IClearingHouseConfigEvent {
 
     /// @return maxFundingRate Max value of funding rate
     function getMaxFundingRate() external view returns (uint24 maxFundingRate);
-
-    /// @return isBackstopLiquidityProvider is backstop liquidity provider
-    function isBackstopLiquidityProvider(address account) external view returns (bool isBackstopLiquidityProvider);
 
     /// @return marketTwapInterval MarketTwapInterval is the interval of market twap used for mark price calculations
     /// @return premiumInterval PremiumInterval is the interval of premium used for mark price calculations

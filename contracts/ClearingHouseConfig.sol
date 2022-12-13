@@ -76,11 +76,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         emit MaxFundingRateChanged(rate);
     }
 
-    function setBackstopLiquidityProvider(address account, bool isProvider) external onlyOwner {
-        _backstopLiquidityProviderMap[account] = isProvider;
-        emit BackstopLiquidityProviderChanged(account, isProvider);
-    }
-
     function setMarkPriceMarketTwapInterval(uint32 twapIntervalArg) external onlyOwner {
         // CHC_IMPMTI: invalid mark price market twap interval
         require(twapIntervalArg != 0, "CHC_IMPMTI");
@@ -139,11 +134,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     /// @inheritdoc IClearingHouseConfig
     function getMaxFundingRate() external view override returns (uint24) {
         return _maxFundingRate;
-    }
-
-    /// @inheritdoc IClearingHouseConfig
-    function isBackstopLiquidityProvider(address account) external view override returns (bool) {
-        return _backstopLiquidityProviderMap[account];
     }
 
     /// @inheritdoc IClearingHouseConfig
