@@ -1,7 +1,27 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.6;
 
-interface IClearingHouseConfig {
+interface IClearingHouseConfigEvent {
+    event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
+
+    event PartialCloseRatioChanged(uint24 partialCloseRatio);
+
+    event TwapIntervalChanged(uint32 twapInterval);
+
+    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
+
+    event SettlementTokenBalanceCapChanged(uint256 cap);
+
+    event MaxFundingRateChanged(uint24 rate);
+
+    event BackstopLiquidityProviderChanged(address indexed account, bool indexed isProvider);
+
+    event MarkPriceMarketTwapIntervalChanged(uint32 twapInterval);
+
+    event MarkPricePremiumIntervalChanged(uint32 premiumInterval);
+}
+
+interface IClearingHouseConfig is IClearingHouseConfigEvent {
     /// @return maxMarketsPerAccount Max value of total markets per account
     function getMaxMarketsPerAccount() external view returns (uint8 maxMarketsPerAccount);
 
