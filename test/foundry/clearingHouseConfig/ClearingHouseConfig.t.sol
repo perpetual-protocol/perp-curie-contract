@@ -3,7 +3,7 @@ pragma abicoder v2;
 
 import "../helper/Setup.sol";
 import "../helper/Constant.sol";
-import { IClearingHouseConfigEvent } from "../interface/IClearingHouseConfigEvent.sol";
+import { IClearingHouseConfigEvent } from "../../../contracts/interface/IClearingHouseConfig.sol";
 
 contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup, Constant {
     function setUp() public virtual override {
