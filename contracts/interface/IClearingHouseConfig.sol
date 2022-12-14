@@ -6,7 +6,7 @@ interface IClearingHouseConfigEvent {
 
     event PartialCloseRatioChanged(uint24 partialCloseRatio);
 
-    event TwapIntervalChanged(uint32 twapInterval);
+    event TwapIntervalChanged(uint256 twapInterval);
 
     event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
 
