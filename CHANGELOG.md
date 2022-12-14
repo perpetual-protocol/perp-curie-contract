@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 - BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
 
+## [2.4.1] - 2022-12-09
+- Transaction will fail if closing 25% of trader's position exceeds the max price impact per timestamp.
+
 ## [2.4.0] - 2022-12-02
 ### Added
 - Add `CollateralManager.getDebtThresholdByTrader()`
