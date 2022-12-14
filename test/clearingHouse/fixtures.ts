@@ -190,12 +190,6 @@ export function createClearingHouseFixture(
         const insuranceFund = (await insuranceFundFactory.deploy()) as InsuranceFund
         await insuranceFund.initialize(USDC.address)
 
-        // deploy exchange
-        await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
-        await exchange.setAccountBalance(accountBalance.address)
-
-        await orderBook.setExchange(exchange.address)
-
         await accountBalance.initialize(clearingHouseConfig.address, orderBook.address)
         await accountBalance.setMarketRegistry(marketRegistry.address)
 
@@ -234,6 +228,13 @@ export function createClearingHouseFixture(
             discountRatio: (0.1e6).toString(),
             depositCap: parseUnits("1000", await WBTC.decimals()),
         })
+
+        // deploy exchange
+        await exchange.initialize(marketRegistry.address, orderBook.address, clearingHouseConfig.address)
+        await exchange.setAccountBalance(accountBalance.address)
+        await exchange.setCollateralManager(collateralManager.address)
+
+        await orderBook.setExchange(exchange.address)
 
         await vault.setCollateralManager(collateralManager.address)
         await insuranceFund.setVault(vault.address)
