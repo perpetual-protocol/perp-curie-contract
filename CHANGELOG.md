@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-## [2.4.0] - 2022-12-02 
+## [2.4.1] - 2022-12-09
+- Transaction will fail if closing 25% of trader's position exceeds the max price impact per timestamp.
+
+## [2.4.0] - 2022-12-02
 ### Added
 - Add `CollateralManager.getDebtThresholdByTrader()`
 - Add `CollateralManager.getTotalWhitelistedDebtThreshold()`
 
-## [2.3.0] - 2022-12-02 
+## [2.3.0] - 2022-12-02
 ### Added
 - Add `Insurance.distributeFee()`
 - Add `Insurance.getThreshold()`
