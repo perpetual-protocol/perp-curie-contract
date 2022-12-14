@@ -24,8 +24,9 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
-import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
+import { ExchangeStorageV2 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
+import { ICollateralManager } from "./interface/ICollateralManager.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
@@ -35,7 +36,7 @@ contract Exchange is
     BlockContext,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ExchangeStorageV1
+    ExchangeStorageV2
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -114,6 +115,12 @@ contract Exchange is
         require(accountBalanceArg != address(0), "E_AB0");
         _accountBalance = accountBalanceArg;
         emit AccountBalanceChanged(accountBalanceArg);
+    }
+
+    function setCollateralManager(address collateralManagerArg) external onlyOwner {
+        require(collateralManagerArg != address(0), "E_CM0");
+        _collateralManager = collateralManagerArg;
+        emit CollateralManagerChanged(collateralManagerArg);
     }
 
     /// @dev Restrict the price impact by setting the ticks can be crossed within a block when
@@ -249,6 +256,12 @@ contract Exchange is
 
         // if updating TWAP fails, this call will be reverted and thus using try-catch
         try IBaseToken(baseToken).cacheTwap(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval()) {} catch {}
+        try
+            ICollateralManager(_collateralManager).cacheAllTwapFromTrader(
+                trader,
+                IClearingHouseConfig(_clearingHouseConfig).getTwapInterval()
+            )
+        {} catch {}
         uint256 markTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);

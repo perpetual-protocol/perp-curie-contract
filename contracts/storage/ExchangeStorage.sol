@@ -24,3 +24,7 @@ abstract contract ExchangeStorageV1 {
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
 }
+
+abstract contract ExchangeStorageV2 is ExchangeStorageV1 {
+    address internal _collateralManager;
+}

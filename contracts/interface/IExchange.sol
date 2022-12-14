@@ -60,6 +60,10 @@ interface IExchange {
     /// @param accountBalance The address of accountBalance contract
     event AccountBalanceChanged(address accountBalance);
 
+    /// @notice Emitted when collateralManager is updated
+    /// @param collateralManager The address of collateralManager contract
+    event CollateralManagerChanged(address collateralManager);
+
     /// @notice The actual swap function
     /// @dev can only be called from ClearingHouse
     /// @param params The parameters of the swap

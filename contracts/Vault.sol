@@ -362,14 +362,14 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
         return accountValueX10_18.formatSettlementToken(_decimals);
     }
 
-    /// @inheritdoc IVault
-    function getCollateralTokens(address trader) external view override returns (address[] memory) {
-        return _collateralTokensMap[trader];
-    }
-
     //
     // PUBLIC VIEW
     //
+
+    /// @inheritdoc IVault
+    function getCollateralTokens(address trader) public view override returns (address[] memory) {
+        return _collateralTokensMap[trader];
+    }
 
     /// @inheritdoc IVault
     function getBalance(address trader) public view override returns (int256) {

@@ -170,4 +170,6 @@ interface ICollateralManager {
     /// @param mmRatioBuffer safe margin ratio buffer; 6 decimals, same decimals as _mmRatio
     /// @return collateralMmRatio the collateral maintenance margin ratio
     function requireValidCollateralMmRatio(uint24 mmRatioBuffer) external view returns (uint24);
+
+    function cacheAllTwapFromTrader(address trader, uint256 interval) external;
 }

@@ -218,6 +218,16 @@ contract CollateralManager is ICollateralManager, OwnerPausable, CollateralManag
         return IPriceFeedDispatcher(_collateralConfigMap[token].priceFeed).getDispatchedPrice(interval);
     }
 
+    /// @inheritdoc ICollateralManager
+    function cacheAllTwapFromTrader(address trader, uint256 interval) public override {
+        address[] memory collateralTokens = IVault(_vault).getCollateralTokens(trader);
+        uint256 tokenLen = collateralTokens.length;
+        for (uint256 i = 0; i < tokenLen; i++) {
+            address token = collateralTokens[i];
+            IPriceFeedDispatcher(_collateralConfigMap[token].priceFeed).dispatchPrice(interval);
+        }
+    }
+
     function getMaxCollateralTokensPerAccount() external view override returns (uint8) {
         return _maxCollateralTokensPerAccount;
     }
