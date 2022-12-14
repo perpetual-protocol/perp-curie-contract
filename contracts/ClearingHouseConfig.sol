@@ -8,19 +8,6 @@ import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouseConfigStorageV3 {
     //
-    // EVENT
-    //
-    event TwapIntervalChanged(uint256 twapInterval);
-    event LiquidationPenaltyRatioChanged(uint24 liquidationPenaltyRatio);
-    event PartialCloseRatioChanged(uint24 partialCloseRatio);
-    event MaxMarketsPerAccountChanged(uint8 maxMarketsPerAccount);
-    event SettlementTokenBalanceCapChanged(uint256 cap);
-    event MaxFundingRateChanged(uint24 rate);
-    event BackstopLiquidityProviderChanged(address indexed account, bool indexed isProvider);
-    event MarkPriceMarketTwapIntervalChanged(uint32 twapInterval);
-    event MarkPricePremiumIntervalChanged(uint32 premiumInterval);
-
-    //
     // MODIFIER
     //
 
@@ -89,11 +76,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         emit MaxFundingRateChanged(rate);
     }
 
-    function setBackstopLiquidityProvider(address account, bool isProvider) external onlyOwner {
-        _backstopLiquidityProviderMap[account] = isProvider;
-        emit BackstopLiquidityProviderChanged(account, isProvider);
-    }
-
     function setMarkPriceMarketTwapInterval(uint32 twapIntervalArg) external onlyOwner {
         // CHC_IMPMTI: invalid mark price market twap interval
         require(twapIntervalArg != 0, "CHC_IMPMTI");
@@ -152,11 +134,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     /// @inheritdoc IClearingHouseConfig
     function getMaxFundingRate() external view override returns (uint24) {
         return _maxFundingRate;
-    }
-
-    /// @inheritdoc IClearingHouseConfig
-    function isBackstopLiquidityProvider(address account) external view override returns (bool) {
-        return _backstopLiquidityProviderMap[account];
     }
 
     /// @inheritdoc IClearingHouseConfig
