@@ -19,12 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
 - Add new event `MarketRegistryChanged` to `AccountBalance`, will emit in `setMarketRegistry(address)`
 
-## [2.4.0] - 2022-12-02 
+### Changed
+- Move events in ClearingHouseConfig to IClearingHouseConfigEvent in IClearingHouseConfig.sol
+
+### Deprecated
+- BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
+
+## [2.4.0] - 2022-12-02
 ### Added
 - Add `CollateralManager.getDebtThresholdByTrader()`
 - Add `CollateralManager.getTotalWhitelistedDebtThreshold()`
 
-## [2.3.0] - 2022-12-02 
+## [2.3.0] - 2022-12-02
 ### Added
 - Add `Insurance.distributeFee()`
 - Add `Insurance.getThreshold()`

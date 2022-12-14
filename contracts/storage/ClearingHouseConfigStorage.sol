@@ -16,6 +16,7 @@ abstract contract ClearingHouseConfigStorageV1 {
 }
 
 abstract contract ClearingHouseConfigStorageV2 is ClearingHouseConfigStorageV1 {
+    // _backstopLiquidityProviderMap is deprecated
     mapping(address => bool) internal _backstopLiquidityProviderMap;
 }
 
