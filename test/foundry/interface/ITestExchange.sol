@@ -12,6 +12,8 @@ interface ITestExchange is IExchange {
 
     function setAccountBalance(address accountBalanceArg) external;
 
+    function setCollateralManager(address collateralManagerArg) external;
+
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external;
 
     function setClearingHouse(address clearingHouseArg) external;

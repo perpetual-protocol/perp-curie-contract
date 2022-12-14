@@ -117,6 +117,7 @@ contract Exchange is
         emit AccountBalanceChanged(accountBalanceArg);
     }
 
+    /// @param collateralManagerArg: CollateralManager contract address
     function setCollateralManager(address collateralManagerArg) external onlyOwner {
         require(collateralManagerArg != address(0), "E_CM0");
         _collateralManager = collateralManagerArg;

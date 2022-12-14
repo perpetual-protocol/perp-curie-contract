@@ -9,6 +9,7 @@ import "../../../contracts/ClearingHouseConfig.sol";
 import "../../../contracts/InsuranceFund.sol";
 import "../../../contracts/AccountBalance.sol";
 import "../../../contracts/Vault.sol";
+import "../../../contracts/CollateralManager.sol";
 import "../../../contracts/QuoteToken.sol";
 import "../../../contracts/BaseToken.sol";
 import "../../../contracts/VirtualToken.sol";
@@ -32,6 +33,7 @@ contract Setup is Test, DeployConfig {
     OrderBook public orderBook;
     ITestExchange public exchange;
     Vault public vault;
+    CollateralManager public collateralManager;
     IUniswapV3Factory public uniswapV3Factory;
     IUniswapV3Pool public pool;
     IUniswapV3Pool public pool2;
@@ -68,6 +70,17 @@ contract Setup is Test, DeployConfig {
             address(accountBalance),
             address(insuranceFund)
         );
+        collateralManager = _create_CollateralManager(
+            address(clearingHouseConfig),
+            address(vault),
+            _MAX_COLLATERAL_TOKENS_PER_ACCOUNT,
+            _DEBT_NON_SETTLEMENT_TOKEN_VALUE_RATIO,
+            _LIQUIDATION_RATIO,
+            _MAINTENANCE_MARGIN_RATIO_BUFFER,
+            _CL_INSURANCE_FUND_FEE_RATIO,
+            _DEBT_THRESHOLD,
+            _COLLATERAL_VALUE_DUST
+        );
         baseToken = _create_BaseToken(_BASE_TOKEN_NAME, address(quoteToken), _BASE_TOKEN_PRICE_FEED, false);
         baseToken2 = _create_BaseToken(_BASE_TOKEN_2_NAME, address(quoteToken), _BASE_TOKEN_2_PRICE_FEED, false);
         pool = _create_UniswapV3Pool(uniswapV3Factory, baseToken, quoteToken, _DEFAULT_POOL_FEE);
@@ -83,6 +96,7 @@ contract Setup is Test, DeployConfig {
         vm.label(address(exchange), "Exchange");
         vm.label(address(accountBalance), "AccountBalance");
         vm.label(address(vault), "Vault");
+        vm.label(address(collateralManager), "CollateralManager");
         vm.label(address(clearingHouse), "ClearingHouse");
         vm.label(address(baseToken), "BaseToken");
         vm.label(address(baseToken2), "BaseToken2");
@@ -220,6 +234,32 @@ contract Setup is Test, DeployConfig {
         return newVault;
     }
 
+    function _create_CollateralManager(
+        address clearingHouseConfigArg,
+        address vaultArg,
+        uint8 maxCollateralTokensPerAccountArg,
+        uint24 debtNonSettlementTokenValueRatioArg,
+        uint24 liquidationRatioArg,
+        uint24 mmRatioBufferArg,
+        uint24 clInsuranceFundFeeRatioArg,
+        uint256 debtThresholdArg,
+        uint256 collateralValueDustArg
+    ) internal returns (CollateralManager) {
+        CollateralManager collateralManager = new CollateralManager();
+        collateralManager.initialize(
+            clearingHouseConfigArg,
+            vaultArg,
+            maxCollateralTokensPerAccountArg,
+            debtNonSettlementTokenValueRatioArg,
+            liquidationRatioArg,
+            mmRatioBufferArg,
+            clInsuranceFundFeeRatioArg,
+            debtThresholdArg,
+            collateralValueDustArg
+        );
+        return collateralManager;
+    }
+
     function _create_TestERC20(
         string memory name,
         string memory symbol,
@@ -266,6 +306,7 @@ contract Setup is Test, DeployConfig {
         // exchange
         exchange.setClearingHouse(address(clearingHouse));
         exchange.setAccountBalance(address(accountBalance));
+        exchange.setCollateralManager(address(collateralManager));
 
         // accountBalance
         accountBalance.setClearingHouse(address(clearingHouse));
