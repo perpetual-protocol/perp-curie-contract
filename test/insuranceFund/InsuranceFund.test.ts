@@ -6,7 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { InsuranceFund, TestAccountBalance, TestERC20, Vault } from "../../typechain"
 import { createClearingHouseFixture } from "../clearingHouse/fixtures"
 
-describe.only("InsuranceFund Test", () => {
+describe("InsuranceFund Test", () => {
     const [admin] = waffle.provider.getWallets()
     let vault: Vault
     let usdc: TestERC20

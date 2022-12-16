@@ -16,14 +16,14 @@ import {
     TestVault,
     UniswapV3Pool,
 } from "../../typechain"
-import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
-import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -34,8 +34,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeedDispatcher: MockContract
-    let wbtcPriceFeedDispatcher: MockContract
+    let mockedWethPriceFeed: MockContract
+    let mockedWbtcPriceFeed: MockContract
     let insuranceFund: InsuranceFund
     let accountBalance: TestAccountBalance
     let exchange: TestExchange
@@ -57,8 +57,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
-        wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
+        mockedWethPriceFeed = _fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = _fixture.mockedWbtcPriceFeed
         insuranceFund = _fixture.insuranceFund
         accountBalance = _fixture.accountBalance as TestAccountBalance
         exchange = _fixture.exchange as TestExchange
@@ -82,8 +82,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
-        await mockIndexPrice(wbtcPriceFeedDispatcher, "38583.34253324")
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("38583.34253324", 8))
         await weth.mint(alice.address, parseEther("20"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
@@ -217,8 +217,8 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 await closePosition(fixture, alice)
                 expect(await vault.isLiquidatable(alice.address)).to.be.false
 
-                await mockIndexPrice(wethPriceFeedDispatcher, "200")
-                await mockIndexPrice(wbtcPriceFeedDispatcher, "2000")
+                mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("200", 8))
+                mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("2000", 8))
                 // non-settlement token value: (1 * 200 * 0.7) + (0.1 * 2000 * 0.7) = 280
                 // debt > non-settlement token value * 0.75: 276.55275771 > 280 * 0.75
                 expect(await vault.isLiquidatable(alice.address)).to.be.true
@@ -266,23 +266,15 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 return CHAINLINK_AGGREGATOR_DECIMALS
             })
 
-            const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
-            const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
+            const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+            const priceFeed = (await chainlinkPriceFeedFactory.deploy(
                 mockedAggregator.address,
-                40 * 60, // 40 mins
-                1e5, // 10%
-                10, // 10s
                 0,
-            )) as ChainlinkPriceFeedV3
-            const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
-            const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
-                ethers.constants.AddressZero,
-                chainlinkPriceFeedV3.address,
-            )) as PriceFeedDispatcher
-            const mockedXxxPriceFeed = await smockit(priceFeedDispatcher)
+            )) as ChainlinkPriceFeedV2
+            const mockedXxxPriceFeed = await smockit(priceFeed)
 
             // set xxx oracle price with 18 decimals
-            await mockIndexPrice(mockedXxxPriceFeed, "101.123456789012345678")
+            mockedXxxPriceFeed.smocked.getPrice.will.return.with(parseEther("101.123456789012345678"))
             mockedXxxPriceFeed.smocked.decimals.will.return.with(18)
 
             // add xxx token as collateral
