@@ -33,8 +33,8 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
     let collateral: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let mockedWethPriceFeed: MockContract
+    let mockedWbtcPriceFeed: MockContract
     let baseToken: BaseToken
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
@@ -57,8 +57,8 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
-        wethPriceFeed = fixture.mockedWethPriceFeed
-        wbtcPriceFeed = fixture.mockedWbtcPriceFeed
+        mockedWethPriceFeed = fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = fixture.mockedWbtcPriceFeed
         mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
@@ -75,8 +75,8 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
         // set collateral price
-        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
 
         // mint
         collateral.mint(alice.address, hundred)
