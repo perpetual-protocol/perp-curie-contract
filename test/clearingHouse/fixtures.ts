@@ -197,7 +197,6 @@ export function createClearingHouseFixture(
         await orderBook.setExchange(exchange.address)
 
         await accountBalance.initialize(clearingHouseConfig.address, orderBook.address)
-        await accountBalance.setMarketRegistry(marketRegistry.address)
 
         // deploy vault
         const vaultFactory = await ethers.getContractFactory("TestVault")
