@@ -1,12 +1,10 @@
-import { smockit } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { BigNumberish } from "ethers/lib/ethers"
 import { parseEther } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { ClearingHouseConfig, CollateralManager, TestERC20, Vault } from "../../typechain"
-import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
 
 describe("CollateralManager spec", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -17,7 +15,7 @@ describe("CollateralManager spec", () => {
     let USDT: TestERC20
     let WETH: TestERC20
     let WBTC: TestERC20
-    let priceFeed: PriceFeedDispatcher
+    let priceFeed: ChainlinkPriceFeedV2
     let clearingHouseConfig: ClearingHouseConfig
     let vault: Vault
     let skipInitializeCollateralManagerInBeforeEach = false
@@ -69,25 +67,8 @@ describe("CollateralManager spec", () => {
 
         const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
         const aggregator = await aggregatorFactory.deploy()
-        const mockedAggregator = await smockit(aggregator)
-        mockedAggregator.smocked.decimals.will.return.with(async () => {
-            return CHAINLINK_AGGREGATOR_DECIMALS
-        })
-        const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
-        const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
-            mockedAggregator.address,
-            40 * 60, // 40 mins
-            1e5, // 10%
-            10, // 10s
-            0,
-        )) as ChainlinkPriceFeedV3
-
-        const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
-        const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
-            ethers.constants.AddressZero,
-            chainlinkPriceFeedV3.address,
-        )) as PriceFeedDispatcher
-        priceFeed = priceFeedDispatcher
+        const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+        priceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouseConfig = fixture.clearingHouseConfig
         vault = fixture.vault
@@ -465,24 +446,8 @@ describe("CollateralManager spec", () => {
         it("update USDT price feed", async () => {
             const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
             const aggregator = await aggregatorFactory.deploy()
-            const mockedAggregator = await smockit(aggregator)
-            mockedAggregator.smocked.decimals.will.return.with(async () => {
-                return CHAINLINK_AGGREGATOR_DECIMALS
-            })
-            const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
-            const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
-                mockedAggregator.address,
-                40 * 60, // 40 mins
-                1e5, // 10%
-                10, // 10s
-                0,
-            )) as ChainlinkPriceFeedV3
-
-            const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
-            const newPriceFeed = (await priceFeedDispatcherFactory.deploy(
-                ethers.constants.AddressZero,
-                chainlinkPriceFeedV3.address,
-            )) as PriceFeedDispatcher
+            const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
+            const newPriceFeed = (await chainlinkPriceFeedFactory.deploy(aggregator.address, 0)) as ChainlinkPriceFeedV2
 
             await expect(collateralManager.setPriceFeed(USDT.address, newPriceFeed.address)).to.emit(
                 collateralManager,
