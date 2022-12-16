@@ -17,7 +17,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { initiateBothTimestamps } from "../shared/time"
-import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate (assume zero IF fee)", () => {
@@ -33,8 +33,8 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
     let collateral: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeedDispatcher: MockContract
-    let wbtcPriceFeedDispatcher: MockContract
+    let wethPriceFeed: MockContract
+    let wbtcPriceFeed: MockContract
     let baseToken: BaseToken
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
@@ -53,12 +53,12 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         collateral = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeedDispatcher = fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeedDispatcher = fixture.mockedWbtcPriceFeedDispatcher
         baseToken = fixture.baseToken
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
+        wethPriceFeed = fixture.mockedWethPriceFeed
+        wbtcPriceFeed = fixture.mockedWbtcPriceFeed
         mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
@@ -74,9 +74,9 @@ describe("ClearingHouse liquidate (assume zero IF fee)", () => {
         await initMarket(fixture, "151.3733069", 10000, 0, getMaxTickRange(), baseToken2.address)
         await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
-        // set weth as collateral
-        await mockIndexPrice(wethPriceFeedDispatcher, "100")
-        await mockIndexPrice(wbtcPriceFeedDispatcher, "100")
+        // set collateral price
+        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
+        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("100", 8))
 
         // mint
         collateral.mint(alice.address, hundred)
