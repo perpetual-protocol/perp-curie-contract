@@ -30,6 +30,9 @@ contract ClearingHouseTest is Setup {
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 100000);
         exchange.setMaxTickCrossedWithinBlock(address(baseToken), 250);
 
+        // wait for 30 mins after market is deployed
+        skip(1800);
+
         // mock priceFeed oracle
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
