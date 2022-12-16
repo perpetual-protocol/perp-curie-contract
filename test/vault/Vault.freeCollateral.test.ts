@@ -25,8 +25,8 @@ describe("Vault getFreeCollateral", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeedDispatcher: MockContract
-    let wbtcPriceFeedDispatcher: MockContract
+    let mockedWethPriceFeed: MockContract
+    let mockedWbtcPriceFeed: MockContract
     let clearingHouse: TestClearingHouse
     let accountBalance: TestAccountBalance
     let pool: UniswapV3Pool
@@ -42,8 +42,8 @@ describe("Vault getFreeCollateral", () => {
         usdc = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeedDispatcher = fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeedDispatcher = fixture.mockedWbtcPriceFeedDispatcher
+        mockedWethPriceFeed = fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = fixture.mockedWbtcPriceFeed
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         accountBalance = fixture.accountBalance as TestAccountBalance
         pool = fixture.pool
@@ -63,8 +63,8 @@ describe("Vault getFreeCollateral", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
-        await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
 
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
@@ -184,8 +184,8 @@ describe("Vault getFreeCollateral", () => {
     describe("# getFreeCollateralByToken", async () => {
         describe("without position", async () => {
             beforeEach(async () => {
-                await mockIndexPrice(wethPriceFeedDispatcher, "3031.39326836")
-                await mockIndexPrice(wbtcPriceFeedDispatcher, "40275.56504427")
+                mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3031.39326836", 8))
+                mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40275.56504427", 8))
             })
 
             it("weth free collateral equals trader's balance", async () => {
@@ -258,7 +258,7 @@ describe("Vault getFreeCollateral", () => {
                     )
 
                     // weth price drops to 1
-                    await mockIndexPrice(wethPriceFeedDispatcher, "1")
+                    mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("1", 8))
 
                     // free collateral of weth: max(((10 * 1 * 0.7) - (100 * 10%)) / 1 / 0.7, 0) = 0
                     expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq("0")
