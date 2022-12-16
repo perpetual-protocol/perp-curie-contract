@@ -27,8 +27,8 @@ describe("Vault test", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeedDispatcher: MockContract
-    let wbtcPriceFeedDispatcher: MockContract
+    let mockedWethPriceFeed: MockContract
+    let mockedWbtcPriceFeed: MockContract
     let clearingHouse: TestClearingHouse
     let insuranceFund: InsuranceFund
     let accountBalance: TestAccountBalance
@@ -44,8 +44,8 @@ describe("Vault test", () => {
         usdc = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeedDispatcher = fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeedDispatcher = fixture.mockedWbtcPriceFeedDispatcher
+        mockedWethPriceFeed = fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = fixture.mockedWbtcPriceFeed
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         insuranceFund = fixture.insuranceFund
         accountBalance = fixture.accountBalance as TestAccountBalance
@@ -69,8 +69,9 @@ describe("Vault test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
-        await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
+
         await weth.mint(alice.address, parseEther("10"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("5", await wbtc.decimals()))
