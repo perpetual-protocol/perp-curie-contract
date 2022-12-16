@@ -9,7 +9,7 @@ import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
-describe.only("Vault liquidationGetter test", () => {
+describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: TestVault
