@@ -9,10 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.5.0] - TBD
 ### Added
-- Add `AccountBalance.getMarketRegistry()` to return the address of MarketRegistry contract.
 - Add `AccountBalance.getMarkPrice(address)` to return the mark price of given market.
 - Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
-- Add new event `MarketRegistryChanged` to `AccountBalance`, will emit in `setMarketRegistry(address)`
 
 ### Changed
 - Move events in ClearingHouseConfig to IClearingHouseConfigEvent in IClearingHouseConfig.sol

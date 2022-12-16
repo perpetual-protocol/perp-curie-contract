@@ -23,29 +23,12 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
             abi.encode(100, 0, 0, 0, 0, 0, false)
         );
         marketRegistry.addPool(address(baseToken), pool.fee());
-    }
 
-    function test_setMarketRegistry_should_emit_event() public {
-        vm.expectEmit(true, false, false, true, address(accountBalance));
-        emit MarketRegistryChanged(address(marketRegistry));
-
-        accountBalance.setMarketRegistry(address(marketRegistry));
-
-        assertEq(accountBalance.getMarketRegistry(), address(marketRegistry));
-    }
-
-    function test_getMarkPrice_should_return_index_twap_if_marketRegistry_not_set() public {
-        // mock index twap
-        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
-        uint256 indexTwap = 100;
-        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
-
-        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
+        // wait for 30 mins for TWAP
+        skip(1800);
     }
 
     function test_getMarkPrice_should_return_index_twap_if_market_twap_interval_is_zero() public {
-        accountBalance.setMarketRegistry(address(marketRegistry));
-
         // mock market twap interval is zero
         _mockMarkPriceMarketTwapInterval(0);
 
@@ -58,8 +41,6 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     }
 
     function test_getMarkPrice_should_return_index_twap_if_premium_interval_is_zero() public {
-        accountBalance.setMarketRegistry(address(marketRegistry));
-
         // mock premium interval is zero
         _mockMarkPricePremiumInterval(0);
 
@@ -72,8 +53,6 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     }
 
     function test_getMarkPrice_should_return_index_twap_if_market_is_not_open() public {
-        accountBalance.setMarketRegistry(address(marketRegistry));
-
         // mock baseToken is not open
         vm.mockCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector), abi.encode(false));
 
@@ -87,8 +66,6 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     }
 
     function test_getMarkPrice_should_return_index_price_with_premium_if_mark_price_enabled() public {
-        accountBalance.setMarketRegistry(address(marketRegistry));
-
         (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
         // mock current market price, price = 100
