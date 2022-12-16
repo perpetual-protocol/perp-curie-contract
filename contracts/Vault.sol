@@ -45,7 +45,7 @@ contract Vault is IVault, ReentrancyGuardUpgradeable, OwnerPausable, BaseRelayRe
     using AddressUpgradeable for address;
 
     uint24 private constant _ONE_HUNDRED_PERCENT_RATIO = 1e6;
-    uint24 private constant _COLLATERAL_TWAP_INTERVAL = 900; // 15 minutes
+    uint32 private constant _COLLATERAL_TWAP_INTERVAL = 900; // 15 minutes
 
     //
     // MODIFIER
