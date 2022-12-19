@@ -18,7 +18,7 @@ import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../help
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { IGNORABLE_DUST } from "../shared/constant"
-import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -27,8 +27,8 @@ describe("Vault withdraw test", () => {
     let usdc: TestERC20
     let wbtc: TestERC20
     let weth: TestERC20
-    let wbtcPriceFeedDispatcher: MockContract
-    let wethPriceFeedDispatcher: MockContract
+    let mockedWbtcPriceFeed: MockContract
+    let mockedWethPriceFeed: MockContract
     let clearingHouse: ClearingHouse
     let accountBalance: TestAccountBalance
     let collateralManager: CollateralManager
@@ -63,8 +63,8 @@ describe("Vault withdraw test", () => {
         usdc = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeedDispatcher = fixture.mockedWethPriceFeedDispatcher
-        wbtcPriceFeedDispatcher = fixture.mockedWbtcPriceFeedDispatcher
+        mockedWethPriceFeed = fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = fixture.mockedWbtcPriceFeed
         clearingHouse = fixture.clearingHouse
         accountBalance = fixture.accountBalance as TestAccountBalance
         collateralManager = fixture.collateralManager
@@ -79,8 +79,8 @@ describe("Vault withdraw test", () => {
         await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
         await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
-        await mockIndexPrice(wethPriceFeedDispatcher, "2500")
-        await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("2500", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
 
         // alice mint collateral tokens
         await usdc.mint(alice.address, parseUnits("100000", usdcDecimals))
@@ -271,7 +271,7 @@ describe("Vault withdraw test", () => {
             weth9 = (await weth9Factory.deploy()) as TestWETH9
 
             await collateralManager.addCollateral(weth9.address, {
-                priceFeed: wethPriceFeedDispatcher.address,
+                priceFeed: mockedWethPriceFeed.address,
                 collateralRatio: (0.7e6).toString(),
                 discountRatio: (0.1e6).toString(),
                 depositCap: parseEther("1000"),

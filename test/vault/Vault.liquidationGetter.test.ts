@@ -7,7 +7,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -16,6 +16,8 @@ describe("Vault liquidationGetter test", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
+    let mockedWethPriceFeed: MockContract
+    let mockedWbtcPriceFeed: MockContract
     let wethPriceFeedDispatcher: MockContract
     let wbtcPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
@@ -31,6 +33,8 @@ describe("Vault liquidationGetter test", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
+        mockedWethPriceFeed = _fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = _fixture.mockedWbtcPriceFeed
         wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
         wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         pool = _fixture.pool
@@ -51,8 +55,8 @@ describe("Vault liquidationGetter test", () => {
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        await mockIndexPrice(wethPriceFeedDispatcher, "3000")
-        await mockIndexPrice(wbtcPriceFeedDispatcher, "40000")
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
         await weth.mint(alice.address, parseEther("1"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
