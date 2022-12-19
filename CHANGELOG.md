@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `AccountBalance.getMarkPrice(address)` to return the mark price of given market.
 - Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
 
+### Changed
+- Move events in ClearingHouseConfig to IClearingHouseConfigEvent in IClearingHouseConfig.sol
+
+### Deprecated
+- BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
+
 ## [2.2.3] - 2022-10-24
 ### Changed
 - Fix rounding issue (expect amount is not equal to response) when open position with `isBaseToQuote: false` and `isExactInput: true`
