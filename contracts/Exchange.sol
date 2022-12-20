@@ -247,8 +247,14 @@ contract Exchange is
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
-        // if updating TWAP fails, this call will be reverted and thus using try-catch
-        try IBaseToken(baseToken).cacheTwap(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval()) {} catch {}
+        // The purpose of caching index twap here is to save the gas consumption of calculating mark price,
+        // if updating TWAP fails, this call will be reverted and thus using try-catch.
+        // NOTE: the cached index twap is used for AccountBalance.MarkPrice calculation,
+        // not for funding rate calculation.
+        (, uint32 premiumInterval) = IClearingHouseConfig(_clearingHouseConfig).getMarkPriceConfig();
+        try IBaseToken(baseToken).cacheTwap(premiumInterval) {} catch {}
+
+        // markTwap here is market twap, and used for funding rate calculation.
         uint256 markTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
