@@ -1113,7 +1113,7 @@ contract ClearingHouse is
     }
 
     function _getSqrtMarketTwapX96(address baseToken) internal view returns (uint160) {
-        return IExchange(_exchange).getSqrtMarkTwapX96(baseToken, 0);
+        return IExchange(_exchange).getSqrtMarketTwapX96(baseToken, 0);
     }
 
     function _getMarginRequirementForLiquidation(address trader) internal view returns (int256) {

@@ -93,6 +93,6 @@ export async function syncMarkPriceToMarketPrice(
 }
 
 export async function getMarketTwap(exchange: Exchange, baseToken: BaseToken, interval: number) {
-    const sqrtPrice = await exchange.getSqrtMarkTwapX96(baseToken.address, interval)
+    const sqrtPrice = await exchange.getSqrtMarketTwapX96(baseToken.address, interval)
     return formatSqrtPriceX96ToPrice(sqrtPrice, 18)
 }
