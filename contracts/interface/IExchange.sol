@@ -103,12 +103,23 @@ interface IExchange {
         view
         returns (int256 pendingFundingPayment);
 
-    /// @notice Get the square root of the market twap price with the given time interval
+    /// @notice (Deprecated function, will be removed in the next release),
+    /// Get the square root of the market twap price with the given time interval
     /// @dev The return value is a X96 number
     /// @param baseToken Address of the base token
     /// @param twapInterval The time interval in seconds
     /// @return sqrtMarkTwapX96 The square root of the market twap price
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160 sqrtMarkTwapX96);
+
+    /// @notice Get the square root of the market twap price with the given time interval
+    /// @dev The return value is a X96 number
+    /// @param baseToken Address of the base token
+    /// @param twapInterval The time interval in seconds
+    /// @return sqrtMarketTwapX96 The square root of the market twap price
+    function getSqrtMarketTwapX96(address baseToken, uint32 twapInterval)
+        external
+        view
+        returns (uint160 sqrtMarketTwapX96);
 
     /// @notice Get the pnl that can be realized if trader reduce position
     /// @dev This function normally won't be needed by traders, but it might be useful for 3rd party

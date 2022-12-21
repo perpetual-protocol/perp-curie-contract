@@ -346,11 +346,22 @@ contract Exchange is
 
     /// @inheritdoc IExchange
     function isOverPriceSpread(address baseToken) external view override returns (bool) {
-        uint256 markPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+        uint256 marketPrice = _getSqrtMarketTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
         uint256 indexTwap =
             IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-        uint256 spread = markPrice > indexTwap ? markPrice.sub(indexTwap) : indexTwap.sub(markPrice);
+        uint256 spread = marketPrice > indexTwap ? marketPrice.sub(indexTwap) : indexTwap.sub(marketPrice);
         return spread > PerpMath.mulRatio(indexTwap, _MAX_PRICE_SPREAD_RATIO);
+    }
+
+    /// @inheritdoc IExchange
+    // Deprecated function, will be removed in the next release
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view override returns (uint160) {
+        return _getSqrtMarketTwapX96(baseToken, twapInterval);
+    }
+
+    /// @inheritdoc IExchange
+    function getSqrtMarketTwapX96(address baseToken, uint32 twapInterval) external view override returns (uint160) {
+        return _getSqrtMarketTwapX96(baseToken, twapInterval);
     }
 
     //
@@ -371,11 +382,6 @@ contract Exchange is
                 fundingGrowthGlobal,
                 liquidityCoefficientInFundingPayment
             );
-    }
-
-    /// @inheritdoc IExchange
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
 
     //
@@ -570,6 +576,10 @@ contract Exchange is
     // INTERNAL VIEW
     //
 
+    function _getSqrtMarketTwapX96(address baseToken, uint32 twapInterval) internal view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarketTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
+    }
+
     function _isOverPriceLimit(address baseToken) internal view returns (bool) {
         int24 tick = _getTick(baseToken);
         return _isOverPriceLimitWithTick(baseToken, tick);
@@ -617,7 +627,7 @@ contract Exchange is
 
         uint256 markTwapX96;
         if (marketOpen) {
-            markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
+            markTwapX96 = _getSqrtMarketTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
             indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
         } else {
             // if a market is paused/closed, we use the last known index price which is getPausedIndexPrice
@@ -628,7 +638,7 @@ contract Exchange is
             // timestamp is pausedTime when the market is not open
             uint32 secondsAgo = _blockTimestamp().sub(timestamp).toUint32();
             markTwapX96 = UniswapV3Broker
-                .getSqrtMarkTwapX96From(IMarketRegistry(_marketRegistry).getPool(baseToken), secondsAgo, twapInterval)
+                .getSqrtMarketTwapX96From(IMarketRegistry(_marketRegistry).getPool(baseToken), secondsAgo, twapInterval)
                 .formatSqrtPriceX96ToPriceX96();
             indexTwap = IBaseToken(baseToken).getPausedIndexPrice();
         }
@@ -652,7 +662,7 @@ contract Exchange is
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
             // twPremiumDivBySqrtPrice += deltaTwPremium / getSqrtMarkTwap(baseToken)
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                PerpMath.mulDiv(deltaTwPremiumX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
+                PerpMath.mulDiv(deltaTwPremiumX96, PerpFixedPoint96._IQ96, _getSqrtMarketTwapX96(baseToken, 0))
             );
         }
 

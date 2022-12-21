@@ -22,7 +22,6 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { IVault } from "./interface/IVault.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
-import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
@@ -264,7 +263,7 @@ contract ClearingHouse is
                     removedOpenNotional
                 );
 
-            uint256 sqrtPrice = _getSqrtMarkX96(params.baseToken);
+            uint256 sqrtPrice = _getSqrtMarketTwapX96(params.baseToken);
             _emitPositionChanged(
                 trader,
                 params.baseToken,
@@ -790,7 +789,7 @@ contract ClearingHouse is
             takerFee, // fee
             _getTakerOpenNotional(trader, baseToken), // openNotional
             realizedPnl,
-            _getSqrtMarkX96(baseToken) // sqrtPriceAfterX96: no swap, so market price didn't change
+            _getSqrtMarketTwapX96(baseToken) // sqrtPriceAfterX96: no swap, so market price didn't change
         );
     }
 
@@ -1113,8 +1112,8 @@ contract ClearingHouse is
         return IVault(_vault).getFreeCollateralByRatio(trader, ratio);
     }
 
-    function _getSqrtMarkX96(address baseToken) internal view returns (uint160) {
-        return IExchange(_exchange).getSqrtMarkTwapX96(baseToken, 0);
+    function _getSqrtMarketTwapX96(address baseToken) internal view returns (uint160) {
+        return IExchange(_exchange).getSqrtMarketTwapX96(baseToken, 0);
     }
 
     function _getMarginRequirementForLiquidation(address trader) internal view returns (int256) {
