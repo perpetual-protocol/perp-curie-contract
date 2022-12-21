@@ -15,6 +15,7 @@ interface IBaseToken {
     function cacheTwap(uint256 interval) external;
 
     /// @notice Get the price feed address
+    /// @dev priceFeed is now priceFeedDispatcher, which dispatches either Chainlink or UniswapV3 price
     /// @return priceFeed the current price feed
     function getPriceFeed() external view returns (address priceFeed);
 

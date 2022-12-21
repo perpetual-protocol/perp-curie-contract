@@ -64,6 +64,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         _close(_pausedIndexPrice);
     }
 
+    /// @dev priceFeed is now priceFeedDispatcher, which dispatches either Chainlink or UniswapV3 price
     function setPriceFeed(address priceFeedArg) external onlyOwner {
         // For all USD pairs, ChainlinkPriceFeed uses 8 decimals
         uint8 priceFeedDecimals = IPriceFeedDispatcher(priceFeedArg).decimals();
