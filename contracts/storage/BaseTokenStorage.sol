@@ -9,10 +9,12 @@ import { IBaseToken } from "../interface/IBaseToken.sol";
 abstract contract BaseTokenStorageV1 {
     // --------- IMMUTABLE ---------
 
+    // _priceFeedDecimals is now priceFeedDispatcherDecimals, which is IPriceFeedDispatcher.decimals()
     uint8 internal _priceFeedDecimals;
 
     // --------- ^^^^^^^^^ ---------
 
+    // _priceFeed is now priceFeedDispatcher, which dispatches either Chainlink or UniswapV3 price
     address internal _priceFeed;
 }
 

@@ -542,7 +542,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         address marketRegistry = UniswapV3CallbackBridge(_orderBook).getMarketRegistry();
         address pool = IMarketRegistry(marketRegistry).getPool(baseToken);
         return
-            UniswapV3Broker.getSqrtMarkTwapX96(pool, twapInterval).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+            UniswapV3Broker.getSqrtMarketTwapX96(pool, twapInterval).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
     }
 
     function _getIndexPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
