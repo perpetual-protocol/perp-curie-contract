@@ -92,7 +92,6 @@ describe("Vault settleBadDebt (assume zero IF fee)", () => {
         await addOrder(fixture, bob, 500, 1000000, 0, 150000)
 
         // Carol will liquidate Alice's position
-        await clearingHouseConfig.setBackstopLiquidityProvider(carol.address, true)
         const usdcAmount = parseUnits("10000", usdcDecimals)
         await usdc.mint(carol.address, usdcAmount)
         await usdc.connect(carol).approve(vault.address, usdcAmount)

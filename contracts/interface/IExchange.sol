@@ -47,9 +47,9 @@ interface IExchange {
 
     /// @notice Emitted when the global funding growth is updated
     /// @param baseToken Address of the base token
-    /// @param markTwap The market twap price when the funding growth is updated
+    /// @param marketTwap The market twap price when the funding growth is updated
     /// @param indexTwap The index twap price when the funding growth is updated
-    event FundingUpdated(address indexed baseToken, uint256 markTwap, uint256 indexTwap);
+    event FundingUpdated(address indexed baseToken, uint256 marketTwap, uint256 indexTwap);
 
     /// @notice Emitted when maxTickCrossedWithinBlock is updated
     /// @param baseToken Address of the base token
@@ -103,12 +103,23 @@ interface IExchange {
         view
         returns (int256 pendingFundingPayment);
 
-    /// @notice Get the square root of the market twap price with the given time interval
+    /// @notice (Deprecated function, will be removed in the next release)
+    /// Get the square root of the market twap price with the given time interval
     /// @dev The return value is a X96 number
     /// @param baseToken Address of the base token
     /// @param twapInterval The time interval in seconds
     /// @return sqrtMarkTwapX96 The square root of the market twap price
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160 sqrtMarkTwapX96);
+
+    /// @notice Get the square root of the market twap price with the given time interval
+    /// @dev The return value is a X96 number
+    /// @param baseToken Address of the base token
+    /// @param twapInterval The time interval in seconds
+    /// @return sqrtMarketTwapX96 The square root of the market twap price
+    function getSqrtMarketTwapX96(address baseToken, uint32 twapInterval)
+        external
+        view
+        returns (uint160 sqrtMarketTwapX96);
 
     /// @notice Get the pnl that can be realized if trader reduce position
     /// @dev This function normally won't be needed by traders, but it might be useful for 3rd party

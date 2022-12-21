@@ -762,7 +762,6 @@ describe("ClearingHouse liquidate maker", () => {
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
             // liquidate maker's position on pool2 (with bad debt)
-            await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
             await expect(
                 clearingHouse
                     .connect(davis)
@@ -862,7 +861,6 @@ describe("ClearingHouse liquidate maker", () => {
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
             // liquidate maker's position on pool2, but the margin ratio is still too low, maker will be liquidated on pool1
-            await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
             await expect(
                 clearingHouse
                     .connect(davis)

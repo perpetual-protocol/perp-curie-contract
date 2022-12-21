@@ -109,7 +109,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             // which makes the mark price become 149.863446 (tick = 50099.75001)
 
             // if we get sqrtMarkTwapX96 with timeInterval == 0, the value should be same as the initial price = 151.3733069
-            // await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
+            // await exchange.getSqrtMarketTwapX96(baseToken.address, 0)).toString() == 11993028956124528295336454433927
             // (11993028956124528295336454433927 / 2^96) = 151.3733068587
             // -> no need to pow(151.3733068587, 2) here as the initial value is already powered in their system, for unknown reason
 
@@ -195,7 +195,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
             // -> 1.0001 ^ 50115 = 150.0921504352
 
             await mockIndexPrice(mockedPriceFeedDispatcher, "150.092150")
-            // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
+            // expect(await exchange.getSqrtMarketTwapX96(baseToken.address, 900)).eq("970640869716903962852171321230")
 
             const markPrice = await accountBalance.getMarkPrice(baseToken.address)
             // current mark price: 150.092150435211957755
@@ -296,7 +296,7 @@ describe("AccountBalance.getTotalPositionValue", () => {
         // -> 1.0001 ^ 50288 = 152.7112031757
 
         await mockIndexPrice(mockedPriceFeedDispatcher, "152.711203")
-        // expect(await clearingHouse.getSqrtMarkTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
+        // expect(await exchange.getSqrtMarketTwapX96(baseToken.address, 900)).eq("979072907636267862275708019389")
 
         // current mark price:  148.361226800394579524
 
@@ -329,20 +329,3 @@ describe("AccountBalance.getTotalPositionValue", () => {
         )
     })
 })
-
-// // === useful console.log for verifying stats ===
-// console.log("getSqrtMarkTwapX96")
-// console.log((await clearingHouse.getSqrtMarkTwapX96(baseToken.address)).toString())
-
-// console.log("alice")
-// console.log("getTotalPositionSize")
-// console.log((await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).toString())
-// console.log("getTotalPositionValue")
-// console.log((await accountBalance.getTotalPositionValue(alice.address, baseToken.address)).toString())
-
-// console.log("bob")
-// console.log("getTotalPositionSize")
-// console.log((await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).toString())
-// console.log("getTotalPositionValue")
-// console.log((await accountBalance.getTotalPositionValue(bob.address, baseToken.address)).toString())
-// // === useful console.log for verifying stats ===

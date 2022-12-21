@@ -7,21 +7,21 @@ import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/Sa
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
+import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
-import { IExchange } from "./interface/IExchange.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
+import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
-import { AccountBalanceStorageV2, AccountMarket } from "./storage/AccountBalanceStorage.sol";
+import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
 import { BlockContext } from "./base/BlockContext.sol";
 import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV2 {
+contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV1 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
     using SignedSafeMathUpgradeable for int256;
@@ -61,13 +61,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         require(vaultArg.isContract(), "AB_VNC");
         _vault = vaultArg;
         emit VaultChanged(vaultArg);
-    }
-
-    function setMarketRegistry(address marketRegistryArg) external onlyOwner {
-        // market registry address is not contract
-        require(marketRegistryArg.isContract(), "AB_MRNC");
-        _marketRegistry = marketRegistryArg;
-        emit MarketRegistryChanged(marketRegistryArg);
     }
 
     /// @inheritdoc IAccountBalance
@@ -200,11 +193,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     /// @inheritdoc IAccountBalance
     function getVault() external view override returns (address) {
         return _vault;
-    }
-
-    /// @inheritdoc IAccountBalance
-    function getMarketRegistry() external view override returns (address) {
-        return _marketRegistry;
     }
 
     /// @inheritdoc IAccountBalance
@@ -551,11 +539,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        address marketRegistry = UniswapV3CallbackBridge(_orderBook).getMarketRegistry();
+        address pool = IMarketRegistry(marketRegistry).getPool(baseToken);
         return
-            UniswapV3Broker
-                .getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval)
-                .formatSqrtPriceX96ToPriceX96()
-                .formatX96ToX10_18();
+            UniswapV3Broker.getSqrtMarketTwapX96(pool, twapInterval).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
     }
 
     function _getIndexPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
@@ -564,7 +551,7 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
 
     function _isMarkPriceEnabled(uint32 marketTwapInterval, uint32 premiumInterval) internal view returns (bool) {
         // sanity check params for mark price
-        return _marketRegistry != address(0) && marketTwapInterval != 0 && premiumInterval != 0;
+        return marketTwapInterval != 0 && premiumInterval != 0;
     }
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {

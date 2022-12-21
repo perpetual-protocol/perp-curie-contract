@@ -11,17 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.5.0] - TBD
 ### Added
-- Add `AccountBalance.getMarketRegistry()` to return the address of MarketRegistry contract.
 - Add `AccountBalance.getMarkPrice(address)` to return the mark price of given market.
 - Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
-- Add new event `MarketRegistryChanged` to `AccountBalance`, will emit in `setMarketRegistry(address)`
+- Add `Exchange.getSqrtMarketTwapX96()` to return market twap.
 
-## [2.4.0] - 2022-12-02 
+### Changed
+- Move events in ClearingHouseConfig to IClearingHouseConfigEvent in IClearingHouseConfig.sol
+
+### Deprecated
+- BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
+- `Exchange.getSqrtMarkTwapX96(address baseToken, uint32 twapInterval)` will be deprecated at later releases. Suggest to use `Exchange.getSqrtMarketTwapX96()` instead.
+
+## [2.4.1] - 2022-12-09
+- Transaction will fail if closing 25% of trader's position exceeds the max price impact per timestamp.
+
+## [2.4.0] - 2022-12-02
 ### Added
 - Add `CollateralManager.getDebtThresholdByTrader()`
 - Add `CollateralManager.getTotalWhitelistedDebtThreshold()`
 
-## [2.3.0] - 2022-12-02 
+## [2.3.0] - 2022-12-02
 ### Added
 - Add `Insurance.distributeFee()`
 - Add `Insurance.getThreshold()`
