@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add `AccountBalance.getMarkPrice(address)` to return the mark price of given market.
 - Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
+- Add `Exchange.getSqrtMarketTwapX96()` to return market twap.
 
 ### Changed
 - Move events in ClearingHouseConfig to IClearingHouseConfigEvent in IClearingHouseConfig.sol
 
 ### Deprecated
 - BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
+- `Exchange.getSqrtMarkTwapX96(address baseToken, uint32 twapInterval)` will be deprecated at later releases. Suggest to use `Exchange.getSqrtMarketTwapX96()` instead.
 
 ## [2.2.3] - 2022-10-24
 ### Changed
