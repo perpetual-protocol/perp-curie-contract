@@ -1,0 +1,152 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IClearingHouseConfig",
+  "sourceName": "contracts/interface/IClearingHouseConfig.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "getImRatio",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "imRatio",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getLiquidationPenaltyRatio",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "liquidationPenaltyRatio",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMarkPriceConfig",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "marketTwapInterval",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint32",
+          "name": "premiumInterval",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMaxFundingRate",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "maxFundingRate",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMaxMarketsPerAccount",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "maxMarketsPerAccount",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMmRatio",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "mmRatio",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getPartialCloseRatio",
+      "outputs": [
+        {
+          "internalType": "uint24",
+          "name": "partialCloseRatio",
+          "type": "uint24"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getSettlementTokenBalanceCap",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "settlementTokenBalanceCap",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getTwapInterval",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "twapInterval",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "isBackstopLiquidityProvider",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isBackstopLiquidityProvider",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

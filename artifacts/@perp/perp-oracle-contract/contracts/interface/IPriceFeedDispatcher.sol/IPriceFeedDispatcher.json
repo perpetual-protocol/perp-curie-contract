@@ -1,0 +1,173 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IPriceFeedDispatcher",
+  "sourceName": "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "contract ChainlinkPriceFeedV3",
+          "name": "chainlinkPriceFeedV3",
+          "type": "address"
+        }
+      ],
+      "name": "ChainlinkPriceFeedV3Updated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "enum IPriceFeedDispatcherEvent.Status",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "StatusUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "contract UniswapV3PriceFeed",
+          "name": "uniswapV3PriceFeed",
+          "type": "address"
+        }
+      ],
+      "name": "UniswapV3PriceFeedUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "decimals",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "interval",
+          "type": "uint256"
+        }
+      ],
+      "name": "dispatchPrice",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getChainlinkPriceFeedV3",
+      "outputs": [
+        {
+          "internalType": "contract ChainlinkPriceFeedV3",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "interval",
+          "type": "uint256"
+        }
+      ],
+      "name": "getDispatchedPrice",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getStatus",
+      "outputs": [
+        {
+          "internalType": "enum IPriceFeedDispatcherEvent.Status",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getUniswapV3PriceFeed",
+      "outputs": [
+        {
+          "internalType": "contract UniswapV3PriceFeed",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract ChainlinkPriceFeedV3",
+          "name": "chainlinkPriceFeedV3",
+          "type": "address"
+        }
+      ],
+      "name": "setChainlinkPriceFeedV3",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "enum IPriceFeedDispatcherEvent.Status",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "setPriceFeedStatus",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "contract UniswapV3PriceFeed",
+          "name": "uniswapV3PriceFeed",
+          "type": "address"
+        }
+      ],
+      "name": "setUniswapV3PriceFeed",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

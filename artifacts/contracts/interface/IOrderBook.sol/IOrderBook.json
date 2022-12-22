@@ -1,0 +1,716 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IOrderBook",
+  "sourceName": "contracts/interface/IOrderBook.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "exchange",
+          "type": "address"
+        }
+      ],
+      "name": "ExchangeChanged",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "trader",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "baseToken",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "base",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quote",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int24",
+              "name": "lowerTick",
+              "type": "int24"
+            },
+            {
+              "internalType": "int24",
+              "name": "upperTick",
+              "type": "int24"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "int256",
+                  "name": "twPremiumX96",
+                  "type": "int256"
+                },
+                {
+                  "internalType": "int256",
+                  "name": "twPremiumDivBySqrtPriceX96",
+                  "type": "int256"
+                }
+              ],
+              "internalType": "struct Funding.Growth",
+              "name": "fundingGrowthGlobal",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IOrderBook.AddLiquidityParams",
+          "name": "params",
+          "type": "tuple"
+        }
+      ],
+      "name": "addLiquidity",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "base",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quote",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "fee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint128",
+              "name": "liquidity",
+              "type": "uint128"
+            }
+          ],
+          "internalType": "struct IOrderBook.AddLiquidityResponse",
+          "name": "response",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getExchange",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "exchange",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "baseToken",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "int256",
+              "name": "twPremiumX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "twPremiumDivBySqrtPriceX96",
+              "type": "int256"
+            }
+          ],
+          "internalType": "struct Funding.Growth",
+          "name": "fundingGrowthGlobal",
+          "type": "tuple"
+        }
+      ],
+      "name": "getLiquidityCoefficientInFundingPayment",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "liquidityCoefficientInFundingPayment",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "baseToken",
+          "type": "address"
+        },
+        {
+          "internalType": "int24",
+          "name": "lowerTick",
+          "type": "int24"
+        },
+        {
+          "internalType": "int24",
+          "name": "upperTick",
+          "type": "int24"
+        }
+      ],
+      "name": "getOpenOrder",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint128",
+              "name": "liquidity",
+              "type": "uint128"
+            },
+            {
+              "internalType": "int24",
+              "name": "lowerTick",
+              "type": "int24"
+            },
+            {
+              "internalType": "int24",
+              "name": "upperTick",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastFeeGrowthInsideX128",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int256",
+              "name": "lastTwPremiumGrowthInsideX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "lastTwPremiumGrowthBelowX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "lastTwPremiumDivBySqrtPriceGrowthInsideX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "baseDebt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quoteDebt",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct OpenOrder.Info",
+          "name": "info",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "orderId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getOpenOrderById",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint128",
+              "name": "liquidity",
+              "type": "uint128"
+            },
+            {
+              "internalType": "int24",
+              "name": "lowerTick",
+              "type": "int24"
+            },
+            {
+              "internalType": "int24",
+              "name": "upperTick",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastFeeGrowthInsideX128",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int256",
+              "name": "lastTwPremiumGrowthInsideX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "lastTwPremiumGrowthBelowX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "lastTwPremiumDivBySqrtPriceGrowthInsideX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "baseDebt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quoteDebt",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct OpenOrder.Info",
+          "name": "info",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "baseToken",
+          "type": "address"
+        }
+      ],
+      "name": "getOpenOrderIds",
+      "outputs": [
+        {
+          "internalType": "bytes32[]",
+          "name": "orderIds",
+          "type": "bytes32[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "baseToken",
+          "type": "address"
+        },
+        {
+          "internalType": "int24",
+          "name": "lowerTick",
+          "type": "int24"
+        },
+        {
+          "internalType": "int24",
+          "name": "upperTick",
+          "type": "int24"
+        }
+      ],
+      "name": "getPendingFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "fee",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "baseToken",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "fetchBase",
+          "type": "bool"
+        }
+      ],
+      "name": "getTotalOrderDebt",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "debtAmount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address[]",
+          "name": "baseTokens",
+          "type": "address[]"
+        }
+      ],
+      "name": "getTotalQuoteBalanceAndPendingFee",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "totalQuoteAmountInPools",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalPendingFee",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "baseToken",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "fetchBase",
+          "type": "bool"
+        }
+      ],
+      "name": "getTotalTokenAmountInPoolAndPendingFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "totalPendingFee",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address[]",
+          "name": "tokens",
+          "type": "address[]"
+        }
+      ],
+      "name": "hasOrder",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "hasOrder",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "maker",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "baseToken",
+              "type": "address"
+            },
+            {
+              "internalType": "int24",
+              "name": "lowerTick",
+              "type": "int24"
+            },
+            {
+              "internalType": "int24",
+              "name": "upperTick",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint128",
+              "name": "liquidity",
+              "type": "uint128"
+            }
+          ],
+          "internalType": "struct IOrderBook.RemoveLiquidityParams",
+          "name": "params",
+          "type": "tuple"
+        }
+      ],
+      "name": "removeLiquidity",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "base",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quote",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "fee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "int256",
+              "name": "takerBase",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "takerQuote",
+              "type": "int256"
+            }
+          ],
+          "internalType": "struct IOrderBook.RemoveLiquidityResponse",
+          "name": "response",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "baseToken",
+              "type": "address"
+            },
+            {
+              "internalType": "bool",
+              "name": "isBaseToQuote",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "shouldUpdateState",
+              "type": "bool"
+            },
+            {
+              "internalType": "int256",
+              "name": "amount",
+              "type": "int256"
+            },
+            {
+              "internalType": "uint160",
+              "name": "sqrtPriceLimitX96",
+              "type": "uint160"
+            },
+            {
+              "internalType": "uint24",
+              "name": "exchangeFeeRatio",
+              "type": "uint24"
+            },
+            {
+              "internalType": "uint24",
+              "name": "uniswapFeeRatio",
+              "type": "uint24"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "int256",
+                  "name": "twPremiumX96",
+                  "type": "int256"
+                },
+                {
+                  "internalType": "int256",
+                  "name": "twPremiumDivBySqrtPriceX96",
+                  "type": "int256"
+                }
+              ],
+              "internalType": "struct Funding.Growth",
+              "name": "globalFundingGrowth",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct IOrderBook.ReplaySwapParams",
+          "name": "params",
+          "type": "tuple"
+        }
+      ],
+      "name": "replaySwap",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "int24",
+              "name": "tick",
+              "type": "int24"
+            },
+            {
+              "internalType": "uint256",
+              "name": "fee",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "insuranceFundFee",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IOrderBook.ReplaySwapResponse",
+          "name": "response",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "trader",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "baseToken",
+          "type": "address"
+        },
+        {
+          "components": [
+            {
+              "internalType": "int256",
+              "name": "twPremiumX96",
+              "type": "int256"
+            },
+            {
+              "internalType": "int256",
+              "name": "twPremiumDivBySqrtPriceX96",
+              "type": "int256"
+            }
+          ],
+          "internalType": "struct Funding.Growth",
+          "name": "fundingGrowthGlobal",
+          "type": "tuple"
+        }
+      ],
+      "name": "updateFundingGrowthAndLiquidityCoefficientInFundingPayment",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "liquidityCoefficientInFundingPayment",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "orderId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "int256",
+          "name": "base",
+          "type": "int256"
+        },
+        {
+          "internalType": "int256",
+          "name": "quote",
+          "type": "int256"
+        }
+      ],
+      "name": "updateOrderDebt",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

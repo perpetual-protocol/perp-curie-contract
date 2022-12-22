@@ -1,0 +1,50 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IPriceFeedDispatcherEvent",
+  "sourceName": "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "contract ChainlinkPriceFeedV3",
+          "name": "chainlinkPriceFeedV3",
+          "type": "address"
+        }
+      ],
+      "name": "ChainlinkPriceFeedV3Updated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "enum IPriceFeedDispatcherEvent.Status",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "StatusUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "contract UniswapV3PriceFeed",
+          "name": "uniswapV3PriceFeed",
+          "type": "address"
+        }
+      ],
+      "name": "UniswapV3PriceFeedUpdated",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

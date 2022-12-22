@@ -1,0 +1,36 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IChainlinkPriceFeedV3Event",
+  "sourceName": "@perp/perp-oracle-contract/contracts/interface/IChainlinkPriceFeedV3.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "price",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum IChainlinkPriceFeedV3Event.FreezedReason",
+          "name": "freezedReason",
+          "type": "uint8"
+        }
+      ],
+      "name": "ChainlinkPriceUpdated",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

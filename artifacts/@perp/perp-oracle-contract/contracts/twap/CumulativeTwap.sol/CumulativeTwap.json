@@ -1,0 +1,53 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "CumulativeTwap",
+  "sourceName": "@perp/perp-oracle-contract/contracts/twap/CumulativeTwap.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "currentObservationIndex",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "observations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "price",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "priceCumulative",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5061010e806100206000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c8063252c09d7146037578063aed3aff714605c575b600080fd5b60466042366004609d565b606d565b60405160539392919060b4565b60405180910390f35b60626094565b6040516053919060ca565b6001816101008110607d57600080fd5b600302018054600182015460029092015490925083565b60005460ff1681565b60006020828403121560ad578081fd5b5035919050565b9283526020830191909152604082015260600190565b60ff9190911681526020019056fea26469706673582212207fbbc652d0cfe99aaa5c2d0031f9dfc55316abedb609064f095364f85a45f6bd64736f6c63430007060033",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b506004361060325760003560e01c8063252c09d7146037578063aed3aff714605c575b600080fd5b60466042366004609d565b606d565b60405160539392919060b4565b60405180910390f35b60626094565b6040516053919060ca565b6001816101008110607d57600080fd5b600302018054600182015460029092015490925083565b60005460ff1681565b60006020828403121560ad578081fd5b5035919050565b9283526020830191909152604082015260600190565b60ff9190911681526020019056fea26469706673582212207fbbc652d0cfe99aaa5c2d0031f9dfc55316abedb609064f095364f85a45f6bd64736f6c63430007060033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
