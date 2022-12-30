@@ -254,7 +254,6 @@ contract Exchange is
         (, uint32 premiumInterval) = IClearingHouseConfig(_clearingHouseConfig).getMarkPriceConfig();
         try IBaseToken(baseToken).cacheTwap(premiumInterval) {} catch {}
 
-        // markTwap here is market twap, and used for funding rate calculation.
         uint256 marketTwap;
         uint256 indexTwap;
         (fundingGrowthGlobal, marketTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
