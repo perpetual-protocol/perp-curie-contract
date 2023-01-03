@@ -48,9 +48,7 @@ contract Attacker is Test {
     function addLiquiditiy(address baseToken, uint256 quoteAmount) public returns (address pool) {
         pool = marketRegistry.getPool(baseToken);
 
-        (, int24 tick, , , , , ) =
-            // bool unlocked
-            UniswapV3Pool(pool).slot0();
+        (, int24 tick, , , , , ) = UniswapV3Pool(pool).slot0();
         int24 space = UniswapV3Pool(pool).tickSpacing();
         int24 closestTick = tick % space;
 
