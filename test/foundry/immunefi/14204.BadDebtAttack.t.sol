@@ -52,6 +52,13 @@ library Utils {
 }
 
 contract Attacker is Test {
+    struct LiquidityPosition {
+        int24 lower;
+        int24 upper;
+        address baseToken;
+        uint256 liquidity;
+    }
+
     address public admin;
     ClearingHouse public clearingHouse;
     MarketRegistry public marketRegistry;
@@ -60,13 +67,6 @@ contract Attacker is Test {
     TestERC20 public usdc;
 
     LiquidityPosition[] public liquidityPositions;
-
-    struct LiquidityPosition {
-        int24 lower;
-        int24 upper;
-        address baseToken;
-        uint256 liquidity;
-    }
 
     constructor(
         address adminArg,
@@ -113,7 +113,7 @@ contract Attacker is Test {
                 minBase: 0,
                 minQuote: 0,
                 useTakerBalance: false,
-                deadline: block.timestamp + 1
+                deadline: block.timestamp + 1 // solhint-disable-line not-rely-on-time
             });
         IClearingHouse.AddLiquidityResponse memory resp = clearingHouse.addLiquidity(params);
 
@@ -122,7 +122,7 @@ contract Attacker is Test {
         );
     }
 
-    function removeLiquidity(address baseToken, uint256 index) public {
+    function removeLiquidity() public {
         LiquidityPosition memory liquidityPosition = liquidityPositions[liquidityPositions.length - 1];
         liquidityPositions.pop();
 
@@ -134,7 +134,7 @@ contract Attacker is Test {
                 liquidity: uint128(liquidityPosition.liquidity),
                 minBase: 0,
                 minQuote: 0,
-                deadline: block.timestamp
+                deadline: block.timestamp // solhint-disable-line not-rely-on-time
             });
         clearingHouse.removeLiquidity(params);
     }
@@ -156,7 +156,7 @@ contract Attacker is Test {
                 minBase: 0,
                 minQuote: 0,
                 useTakerBalance: false,
-                deadline: block.timestamp + 1
+                deadline: block.timestamp + 1 // solhint-disable-line not-rely-on-time
             });
         IClearingHouse.AddLiquidityResponse memory resp = clearingHouse.addLiquidity(params);
 
@@ -173,7 +173,7 @@ contract Attacker is Test {
                 isExactInput: false,
                 amount: amount,
                 oppositeAmountBound: 0,
-                deadline: block.timestamp,
+                deadline: block.timestamp, // solhint-disable-line not-rely-on-time
                 sqrtPriceLimitX96: 0,
                 referralCode: bytes32(0)
             });
@@ -188,7 +188,7 @@ contract Attacker is Test {
                 isExactInput: true,
                 amount: amount,
                 oppositeAmountBound: 0,
-                deadline: block.timestamp,
+                deadline: block.timestamp, // solhint-disable-line not-rely-on-time
                 sqrtPriceLimitX96: 0,
                 referralCode: bytes32(0)
             });
@@ -203,7 +203,7 @@ contract Attacker is Test {
             IClearingHouse.ClosePositionParams({
                 baseToken: baseToken,
                 oppositeAmountBound: 0,
-                deadline: block.timestamp,
+                deadline: block.timestamp, // solhint-disable-line not-rely-on-time
                 sqrtPriceLimitX96: sqrtPriceLimitX96,
                 referralCode: bytes32(0)
             });
@@ -267,7 +267,7 @@ contract BadDebtAttackTest is Setup {
                 minBase: 0,
                 minQuote: 0,
                 useTakerBalance: false,
-                deadline: block.timestamp + 1000
+                deadline: block.timestamp + 1000 // solhint-disable-line not-rely-on-time
             })
         );
         vm.stopPrank();
@@ -309,7 +309,7 @@ contract BadDebtAttackTest is Setup {
         badDebter.openLong(address(baseToken), hugeAmount);
 
         console.log("5. exploiter remove the huge concentrated liquidity");
-        exploiter.removeLiquidity(address(baseToken), 0);
+        exploiter.removeLiquidity();
 
         console.log("6. badDebter open a LP position at a really low price");
         badDebter.unlimitedLP(address(baseToken), 200000 ether);
