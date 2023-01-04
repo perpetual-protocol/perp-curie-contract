@@ -227,9 +227,13 @@ contract BadDebtAttackTest is Setup {
     function setUp() public virtual override {
         Setup.setUp();
 
+        prepareMarket();
+    }
+
+    function prepareMarket() public {
         vm.label(maker, "Maker");
 
-        // use the actual numbers of vONE on block 44985556 as possible
+        // try to use the actual numbers of vONE on block 44985556 as possible
 
         // initial market
         pool.initialize(9659599668537315424753160997); // $0.014864800618156348
@@ -274,15 +278,10 @@ contract BadDebtAttackTest is Setup {
 
         // increase settlementTokenBalanceCap to 10m
         clearingHouseConfig.setSettlementTokenBalanceCap(10_000_000 * 10**usdcDecimals);
-
-        badDebter = new Attacker(address(this), address(clearingHouse), address(marketRegistry), address(vault));
-        exploiter = new Attacker(address(this), address(clearingHouse), address(marketRegistry), address(vault));
-        vm.label(address(badDebter), "BadDebter");
-        vm.label(address(exploiter), "Exploiter");
     }
 
     // TODO
-    // function testAttackBeforeHotfix_shouldPass() public {
+    // function testAttack_beforeHotfix_shouldPass() public {
     //     uint256 initialUsdc = initialUsdcAmount * 2;
     //     uint256 currentUsdc = TestERC20(usdc).balanceOf(address(exploiter));
     //     console.log("initialUsdc:", initialUsdc);
@@ -293,7 +292,13 @@ contract BadDebtAttackTest is Setup {
     //     console.log("has profit:", currentUsdc - initialUsdc);
     // }
 
-    function testAttackAfterHotfix_shouldRevert() public {
+    // ref: https://github.com/perpetual-protocol/immunefi-14204/blob/main/test/Attack.sol
+    function testAttack_afterHotfix_shouldRevert() public {
+        badDebter = new Attacker(address(this), address(clearingHouse), address(marketRegistry), address(vault));
+        exploiter = new Attacker(address(this), address(clearingHouse), address(marketRegistry), address(vault));
+        vm.label(address(badDebter), "BadDebter");
+        vm.label(address(exploiter), "Exploiter");
+
         console.log("1. attacker deposit collaterals");
         badDebter.deposit(initialUsdcAmount);
         exploiter.deposit(initialUsdcAmount);
