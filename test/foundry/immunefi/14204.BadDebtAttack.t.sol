@@ -80,8 +80,6 @@ contract Common {
     }
 
     function deposit(uint256 amount) public {
-        // vm.deal(address(this), 10000 ether);
-
         usdc.approve(address(vault), amount);
         vault.deposit(address(usdc), amount);
     }
@@ -158,6 +156,7 @@ contract Common {
         );
     }
 
+    // used by Attack2
     function unlimitedLP(
         address baseToken,
         uint256 amount,
