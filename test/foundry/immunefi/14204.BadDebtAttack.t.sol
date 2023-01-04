@@ -332,8 +332,8 @@ contract BadDebtAttackTest is Setup {
         );
         usdcDecimals = usdc.decimals();
 
-        // increase settlementTokenBalanceCap to 50m
-        clearingHouseConfig.setSettlementTokenBalanceCap(50_000_000 * 10**usdcDecimals);
+        // increase settlementTokenBalanceCap to 16m
+        clearingHouseConfig.setSettlementTokenBalanceCap(16_000_000 * 10**usdcDecimals);
 
         // mint usdc to taker and deposit to vault
         uint256 takerUsdcAmount = 5_000_000 * 10**usdcDecimals;
@@ -423,7 +423,7 @@ contract BadDebtAttackTest is Setup {
         console.log("currentUsdc:", currentUsdc);
 
         bool hasProfit = currentUsdc > initialUsdc;
-        assertEq(hasProfit, false, "should not has profit");
+        assertEq(hasProfit, false, "should be no profit");
     }
 
     // ref: https://github.com/perpetual-protocol/immunefi-14204/blob/main/test/Attack2.sol
