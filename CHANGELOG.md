@@ -10,11 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.6.0] - TBD
 ### Changed
 - Switch `IPriceFeedV2` to `IPriceFeedDispatcher` in `BaseToken`.
-- Update `ClearingHouseConfig.setTwapInterval` to support 0 interval.
+- Update `ClearingHouseConfig.setTwapInterval()` to support 0 interval.
 
 ## [2.5.0] - TBD
 ### Added
-- Add `AccountBalance.getMarkPrice(address)` to return the mark price of given market.
+- Add `AccountBalance.getMarkPrice()` to return the mark price of given market.
 - Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
 - Add `Exchange.getSqrtMarketTwapX96()` to return market twap.
 
@@ -35,9 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.3.0] - 2022-12-02
 ### Added
-- Add `Insurance.distributeFee()`
-- Add `Insurance.getThreshold()`
-- Add `Insurance.getSurplusBeneficiary()`
+- Add `InsuranceFund.distributeFee()`
+- Add `InsuranceFund.getDistributionThreshold()`
+- Add `InsuranceFund.getSurplusBeneficiary()`
 - Add new event `ThresholdChanged`, `SurplusBeneficiaryChanged`, `FeeDistributed` to `InsuranceFund`
 
 ## [2.2.4] - 2022-12-02
