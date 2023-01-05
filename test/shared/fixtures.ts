@@ -1,7 +1,7 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken, QuoteToken, UniswapV3Factory, UniswapV3Pool, VirtualToken } from "../../typechain"
-import { ChainlinkPriceFeedV3, EmergencyPriceFeed, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { CACHED_TWAP_INTERVAL, CHAINLINK_AGGREGATOR_DECIMALS, PRICEFEEDDISPATCHER_DECIMALS } from "./constant"
 import { isAscendingTokenOrder } from "./utilities"
 
@@ -124,11 +124,4 @@ export async function base0Quote1PoolFixture(): Promise<PoolFixture> {
     const pool = poolFactory.attach(poolAddress) as UniswapV3Pool
 
     return { factory, pool, baseToken: token0, quoteToken: token1 }
-}
-
-export async function emergencyPriceFeedFixture(poolAddr: string, baseToken: BaseToken): Promise<EmergencyPriceFeed> {
-    const emergencyPriceFeedFactory = await ethers.getContractFactory("EmergencyPriceFeed")
-    const emergencyPriceFeed = (await emergencyPriceFeedFactory.deploy(poolAddr)) as EmergencyPriceFeed
-    await baseToken.setPriceFeed(emergencyPriceFeed.address)
-    return emergencyPriceFeed
 }
