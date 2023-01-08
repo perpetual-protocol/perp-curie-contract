@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
@@ -16,9 +16,9 @@ import { addOrder, b2qExactOutput, closePosition, q2bExactInput, removeAllOrders
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { withdrawAll } from "../helper/vaultHelper"
-import { emergencyPriceFeedFixture, token0Fixture } from "../shared/fixtures"
+import { token0Fixture } from "../shared/fixtures"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { getMarketTwap, mockIndexPrice } from "../shared/utilities"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse new market listing", () => {
@@ -184,44 +184,6 @@ describe("ClearingHouse new market listing", () => {
 
             expect(bobPendingFundingAfter.abs()).to.be.gt(bobPendingFundingBefore.abs())
             expect(davisPendingFundingAfter.abs()).to.be.gt(davisPendingFundingBefore.abs())
-        })
-
-        it.skip("Stop to cumulate funding after change to emergency oracle", async () => {
-            await forwardBothTimestamps(clearingHouse, 100)
-            // Random to update global funding
-            await clearingHouse.connect(bob).settleAllFunding(bob.address)
-
-            // Bob's funding has been settled
-            const bobBefore = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
-            expect(bobBefore).to.be.eq(0)
-
-            // Davis's funding still cumulate
-            const davisBefore = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
-            expect(davisBefore.abs()).to.be.gt(0)
-
-            const emergencyPriceFeed = await emergencyPriceFeedFixture(pool3Addr, baseToken3)
-            const priceFeed = await baseToken3.getPriceFeed()
-            expect(priceFeed).to.be.eq(emergencyPriceFeed.address)
-
-            // Ensure index twap should be equal market twap
-            // There's rounding difference when converting sqrtPriceX96 to price
-            const interval = 60
-            const indexTwap = await baseToken3.getIndexPrice(interval)
-            const markTwap = parseEther(await getMarketTwap(exchange, baseToken, interval))
-            expect(indexTwap).to.be.closeTo(markTwap, 1)
-
-            // Should not cumulate funding after forwarding timestamp
-            await forwardBothTimestamps(clearingHouse, 100)
-            const bobAfter100 = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
-            expect(bobAfter100).to.be.eq(0)
-            const davisAfter100 = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
-            expect(davisAfter100).to.be.eq(davisBefore)
-
-            // Davis should get zero pending funding after funding settlement
-            await clearingHouse.connect(davis).settleAllFunding(davis.address)
-            await forwardBothTimestamps(clearingHouse, 100)
-            const davisAfterSettle = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
-            expect(davisAfterSettle).to.be.eq(0)
         })
     })
 
