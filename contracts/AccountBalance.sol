@@ -6,19 +6,17 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+import { BlockContext } from "./base/BlockContext.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
-import { UniswapV3CallbackBridge } from "./base/UniswapV3CallbackBridge.sol";
-import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
-import { PerpMath } from "./lib/PerpMath.sol";
+import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
+import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IExchange } from "./interface/IExchange.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
-import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
-import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
+import { PerpMath } from "./lib/PerpMath.sol";
 import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
-import { BlockContext } from "./base/BlockContext.sol";
-import { IAccountBalance } from "./interface/IAccountBalance.sol";
-import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV1 {
@@ -539,20 +537,20 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
-        address marketRegistry = UniswapV3CallbackBridge(_orderBook).getMarketRegistry();
-        address pool = IMarketRegistry(marketRegistry).getPool(baseToken);
         return
-            UniswapV3Broker.getSqrtMarketTwapX96(pool, twapInterval).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+            IExchange(IOrderBook(_orderBook).getExchange())
+                .getSqrtMarketTwapX96(baseToken, twapInterval)
+                .formatSqrtPriceX96ToPriceX96()
+                .formatX96ToX10_18();
     }
 
     function _getIndexPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
         return IIndexPrice(baseToken).getIndexPrice(twapInterval);
     }
 
-    function _isMarkPriceEnabled(uint32 marketTwapInterval, uint32 premiumInterval) internal view returns (bool) {
-        // sanity check params for mark price
-        return marketTwapInterval != 0 && premiumInterval != 0;
-    }
+    //
+    // INTERNAL PURE
+    //
 
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {
         for (uint256 i = 0; i < baseTokens.length; i++) {
@@ -561,5 +559,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             }
         }
         return false;
+    }
+
+    function _isMarkPriceEnabled(uint32 marketTwapInterval, uint32 premiumInterval) internal pure returns (bool) {
+        // sanity check params for mark price
+        return marketTwapInterval != 0 && premiumInterval != 0;
     }
 }
