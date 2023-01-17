@@ -935,8 +935,15 @@ contract ClearingHouse is
             );
         }
 
-        // if not closing a position, check margin ratio after swap
-        if (!params.isClose) {
+        // check margin ratio after swap: mmRatio for closing position; else, imRatio
+        if (params.isClose) {
+            // CH_NEFCM: not enough free collateral by mmRatio
+            require(
+                (_getFreeCollateralByRatio(params.trader, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) >=
+                    0),
+                "CH_NEFCM"
+            );
+        } else {
             _requireEnoughFreeCollateral(params.trader);
         }
 

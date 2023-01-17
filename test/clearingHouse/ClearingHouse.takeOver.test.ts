@@ -1630,24 +1630,29 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await expect(closePosition(fixture, bob, 0, baseToken2.address)).to.be.revertedWith("CH_NEMRM")
         })
 
-        it("bob has enough margin to pay liquidation penalty for the rest positions which might be liquidated after closing/reducing position", async () => {
+        it("bob cannot close position as his margin ratio will be lower than getFreeCollateralByRatio(mmRatio) after closing", async () => {
             await mintAndDeposit(fixture, alice, 2_000_000)
             // alice short BTC position
             await b2qExactOutput(fixture, alice, 5_585_000, baseToken2.address)
 
             // bob closed his BTC position
-            // margin ratio: 0.031255530020907139166385999350904942563886
+            // margin ratio: 0.031255530020907139166385999350904942563886 < mmRatio = 6.25%
+            await expect(closePosition(fixture, bob, 0, baseToken2.address)).to.be.revertedWith("CH_NEFCM")
+        })
+
+        it("bob has enough margin to pay liquidation penalty for the rest positions which might be liquidated after closing/reducing position", async () => {
+            await mintAndDeposit(fixture, alice, 2_000_000)
+            // alice short BTC position
+            await b2qExactOutput(fixture, alice, 5_000_000, baseToken2.address)
+
+            // bob closed his BTC position
             await closePosition(fixture, bob, 0, baseToken2.address)
 
             // davis liquidates bob's ETH position but can not liquidate all position
             await mintAndDeposit(fixture, davis, 10000)
-            await clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken.address)
-
-            // should be liquidated 100% of eth position
-            expect(await accountBalance.getTakerPositionSize(bob.address, baseToken.address)).to.be.eq("0")
-            expect(await accountBalance.getTakerOpenNotional(bob.address, baseToken.address)).to.be.eq("0")
-
-            expect(await clearingHouse.getAccountValue(bob.address)).to.be.gte("0")
+            await expect(
+                clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken.address),
+            ).to.be.revertedWith("CH_EAV")
         })
     })
 
