@@ -1635,24 +1635,28 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             // alice short BTC position
             await b2qExactOutput(fixture, alice, 5_585_000, baseToken2.address)
 
-            // bob closed his BTC position
+            // bob cannot close his BTC position
             // margin ratio: 0.031255530020907139166385999350904942563886 < mmRatio = 6.25%
             await expect(closePosition(fixture, bob, 0, baseToken2.address)).to.be.revertedWith("CH_NEFCM")
         })
 
-        it("bob has enough margin to pay liquidation penalty for the rest positions which might be liquidated after closing/reducing position", async () => {
+        it("force error, if bob closes the position without loss first, davis cannot liquidate bob's position with loss as bob's margin ratio is safe already", async () => {
             await mintAndDeposit(fixture, alice, 2_000_000)
             // alice short BTC position
-            await b2qExactOutput(fixture, alice, 5_000_000, baseToken2.address)
+            await b2qExactOutput(fixture, alice, 5_585_000, baseToken2.address)
 
-            // bob closed his BTC position
-            await closePosition(fixture, bob, 0, baseToken2.address)
+            // bob closed his ETH position
+            // margin ratio: 0.1094970445778459454039845940893038176293
+            await closePosition(fixture, bob, 0, baseToken.address)
 
-            // davis liquidates bob's ETH position but can not liquidate all position
+            // davis cannot liquidate bob's BTC position as bob's margin ratio is safe
             await mintAndDeposit(fixture, davis, 10000)
             await expect(
-                clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken.address),
+                clearingHouse.connect(davis)["liquidate(address,address)"](bob.address, baseToken2.address),
             ).to.be.revertedWith("CH_EAV")
+
+            // bob can close his BTC position now
+            await closePosition(fixture, bob, 0, baseToken2.address)
         })
     })
 
