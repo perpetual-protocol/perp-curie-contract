@@ -323,6 +323,10 @@ contract BadDebtAttackTest is Setup {
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 200000);
         exchange.setMaxTickCrossedWithinBlock(address(baseToken), 250);
 
+        // In order to calculate mark price, we need market twap (30m) and market twap (15m)
+        // Will get `OLD` revert message, if we don't forward timestamp
+        vm.warp(block.timestamp + 2000);
+
         // mock priceFeed
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
