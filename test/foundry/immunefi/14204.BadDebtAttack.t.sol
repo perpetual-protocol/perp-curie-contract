@@ -330,7 +330,7 @@ contract BadDebtAttackTest is Setup {
         // mock priceFeed
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(1486480) // $0.01486480
         );
         usdcDecimals = usdc.decimals();
