@@ -24,7 +24,7 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
-import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
+import { ExchangeStorageV2 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
@@ -35,7 +35,7 @@ contract Exchange is
     BlockContext,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ExchangeStorageV1
+    ExchangeStorageV2
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -85,6 +85,7 @@ contract Exchange is
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     uint24 internal constant _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP = 1000; // 10%
     uint24 internal constant _MAX_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
+    uint256 internal constant _TICK_SNAPSHOT_INTERVAL = 15; // 15 sec
 
     //
     // EXTERNAL NON-VIEW
@@ -276,8 +277,13 @@ contract Exchange is
             ) = (timestamp, fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
 
             emit FundingUpdated(baseToken, markTwap, indexTwap);
+        }
 
+        // last tick will be stopped updating once the market is being paused
+        uint256 lastTickUpdatedTimestamp = _lastTickUpdatedTimestampMap[baseToken];
+        if (lastTickUpdatedTimestamp == 0 || timestamp >= lastTickUpdatedTimestamp.add(_TICK_SNAPSHOT_INTERVAL)) {
             // update tick for price limit checks
+            _lastTickUpdatedTimestampMap[baseToken] = timestamp;
             _lastUpdatedTickMap[baseToken] = _getTick(baseToken);
         }
 
