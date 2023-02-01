@@ -161,37 +161,22 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
         bool isPartialClose;
-        bool isOverPriceLimit = _isOverPriceLimit(params.baseToken);
-        // if over price limit when
-        // 1. closing a position, then partially close the position
-        // 2. else then revert
+
         if (params.isClose && takerPositionSize != 0) {
             // if trader is on long side, baseToQuote: true, exactInput: true
             // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
-            // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
-            // if this is not the first tx in this timestamp and it's already over limit,
-            // then use _isOverPriceLimit is enough
+            // simulate the tx to see if it's over the price limit; if true, can partially close the position
             if (
-                isOverPriceLimit ||
                 _isOverPriceLimitBySimulatingClosingPosition(
                     params.baseToken,
                     takerPositionSize < 0, // it's a short position
                     params.amount // it's the same as takerPositionSize but in uint256
                 )
             ) {
-                uint256 timestamp = _blockTimestamp();
-                // EX_AOPLO: already over price limit once
-                require(timestamp != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "EX_AOPLO");
-
-                _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = timestamp;
-
                 uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
                 params.amount = params.amount.mulRatio(partialCloseRatio);
                 isPartialClose = true;
             }
-        } else {
-            // EX_OPLBS: over price limit before swap
-            require(!isOverPriceLimit, "EX_OPLBS");
         }
 
         // get openNotional before swap
@@ -199,10 +184,8 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
-        // if (!params.isClose) {
         // over price limit after swap
         require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
-        // }
 
         // when takerPositionSize < 0, it's a short position
         bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
@@ -575,11 +558,6 @@ contract Exchange is
     //
     // INTERNAL VIEW
     //
-
-    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
-        int24 tick = _getTick(baseToken);
-        return _isOverPriceLimitWithTick(baseToken, tick);
-    }
 
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
