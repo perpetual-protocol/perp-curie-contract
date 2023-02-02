@@ -91,7 +91,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
             await q2bExactInput(fixture, account1, 6300)
 
             // forward timestamp to avoid _isOverPriceLimitWithTick
-            await forwardBothTimestamps(clearingHouse)
+            await forwardBothTimestamps(clearingHouse, 15)
             count++
         }
 
