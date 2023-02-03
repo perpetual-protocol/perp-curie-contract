@@ -20,6 +20,7 @@ abstract contract ExchangeStorageV1 {
     // value: a threshold to limit the price impact per block when reducing or closing the position
     mapping(address => uint24) internal _maxTickCrossedWithinBlockMap;
 
+    // _lastOverPriceLimitTimestampMap is deprecated
     // first key: trader, second key: baseToken
     // value: the last timestamp when a trader exceeds price limit when closing a position/being liquidated
     mapping(address => mapping(address => uint256)) internal _lastOverPriceLimitTimestampMap;
