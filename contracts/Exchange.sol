@@ -264,7 +264,7 @@ contract Exchange is
 
         // last tick will be stopped updating once the market is being paused
         uint256 lastTickUpdatedTimestamp = _lastTickUpdatedTimestampMap[baseToken];
-        if (lastTickUpdatedTimestamp == 0 || timestamp >= lastTickUpdatedTimestamp.add(_TICK_SNAPSHOT_INTERVAL)) {
+        if (timestamp >= lastTickUpdatedTimestamp.add(_TICK_SNAPSHOT_INTERVAL)) {
             // update tick for price limit checks
             _lastTickUpdatedTimestampMap[baseToken] = timestamp;
             _lastUpdatedTickMap[baseToken] = _getTick(baseToken);
