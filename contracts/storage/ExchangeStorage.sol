@@ -13,6 +13,7 @@ abstract contract ExchangeStorageV1 {
 
     mapping(address => int24) internal _lastUpdatedTickMap;
     mapping(address => uint256) internal _firstTradedTimestampMap;
+    // the last timestamp when funding is settled
     mapping(address => uint256) internal _lastSettledTimestampMap;
     mapping(address => Funding.Growth) internal _globalFundingGrowthX96Map;
 
@@ -27,6 +28,7 @@ abstract contract ExchangeStorageV1 {
 }
 
 abstract contract ExchangeStorageV2 is ExchangeStorageV1 {
+    // the last timestamp when tick is updated; for price limit check
     // key: base token
     // value: the last timestamp to update the tick
     mapping(address => uint256) internal _lastTickUpdatedTimestampMap;

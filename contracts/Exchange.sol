@@ -161,11 +161,8 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
         bool isPartialClose;
-
         if (params.isClose && takerPositionSize != 0) {
-            // if trader is on long side, baseToQuote: true, exactInput: true
-            // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
-            // simulate the tx to see if it's over the price limit; if true, can partially close the position
+            // simulate the tx to see if it's over the price limit; if true, can only partially close the position
             if (
                 _isOverPriceLimitBySimulatingClosingPosition(
                     params.baseToken,
@@ -184,7 +181,7 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
-        // over price limit after swap
+        // EX_OPLAS: over price limit after swap
         require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
 
         // when takerPositionSize < 0, it's a short position
@@ -262,10 +259,10 @@ contract Exchange is
             emit FundingUpdated(baseToken, markTwap, indexTwap);
         }
 
-        // last tick will be stopped updating once the market is being paused
+        // update tick & timestamp for price limit check
+        // if timestamp diff < _TICK_SNAPSHOT_INTERVAL, including when the market is paused, they won't get updated
         uint256 lastTickUpdatedTimestamp = _lastTickUpdatedTimestampMap[baseToken];
         if (timestamp >= lastTickUpdatedTimestamp.add(_TICK_SNAPSHOT_INTERVAL)) {
-            // update tick for price limit checks
             _lastTickUpdatedTimestampMap[baseToken] = timestamp;
             _lastUpdatedTickMap[baseToken] = _getTick(baseToken);
         }
