@@ -71,6 +71,9 @@ contract ClearingHouseTest is Setup {
         );
         vm.stopPrank();
 
+        // initiate timestamp to enable last tick update; should be larger than Exchange._TICK_SNAPSHOT_INTERVAL
+        vm.warp(block.timestamp + 100);
+
         // mock price oracle
     }
 

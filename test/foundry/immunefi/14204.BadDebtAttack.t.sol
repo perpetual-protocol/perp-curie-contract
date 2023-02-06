@@ -366,6 +366,9 @@ contract BadDebtAttackTest is Setup {
             })
         );
         vm.stopPrank();
+
+        // initiate timestamp to enable last tick update; should be larger than Exchange._TICK_SNAPSHOT_INTERVAL
+        vm.warp(block.timestamp + 100);
     }
 
     function testAttack_beforeHotfix_shouldPass() public {
