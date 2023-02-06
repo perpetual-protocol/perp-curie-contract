@@ -202,5 +202,16 @@ describe("Sequencer Down", () => {
                 clearingHouse.connect(carol)["liquidate(address,address)"](alice.address, baseToken.address),
             ).to.be.revertedWith("CPF_SD")
         })
+
+        it("liquidate collateral", async () => {
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("5", 6), 0, 0, 0]
+            })
+
+            await expect(vault.connect(carol).isLiquidatable(alice.address)).to.be.revertedWith("CPF_SD")
+            await expect(
+                vault.connect(carol).liquidateCollateral(alice.address, op.address, parseEther("1"), true),
+            ).to.be.revertedWith("CPF_SD")
+        })
     })
 })
