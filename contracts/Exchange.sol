@@ -85,7 +85,7 @@ contract Exchange is
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     uint24 internal constant _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP = 1000; // 10%
     uint24 internal constant _MAX_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
-    uint256 internal constant _TICK_SNAPSHOT_INTERVAL = 15; // 15 sec
+    uint256 internal constant _PRICE_LIMIT_INTERVAL = 15; // 15 sec
 
     //
     // EXTERNAL NON-VIEW
@@ -260,9 +260,9 @@ contract Exchange is
         }
 
         // update tick & timestamp for price limit check
-        // if timestamp diff < _TICK_SNAPSHOT_INTERVAL, including when the market is paused, they won't get updated
+        // if timestamp diff < _PRICE_LIMIT_INTERVAL, including when the market is paused, they won't get updated
         uint256 lastTickUpdatedTimestamp = _lastTickUpdatedTimestampMap[baseToken];
-        if (timestamp >= lastTickUpdatedTimestamp.add(_TICK_SNAPSHOT_INTERVAL)) {
+        if (timestamp >= lastTickUpdatedTimestamp.add(_PRICE_LIMIT_INTERVAL)) {
             _lastTickUpdatedTimestampMap[baseToken] = timestamp;
             _lastUpdatedTickMap[baseToken] = _getTick(baseToken);
         }
