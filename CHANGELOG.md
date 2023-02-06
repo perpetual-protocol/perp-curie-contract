@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.4.2] - 2023-01-17
+- Ensure the trader's free collateral is enough for minimum maintenance requirement after closing a position.
+
 ## [2.4.1] - 2022-12-09
 - Transaction will fail if closing 25% of trader's position exceeds the max price impact per timestamp.
 
