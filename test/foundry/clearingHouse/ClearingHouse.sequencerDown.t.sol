@@ -7,6 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollateralManager } from "../../../contracts/CollateralManager.sol";
 import { IClearingHouse } from "../../../contracts/interface/IClearingHouse.sol";
 import { IVault } from "../../../contracts/interface/IVault.sol";
+import { IIndexPrice } from "../../../contracts/interface/IIndexPrice.sol";
 
 // start fork netwrok:
 //  anvil -f OPTIMISM_MAINNET_RPC_URL --fork-block-number 72499964
@@ -49,6 +50,7 @@ contract SequencerDownTest is Test {
     using stdStorage for StdStorage;
 
     address alice;
+    address bob;
 
     address optimismSequencerUptimeFeed = 0x58218ea7422255EBE94e56b504035a784b7AA204;
     address chainlinkSequencerL1Sender = 0x37a0fcbf3e9f82c50fD589d9Ec3a7B98C045DfAe;
@@ -58,7 +60,7 @@ contract SequencerDownTest is Test {
 
     address contractAdmin = 0x76Ff908b6d43C182DAEC59b35CebC1d7A17D8086;
 
-    address vETH = 0x8C835DFaA34e2AE61775e80EE29E2c724c6AE2BB;
+    address veth = 0x8C835DFaA34e2AE61775e80EE29E2c724c6AE2BB;
     address weth = 0x4200000000000000000000000000000000000006;
     address usdc = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607;
     IClearingHouse clearingHouse = IClearingHouse(0x82ac2CE43e33683c58BE4cDc40975E73aA50f459);
@@ -73,6 +75,13 @@ contract SequencerDownTest is Test {
         deal(usdc, alice, 1000e6);
         deal(weth, alice, 5 ether);
 
+        bob = makeAddr("bob");
+        deal(usdc, bob, 200000e6);
+
+        changePrank(bob);
+        IERC20(usdc).approve(address(vault), maxUint);
+        vault.deposit(address(usdc), 100000e6);
+
         changePrank(alice);
         IERC20(usdc).approve(address(vault), maxUint);
         vault.deposit(address(usdc), 1000e6);
@@ -85,11 +94,11 @@ contract SequencerDownTest is Test {
 
         changePrank(alice);
         IClearingHouse.OpenPositionParams memory params =
-            IClearingHouse.OpenPositionParams(vETH, false, true, 100 ether, 0, type(uint256).max, 0, 0x0);
+            IClearingHouse.OpenPositionParams(veth, false, true, 100 ether, 0, type(uint256).max, 0, 0x0);
         clearingHouse.openPosition(params);
     }
 
-    function simulate_sequencer_status(bool status) private {
+    function simulate_sequencer_status(bool status, address origPrankAddr) private {
         bytes memory message =
             abi.encodeWithSelector(IOptimismSequencerUptimeFeed.updateStatus.selector, status, block.timestamp);
         address l2MessageSender = address(uint160(l1CrossDomainMessenger) + offset);
@@ -100,7 +109,7 @@ contract SequencerDownTest is Test {
             message,
             10
         );
-        changePrank(alice);
+        changePrank(origPrankAddr);
     }
 
     function test_getPrice_SequencerDown() public {
@@ -109,14 +118,14 @@ contract SequencerDownTest is Test {
         assertTrue(price != 0);
 
         // Simulate sequencer down message.
-        simulate_sequencer_status(true);
+        simulate_sequencer_status(true, alice);
 
         // Price feed should revert due to sequencer being down.
         vm.expectRevert("CPF_SD");
         IChainlinkPriceFeed(chainlinkPricefeedV1R1).getPrice(0);
 
         // Simulate sequencer up message.
-        simulate_sequencer_status(false);
+        simulate_sequencer_status(false, alice);
 
         // Price feed should still revert due to grace period not passed yet.
         vm.expectRevert("CPF_GPNO");
@@ -130,17 +139,17 @@ contract SequencerDownTest is Test {
     function test_openPosition_SequencerDown() public {
         changePrank(alice);
         IClearingHouse.OpenPositionParams memory params =
-            IClearingHouse.OpenPositionParams(vETH, false, true, 100 ether, 0, maxUint, 0, 0x0);
+            IClearingHouse.OpenPositionParams(veth, false, true, 100 ether, 0, maxUint, 0, 0x0);
         clearingHouse.openPosition(params);
 
         // Simulate sequencer down message.
-        simulate_sequencer_status(true);
+        simulate_sequencer_status(true, alice);
 
         vm.expectRevert("CPF_SD");
         clearingHouse.openPosition(params);
 
         // Simulate sequencer up message.
-        simulate_sequencer_status(false);
+        simulate_sequencer_status(false, alice);
 
         // Price feed should still revert due to grace period not passed yet.
         vm.expectRevert("CPF_GPNO");
@@ -154,14 +163,14 @@ contract SequencerDownTest is Test {
     function test_closePosition_SequencerDown() public {
         changePrank(alice);
         // Simulate sequencer down message.
-        simulate_sequencer_status(true);
-        IClearingHouse.ClosePositionParams memory params = IClearingHouse.ClosePositionParams(vETH, 0, 0, maxUint, 0x0);
+        simulate_sequencer_status(true, alice);
+        IClearingHouse.ClosePositionParams memory params = IClearingHouse.ClosePositionParams(veth, 0, 0, maxUint, 0x0);
 
         vm.expectRevert("CPF_SD");
         clearingHouse.closePosition(params);
 
         // Simulate sequencer up message.
-        simulate_sequencer_status(false);
+        simulate_sequencer_status(false, alice);
 
         // Price feed should still revert due to grace period not passed yet.
         vm.expectRevert("CPF_GPNO");
@@ -176,17 +185,17 @@ contract SequencerDownTest is Test {
         changePrank(alice);
 
         IClearingHouse.AddLiquidityParams memory params =
-            IClearingHouse.AddLiquidityParams(vETH, 1 ether, 500 ether, 0, 150000, 0, 0, false, maxUint);
+            IClearingHouse.AddLiquidityParams(veth, 1 ether, 500 ether, 0, 150000, 0, 0, false, maxUint);
         clearingHouse.addLiquidity(params);
 
         // Simulate sequencer down message.
-        simulate_sequencer_status(true);
+        simulate_sequencer_status(true, alice);
 
         vm.expectRevert("CPF_SD");
         clearingHouse.addLiquidity(params);
 
         // Simulate sequencer up message.
-        simulate_sequencer_status(false);
+        simulate_sequencer_status(false, alice);
 
         // Price feed should still revert due to grace period not passed yet.
         vm.expectRevert("CPF_GPNO");
@@ -201,14 +210,115 @@ contract SequencerDownTest is Test {
         changePrank(alice);
 
         IClearingHouse.AddLiquidityParams memory addLiquidityParams =
-            IClearingHouse.AddLiquidityParams(vETH, 1 ether, 500 ether, 0, 150000, 0, 0, false, maxUint);
+            IClearingHouse.AddLiquidityParams(veth, 1 ether, 500 ether, 0, 150000, 0, 0, false, maxUint);
         clearingHouse.addLiquidity(addLiquidityParams);
 
         // Simulate sequencer down message.
-        simulate_sequencer_status(true);
+        simulate_sequencer_status(true, alice);
 
         IClearingHouse.RemoveLiquidityParams memory removeLiquidityParams =
-            IClearingHouse.RemoveLiquidityParams(vETH, 0, 150000, 1, 0, 0, maxUint);
+            IClearingHouse.RemoveLiquidityParams(veth, 0, 150000, 1, 0, 0, maxUint);
         clearingHouse.removeLiquidity(removeLiquidityParams);
+    }
+
+    function test_liquidate_SequencerDown() public {
+        changePrank(alice);
+
+        IClearingHouse.OpenPositionParams memory params =
+            IClearingHouse.OpenPositionParams(veth, false, true, 50000 ether, 0, type(uint256).max, 0, 0x0);
+        clearingHouse.openPosition(params);
+
+        // Mock vETH index price crash so Alice's ETH position can be liquidated. Note that
+        // we will not mock ETH collateral's oracle price so that means
+        // Alice's ETH collateral value will not change, but that's fine for this test.
+        changePrank(bob);
+        vm.mockCall(veth, abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, 900), abi.encode(10 ether));
+        clearingHouse.liquidate(alice, veth, 1 ether);
+
+        // Simulate sequencer down message.
+        simulate_sequencer_status(true, bob);
+
+        vm.expectRevert("CPF_SD");
+        clearingHouse.liquidate(alice, veth, 1 ether);
+
+        // Simulate sequencer up message.
+        simulate_sequencer_status(false, bob);
+
+        // Price feed should still revert due to grace period not passed yet.
+        vm.expectRevert("CPF_GPNO");
+        clearingHouse.liquidate(alice, veth, 1 ether);
+
+        // Price feed should work due to grace period has passed.
+        skip(3601); // Assume grace period = 3600 secs.
+        clearingHouse.liquidate(alice, veth, 1 ether);
+    }
+
+    function test_deposit_SequencerDown() public {
+        changePrank(alice);
+        deal(usdc, alice, 1000e6);
+        deal(weth, alice, 5 ether);
+
+        vault.deposit(usdc, 100e6);
+        vault.deposit(weth, 1 ether);
+
+        // Simulate sequencer down message.
+        simulate_sequencer_status(true, alice);
+        vault.deposit(usdc, 100e6);
+        vault.deposit(weth, 1 ether);
+    }
+
+    function test_withdraw_SequencerDown() public {
+        changePrank(alice);
+
+        vault.withdraw(usdc, 100e6);
+
+        // Simulate sequencer down message.
+        simulate_sequencer_status(true, alice);
+
+        vm.expectRevert("CPF_SD");
+        vault.withdraw(usdc, 100e6);
+
+        // Simulate sequencer up message.
+        simulate_sequencer_status(false, alice);
+
+        // Price feed should still revert due to grace period not passed yet.
+        vm.expectRevert("CPF_GPNO");
+        vault.withdraw(usdc, 100e6);
+
+        // Price feed should work due to grace period has passed.
+        skip(3601); // Assume grace period = 3600 secs.
+        vault.withdraw(usdc, 100e6);
+    }
+
+    function test_liquidateCollateral_SequencerDown() public {
+        changePrank(alice);
+
+        IClearingHouse.OpenPositionParams memory params =
+            IClearingHouse.OpenPositionParams(veth, false, true, 50000 ether, 0, type(uint256).max, 0, 0x0);
+        clearingHouse.openPosition(params);
+
+        // Mock vETH index price crash so Alice's ETH position can be liquidated. Note that
+        // we will not mock ETH collateral's oracle price so that means
+        // Alice's ETH collateral value will not change, but that's fine for this test.
+        changePrank(bob);
+        vm.mockCall(veth, abi.encodeWithSelector(IIndexPrice.getIndexPrice.selector, 900), abi.encode(10 ether));
+        vault.liquidateCollateral(alice, weth, 100e6, true);
+
+        // Simulate sequencer down message.
+        simulate_sequencer_status(true, bob);
+
+        vm.expectRevert("CPF_SD");
+        vault.liquidateCollateral(alice, weth, 100e6, true);
+
+        // Simulate sequencer up message.
+        simulate_sequencer_status(false, bob);
+
+        // Price feed should still revert due to grace period not passed yet.
+        vm.expectRevert("CPF_GPNO");
+        vault.liquidateCollateral(alice, weth, 100e6, true);
+
+        // Price feed should work due to grace period has passed.
+        skip(3601); // Assume grace period = 3600 secs.
+        vault.liquidateCollateral(alice, weth, 100e6, true);
     }
 }
