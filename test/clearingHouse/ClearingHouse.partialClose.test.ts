@@ -109,10 +109,8 @@ describe("ClearingHouse partial close in xyk pool", () => {
 
             expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
 
-            // move to next block to simplify test case
-            // otherwise we need to bring another trader to move the price further away
-
-            await forwardBothTimestamps(clearingHouse)
+            // move to next 15 secs to renew the over price checking window,to simplify test case
+            await forwardBothTimestamps(clearingHouse, 15)
 
             // price delta for every tick is 0.01%
             // if we want to limit price impact to 1%, and 1% / 0.01% = 100
