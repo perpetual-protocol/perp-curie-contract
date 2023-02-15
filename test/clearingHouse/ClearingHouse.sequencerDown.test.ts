@@ -18,16 +18,11 @@ import {
     UniswapV3Pool,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    closePosition,
-    q2bExactInput,
-    removeOrder,
-    syncIndexToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, closePosition, q2bExactInput, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("Sequencer Down", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
