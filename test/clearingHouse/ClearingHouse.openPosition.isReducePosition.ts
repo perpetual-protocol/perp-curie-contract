@@ -4,7 +4,7 @@ import { expect } from "chai"
 import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { AccountBalance, BaseToken, Exchange, TestClearingHouse, TestERC20, Vault } from "../../typechain"
-import { addOrder, b2qExactInput, b2qExactOutput, q2bExactOutput } from "../helper/clearingHouseHelper"
+import { addOrder, b2qExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { mockIndexPrice } from "../shared/utilities"
@@ -153,16 +153,19 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
         it("force error, reduce taker position and partial close when excess price limit", async () => {
             // alice add liquidity
             await addOrder(fixture, alice, 20, 1000, lowerTick, upperTick)
+            // max tick crossed: 1774544, current tick: 23027
 
             // bob swap let alice has maker position
             // alice maker positionSize : -10
             // alice taker positionSize: 0
             await q2bExactOutput(fixture, bob, 10)
+            //  max tick crossed: 1774544, current tick: 36890
 
             // alice swap
             // alice maker positionSize : -15
             // alice taker positionSize : 5
             await q2bExactOutput(fixture, alice, 5)
+            // max tick crossed: 1774544, current tick: 50754
 
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
                 parseEther("5"),
@@ -170,9 +173,11 @@ describe("ClearingHouse isIncreasePosition when trader is both of maker and take
 
             // set MaxTickCrossedWithinBlock so that trigger over price limit
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
+            // max tick crossed: 1000, current tick: 50754
+
             // expect revert due to over price limit
-            // alice reduce position
-            await expect(b2qExactOutput(fixture, alice, 5)).to.be.revertedWith("EX_OPLBS")
+            // alice reduce taker position
+            await expect(b2qExactInput(fixture, alice, 5)).to.be.revertedWith("EX_OPLAS")
         })
     })
 })

@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 - BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
 - `Exchange.getSqrtMarkTwapX96(address baseToken, uint32 twapInterval)` will be deprecated at later releases. Suggest to use `Exchange.getSqrtMarketTwapX96()` instead.
+## [2.4.3] - 2023-02-07
+- Update the price limit check on last tick of markets per 15 (Exchange._PRICE_LIMIT_INTERVAL) seconds.
+
+## [2.4.2] - 2023-01-17
+- Ensure the trader's free collateral is enough for minimum maintenance requirement after closing a position.
 
 ## [2.4.1] - 2022-12-09
 - Transaction will fail if closing 25% of trader's position exceeds the max price impact per timestamp.
