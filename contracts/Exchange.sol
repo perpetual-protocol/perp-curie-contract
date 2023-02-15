@@ -24,7 +24,7 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
-import { ExchangeStorageV1 } from "./storage/ExchangeStorage.sol";
+import { ExchangeStorageV2 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
@@ -35,7 +35,7 @@ contract Exchange is
     BlockContext,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ExchangeStorageV1
+    ExchangeStorageV2
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -85,6 +85,7 @@ contract Exchange is
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     uint24 internal constant _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP = 1000; // 10%
     uint24 internal constant _MAX_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
+    uint256 internal constant _PRICE_LIMIT_INTERVAL = 15; // 15 sec
 
     //
     // EXTERNAL NON-VIEW
@@ -160,37 +161,19 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
         bool isPartialClose;
-        bool isOverPriceLimit = _isOverPriceLimit(params.baseToken);
-        // if over price limit when
-        // 1. closing a position, then partially close the position
-        // 2. else then revert
         if (params.isClose && takerPositionSize != 0) {
-            // if trader is on long side, baseToQuote: true, exactInput: true
-            // if trader is on short side, baseToQuote: false (quoteToBase), exactInput: false (exactOutput)
-            // simulate the tx to see if it _isOverPriceLimit; if true, can partially close the position only once
-            // if this is not the first tx in this timestamp and it's already over limit,
-            // then use _isOverPriceLimit is enough
+            // simulate the tx to see if it's over the price limit; if true, can only partially close the position
             if (
-                isOverPriceLimit ||
                 _isOverPriceLimitBySimulatingClosingPosition(
                     params.baseToken,
                     takerPositionSize < 0, // it's a short position
                     params.amount // it's the same as takerPositionSize but in uint256
                 )
             ) {
-                uint256 timestamp = _blockTimestamp();
-                // EX_AOPLO: already over price limit once
-                require(timestamp != _lastOverPriceLimitTimestampMap[params.trader][params.baseToken], "EX_AOPLO");
-
-                _lastOverPriceLimitTimestampMap[params.trader][params.baseToken] = timestamp;
-
                 uint24 partialCloseRatio = IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio();
                 params.amount = params.amount.mulRatio(partialCloseRatio);
                 isPartialClose = true;
             }
-        } else {
-            // EX_OPLBS: over price limit before swap
-            require(!isOverPriceLimit, "EX_OPLBS");
         }
 
         // get openNotional before swap
@@ -198,10 +181,8 @@ contract Exchange is
             IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
         InternalSwapResponse memory response = _swap(params);
 
-        // if (!params.isClose) {
-        // over price limit after swap
+        // EX_OPLAS: over price limit after swap
         require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
-        // }
 
         // when takerPositionSize < 0, it's a short position
         bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
@@ -276,8 +257,13 @@ contract Exchange is
             ) = (timestamp, fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
 
             emit FundingUpdated(baseToken, marketTwap, indexTwap);
+        }
 
-            // update tick for price limit checks
+        // update tick & timestamp for price limit check
+        // if timestamp diff < _PRICE_LIMIT_INTERVAL, including when the market is paused, they won't get updated
+        uint256 lastTickUpdatedTimestamp = _lastTickUpdatedTimestampMap[baseToken];
+        if (timestamp >= lastTickUpdatedTimestamp.add(_PRICE_LIMIT_INTERVAL)) {
+            _lastTickUpdatedTimestampMap[baseToken] = timestamp;
             _lastUpdatedTickMap[baseToken] = _getTick(baseToken);
         }
 
@@ -578,11 +564,6 @@ contract Exchange is
 
     function _getSqrtMarketTwapX96(address baseToken, uint32 twapInterval) internal view returns (uint160) {
         return UniswapV3Broker.getSqrtMarketTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
-    }
-
-    function _isOverPriceLimit(address baseToken) internal view returns (bool) {
-        int24 tick = _getTick(baseToken);
-        return _isOverPriceLimitWithTick(baseToken, tick);
     }
 
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {

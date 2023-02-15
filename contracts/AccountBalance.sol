@@ -407,7 +407,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     //
-
     // INTERNAL NON-VIEW
     //
     function _modifyTakerBalance(
