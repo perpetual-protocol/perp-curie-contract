@@ -98,7 +98,6 @@ describe("ClearingHouse badDebt", () => {
                 // bob's account value should be greater than 0 because it's calculated by mark price
                 expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq(parseEther("111.960716"))
 
-                // to avoid over maxTickCrossedPerBlock
                 await forwardBothTimestamps(clearingHouse, 5)
                 // markPrice: 101.025123697070076996
                 // marketPrice: 0.828815379024741938
@@ -143,8 +142,11 @@ describe("ClearingHouse badDebt", () => {
             })
 
             it("cannot close position with partial close when trader has bad debt", async () => {
-                // set max price impact to 0.1% to trigger partial close
-                await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 10)
+                // set max price impact to 2.5% to trigger partial close
+                await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 250)
+
+                // to refresh tick check window
+                await forwardBothTimestamps(clearingHouse, 15)
 
                 // partial close bob's position: 7.866 * 25% = 1.88784
                 // exchanged notional: 1.629
