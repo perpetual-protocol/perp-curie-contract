@@ -295,6 +295,21 @@ contract Exchange is
     }
 
     /// @inheritdoc IExchange
+    function getFirstTradedTimestamp(address baseToken) external view override returns (uint256) {
+        return _firstTradedTimestampMap[baseToken];
+    }
+
+    /// @inheritdoc IExchange
+    function getLastSettledTimestamp(address baseToken) external view override returns (uint256) {
+        return _lastSettledTimestampMap[baseToken];
+    }
+
+    /// @inheritdoc IExchange
+    function getLastFundingGrowthGlobal(address baseToken) external view override returns (Funding.Growth memory) {
+        return _globalFundingGrowthX96Map[baseToken];
+    }
+
+    /// @inheritdoc IExchange
     function getPnlToBeRealized(RealizePnlParams memory params) external view override returns (int256) {
         AccountMarket.Info memory info =
             IAccountBalance(_accountBalance).getAccountInfo(params.trader, params.baseToken);
