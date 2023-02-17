@@ -431,7 +431,12 @@ contract ClearingHouse is
     }
 
     /// @inheritdoc IClearingHouse
-    function quitMarket(address trader, address baseToken) external override returns (uint256 base, uint256 quote) {
+    function quitMarket(address trader, address baseToken)
+        external
+        override
+        nonReentrant
+        returns (uint256 base, uint256 quote)
+    {
         // CH_MNC: Market not closed
         require(IBaseToken(baseToken).isClosed(), "CH_MNC");
 
