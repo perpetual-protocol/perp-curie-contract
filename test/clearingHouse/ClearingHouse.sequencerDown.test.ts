@@ -172,9 +172,7 @@ describe("Sequencer Down", () => {
         })
 
         it("liquidate with order", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("5", 6), 0, 0, 0]
-            })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("5"))
 
             // cannot cancel excess order on account with non-USDC collaterals
             await expect(
@@ -199,9 +197,7 @@ describe("Sequencer Down", () => {
         })
 
         it("liquidate collateral", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("5", 6), 0, 0, 0]
-            })
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("5"))
 
             await expect(vault.connect(carol).isLiquidatable(alice.address)).to.be.revertedWith("CPF_SD")
             await expect(
