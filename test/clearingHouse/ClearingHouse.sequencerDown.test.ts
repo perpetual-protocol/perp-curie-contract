@@ -41,7 +41,7 @@ describe("Sequencer Down", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -59,7 +59,7 @@ describe("Sequencer Down", () => {
         pool = _fixture.pool
         baseToken = _fixture.baseToken
         marketRegistry = _fixture.marketRegistry
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
@@ -83,7 +83,7 @@ describe("Sequencer Down", () => {
 
         // init market and increase price limit
         await initMarket(fixture, "151.373306858723226652", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // alice deposits both USDC and non-USDC collaterals
         const amount = parseUnits("2000", usdcDecimals)
