@@ -118,6 +118,7 @@ interface IVault {
 
     /// @notice Get the specified trader's settlement token balance, without pending fee, funding payment
     ///         and owed realized PnL
+    /// @param trader The address of the trader
     /// @dev The function is equivalent to `getBalanceByToken(trader, settlementToken)`
     ///      We keep this function solely for backward-compatibility with the older single-collateral system.
     ///      In practical applications, the developer might want to use `getSettlementTokenValue()` instead
@@ -132,7 +133,8 @@ interface IVault {
     /// @return balance The balance amount (in its native decimals)
     function getBalanceByToken(address trader, address token) external view returns (int256 balance);
 
-    /// @notice Get they array of collateral token addresses that a trader has
+    /// @notice Get the array of collateral token addresses that a trader has in their account
+    /// @param trader The address of the trader
     /// @return collateralTokens array of collateral token addresses
     function getCollateralTokens(address trader) external view returns (address[] memory collateralTokens);
 
