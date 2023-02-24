@@ -1,6 +1,6 @@
 import { BigNumber } from "ethers"
 
-export const CACHED_TWAP_INTERVAL = 15 * 60
+export const CACHED_TWAP_INTERVAL = 7 * 60
 export const USDC_DECIMALS = 6
 export const WBTC_DECIMALS = 8
 export const WETH_DECIMALS = 18
