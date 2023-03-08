@@ -632,7 +632,7 @@ describe("ClearingHouse openPosition", () => {
             )
         })
 
-        it("reduce position when margin ratio is smaller than imRatio", async () => {
+        it("reduce position when margin ratio is smaller than imRatio and greater than mmRatio", async () => {
             await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", USDC_DECIMALS))
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("133"))
             const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)

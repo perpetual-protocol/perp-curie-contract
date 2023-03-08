@@ -98,15 +98,6 @@ describe("ClearingHouse badDebt", () => {
                 await expect(b2qExactInput(fixture, bob, "2", baseToken.address)).to.be.revertedWith("CH_NEMRM")
             })
 
-            it("cannot reduce when not resulting bad debt but with not enough collateral", async () => {
-                // bob short 0.5 ETH to reduce position
-                // exchanged notional: 0.4139
-                // realized PnL: 0.4139 - 0.5/7.866 * 800 = -50.438
-                // account value: 100 + 7.366 * 103.222 - 800 + 0.4139 = 60.75 (no bad debt)
-                // free collateral: 100 - 50.438 - (800 - 0.4139 + 50.438) * 10% = -35.440
-                await expect(b2qExactInput(fixture, bob, "0.5", baseToken.address)).to.be.revertedWith("CH_NEFCI")
-            })
-
             it("can reduce when not resulting bad debt and has enough collateral", async () => {
                 // bob short 0.1 ETH to reduce position
                 // exchanged notional: 0.083
