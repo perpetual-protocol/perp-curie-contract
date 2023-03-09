@@ -922,21 +922,10 @@ contract ClearingHouse is
 
         if (response.pnlToBeRealized != 0) {
             // if realized pnl is not zero, that means trader is reducing or closing position
-            // trader cannot reduce/close position if the remaining account value is less than
-            // accountValue * LiquidationPenaltyRatio, which
-            // enforces traders to keep LiquidationPenaltyRatio of accountValue to
-            // shore the remaining positions and make sure traders having enough money to pay liquidation penalty.
+            // trader cannot reduce/close position if the free collateral by mmRatio is not enough
+            // for preventing bad debt and not enough liquidation penalty fee
+            // only liquidator can take over this position
 
-            // CH_NEMRM : not enough minimum required margin after reducing/closing position
-            require(
-                getAccountValue(params.trader) >=
-                    _getTotalAbsPositionValue(params.trader).mulRatio(_getLiquidationPenaltyRatio()).toInt256(),
-                "CH_NEMRM"
-            );
-        }
-
-        // check margin ratio after swap: mmRatio for closing position
-        if (params.isClose) {
             // CH_NEFCM: not enough free collateral by mmRatio
             require(
                 (_getFreeCollateralByRatio(params.trader, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) >=
