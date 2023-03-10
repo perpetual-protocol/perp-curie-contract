@@ -632,7 +632,7 @@ describe("ClearingHouse openPosition", () => {
             )
         })
 
-        it("reduce position when margin ratio is smaller than imRatio and greater than mmRatio", async () => {
+        it("reduce position and at the same side when margin ratio is smaller than imRatio and greater than mmRatio", async () => {
             await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", USDC_DECIMALS))
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("133"))
             const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
@@ -660,6 +660,33 @@ describe("ClearingHouse openPosition", () => {
             const positionSizeAfter = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
 
             expect(positionSizeAfter).to.be.eq(positionSize.sub(1))
+        })
+
+        it("reduce position and at the different side", async () => {
+            // 1000 - 999.6 = 0.4 as collateral
+            await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", USDC_DECIMALS))
+            const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
+            const freeCollateralByImRatio = await vault.getFreeCollateralByRatio(
+                taker.address,
+                await clearingHouseConfig.getImRatio(),
+            )
+
+            // free collateral 0.17
+            expect(freeCollateralByImRatio).to.be.gt(0)
+
+            // reverse position
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("6"), // greater than 0.4 * 10
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.be.revertedWith("CH_NEFCI")
         })
 
         it("close position, base's available/debt will be 0, settle to owedRealizedPnl", async () => {

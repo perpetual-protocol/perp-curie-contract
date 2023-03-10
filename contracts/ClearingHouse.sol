@@ -894,6 +894,9 @@ contract ClearingHouse is
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
     ///      https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events
     function _openPosition(InternalOpenPositionParams memory params) internal returns (IExchange.SwapResponse memory) {
+        int256 takerPositionSizeBeforeSwap =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+
         IExchange.SwapResponse memory response =
             IExchange(_exchange).swap(
                 IExchange.SwapParams({
@@ -920,8 +923,17 @@ contract ClearingHouse is
             0
         );
 
-        if (response.pnlToBeRealized != 0) {
-            // if realized pnl is not zero, that means trader is reducing or closing position
+        int256 takerPositionSizeAfterSwap =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+
+        bool hasBecameInversePosition =
+            (takerPositionSizeBeforeSwap < 0 && takerPositionSizeAfterSwap > 0) ||
+                (takerPositionSizeBeforeSwap > 0 && takerPositionSizeAfterSwap < 0)
+                ? true
+                : false;
+
+        if (response.pnlToBeRealized != 0 && !hasBecameInversePosition) {
+            // check margin free collateral by mmRatio after swap (reducing and closing position)
             // trader cannot reduce/close position if the free collateral by mmRatio is not enough
             // for preventing bad debt and not enough liquidation penalty fee
             // only liquidator can take over this position
@@ -932,10 +944,8 @@ contract ClearingHouse is
                     0),
                 "CH_NEFCM"
             );
-        }
-
-        // check margin ratio after swap: imRatio for increasing position
-        if (response.pnlToBeRealized == 0) {
+        } else {
+            // check margin free collateral by imRatio after swap (increasing and reversing position)
             _requireEnoughFreeCollateral(params.trader);
         }
 
