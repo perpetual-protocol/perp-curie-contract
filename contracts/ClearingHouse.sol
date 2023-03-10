@@ -926,11 +926,7 @@ contract ClearingHouse is
         int256 takerPositionSizeAfterSwap =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
-        bool hasBecameInversePosition =
-            (takerPositionSizeBeforeSwap < 0 && takerPositionSizeAfterSwap > 0) ||
-                (takerPositionSizeBeforeSwap > 0 && takerPositionSizeAfterSwap < 0)
-                ? true
-                : false;
+        bool hasBecameInversePosition = takerPositionSizeBeforeSwap ^ takerPositionSizeAfterSwap < 0;
 
         if (response.pnlToBeRealized != 0 && !hasBecameInversePosition) {
             // check margin free collateral by mmRatio after swap (reducing and closing position)

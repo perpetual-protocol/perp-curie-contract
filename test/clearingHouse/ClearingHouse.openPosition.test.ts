@@ -665,23 +665,54 @@ describe("ClearingHouse openPosition", () => {
         it("reduce position and at the different side", async () => {
             // 1000 - 999.6 = 0.4 as collateral
             await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", USDC_DECIMALS))
-            const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
-            const freeCollateralByImRatio = await vault.getFreeCollateralByRatio(
-                taker.address,
-                await clearingHouseConfig.getImRatio(),
-            )
 
+            // case 1: check reducing position when existing position is long
             // free collateral 0.17
-            expect(freeCollateralByImRatio).to.be.gt(0)
-
-            // reverse position
+            // reverse position with amount exceeds initial margin
             await expect(
                 clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
                     oppositeAmountBound: 0,
-                    amount: parseEther("6"), // greater than 0.4 * 10
+                    amount: parseEther("6"), // greater than (0.2*2+0.17) * 10, smaller than 0.4 * 16 (mmRatio)
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.be.revertedWith("CH_NEFCI")
+
+            // case 2: check reducing position when existing position is short
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("4"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // free collateral 0.13
+            const freeCollateralByImRatioAfter = await vault.getFreeCollateralByRatio(
+                taker.address,
+                await clearingHouseConfig.getImRatio(),
+            )
+
+            const positionSize = await accountBalance.getTakerPositionSize(taker.address, baseToken.address)
+
+            expect(freeCollateralByImRatioAfter).to.be.gt(0)
+            expect(positionSize).to.be.lt(0)
+
+            // reverse position with amount exceeds initial margin
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("5.5"), // greater than (0.13+0.2*2) * 10, smaller than 0.4 * 16 (mmRatio)
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
