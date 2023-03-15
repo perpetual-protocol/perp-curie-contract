@@ -633,7 +633,7 @@ describe("ClearingHouse openPosition", () => {
         })
 
         it("reduce position and at the same side when margin ratio is smaller than imRatio and greater than mmRatio", async () => {
-            await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", USDC_DECIMALS))
+            await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", collateralDecimals))
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("133"))
             const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
             const freeCollateralByImRatio = await vault.getFreeCollateralByRatio(
@@ -664,7 +664,7 @@ describe("ClearingHouse openPosition", () => {
 
         it("reduce position and at the different side", async () => {
             // 1000 - 999.6 = 0.4 as collateral
-            await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", USDC_DECIMALS))
+            await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", collateralDecimals))
 
             // case 1: check reducing position when existing position is long
             // free collateral 0.17
