@@ -24,7 +24,7 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
-import { ExchangeStorageV2 } from "./storage/ExchangeStorage.sol";
+import { ExchangeStorageV3 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
@@ -35,7 +35,7 @@ contract Exchange is
     BlockContext,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ExchangeStorageV2
+    ExchangeStorageV3
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -44,6 +44,7 @@ contract Exchange is
     using PerpMath for uint256;
     using PerpMath for uint160;
     using PerpMath for int256;
+    using PerpSafeCast for uint24;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
 
@@ -134,6 +135,12 @@ contract Exchange is
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
         emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
+    }
+
+    /// @dev Set the price band for the base token. can accept 0 as price band (no priceBand)
+    function setPriceBand(address baseToken, uint24 priceBand) external onlyOwner {
+        _baseTokenPriceBand[baseToken] = priceBand;
+        emit PriceBandChanged(baseToken, priceBand);
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
@@ -339,6 +346,11 @@ contract Exchange is
         return spread > PerpMath.mulRatio(indexTwap, _MAX_PRICE_SPREAD_RATIO);
     }
 
+    /// @inheritdoc IExchange
+    function getPriceBand(address baseToken) external view override returns (uint24) {
+        return _baseTokenPriceBand[baseToken];
+    }
+
     //
     // PUBLIC VIEW
     //
@@ -450,6 +462,9 @@ contract Exchange is
                     globalFundingGrowth: fundingGrowthGlobal
                 })
             );
+
+        uint256 priceSpreadAbsBeforeSwap = _getPriceSpreadAbs(params.baseToken);
+
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
@@ -471,6 +486,20 @@ contract Exchange is
                     )
                 )
             );
+
+        // check price band after swap
+        {
+            uint256 priceBand = _baseTokenPriceBand[params.baseToken].toUint256();
+            uint256 priceSpreadAbsAfterSwap = _getPriceSpreadAbs(params.baseToken);
+
+            if (priceBand != 0) {
+                if (priceSpreadAbsBeforeSwap > priceBand) {
+                    require(priceSpreadAbsAfterSwap < priceSpreadAbsBeforeSwap, "EX_OPB");
+                } else if (priceSpreadAbsBeforeSwap < priceBand) {
+                    require(priceSpreadAbsAfterSwap <= priceBand, "EX_OPB");
+                }
+            }
+        }
 
         // as we charge fees in ClearingHouse instead of in Uniswap pools,
         // we need to scale up base or quote amounts to get the exact exchanged position size and notional
@@ -724,5 +753,15 @@ contract Exchange is
     // @dev use virtual for testing
     function _getMaxTickCrossedWithinBlockCap() internal pure virtual returns (uint24) {
         return _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP;
+    }
+
+    function _getPriceSpreadAbs(address baseToken) internal view returns (uint256) {
+        uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+        uint256 indexTwap =
+            IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        return
+            marketPrice > indexTwap
+                ? marketPrice.sub(indexTwap).toInt256().mulDiv(1e6, indexTwap).toUint256()
+                : indexTwap.sub(marketPrice).toInt256().mulDiv(1e6, indexTwap).toUint256();
     }
 }

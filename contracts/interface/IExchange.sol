@@ -60,6 +60,11 @@ interface IExchange {
     /// @param accountBalance The address of accountBalance contract
     event AccountBalanceChanged(address accountBalance);
 
+    /// @notice Emitted when priceToken for baseToken is updated
+    /// @param baseToken Address of the base token
+    /// @param priceBand The price band for the base token
+    event PriceBandChanged(address indexed baseToken, uint24 priceBand);
+
     /// @notice The actual swap function
     /// @dev can only be called from ClearingHouse
     /// @param params The parameters of the swap
@@ -115,6 +120,11 @@ interface IExchange {
     /// @param params The params needed to do the query, encoded as `RealizePnlParams` in calldata
     /// @return pnlToBeRealized The pnl that can be realized if trader reduce position
     function getPnlToBeRealized(RealizePnlParams memory params) external view returns (int256 pnlToBeRealized);
+
+    /// @notice Get price band for a base token
+    /// @param baseToken Address of the base token
+    /// @return priceBand The price band for the base token
+    function getPriceBand(address baseToken) external view returns (uint24 priceBand);
 
     /// @notice Get `OrderBook` contract address
     /// @return orderBook `OrderBook` contract address

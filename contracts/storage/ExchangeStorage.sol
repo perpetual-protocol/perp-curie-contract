@@ -33,3 +33,10 @@ abstract contract ExchangeStorageV2 is ExchangeStorageV1 {
     // value: the last timestamp to update the tick
     mapping(address => uint256) internal _lastTickUpdatedTimestampMap;
 }
+
+abstract contract ExchangeStorageV3 is ExchangeStorageV2 {
+    // price band for each baseToken market, 0 means no price band
+    // key: base token
+    // value: price band
+    mapping(address => uint24) internal _baseTokenPriceBand;
+}
