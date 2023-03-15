@@ -14,5 +14,7 @@ interface ITestExchange is IExchange {
 
     function setMaxTickCrossedWithinBlock(address baseToken, uint24 maxTickCrossedWithinBlock) external;
 
+    function setPriceBand(address baseToken, uint24 priceBand) external;
+
     function setClearingHouse(address clearingHouseArg) external;
 }
