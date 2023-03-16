@@ -632,6 +632,36 @@ describe("ClearingHouse openPosition", () => {
             )
         })
 
+        it.only("reduce position when margin ratio is smaller than imRatio", async () => {
+            await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", USDC_DECIMALS))
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("133"))
+            const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
+            const freeCollateralByImRatio = await vault.getFreeCollateralByRatio(
+                taker.address,
+                await clearingHouseConfig.getImRatio(),
+            )
+            const freeCollateralByMmRatio = await vault.getFreeCollateralByRatio(
+                taker.address,
+                await clearingHouseConfig.getMmRatio(),
+            )
+            expect(freeCollateralByImRatio).to.be.lt(0)
+            expect(freeCollateralByMmRatio).to.be.gt(0)
+
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: 1,
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            const positionSizeAfter = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
+
+            expect(positionSizeAfter).to.be.eq(positionSize.sub(1))
+        })
+
         it("close position, base's available/debt will be 0, settle to owedRealizedPnl", async () => {
             // expect taker has 2 USD worth ETH
             const [baseBalance] = await clearingHouse.getTokenBalance(taker.address, baseToken.address)
