@@ -94,7 +94,7 @@ describe("ClearingHouse badDebt", () => {
                 // bob short 2 ETH to reduce position
                 // exchanged notional: 1.655
                 // realized PnL: 1.655 - 2/7.866 * 800 = -201.7520684
-                // account value: 100 + 5.866 * 101.025123697070076996 - 800 + 1.65 = -105.736624393 (bad debt)
+                // account value: 100 + 5.866 * 103.222 - 800 + 1.65 = -92.850 (bad debt)
                 await expect(b2qExactInput(fixture, bob, "2", baseToken.address)).to.be.revertedWith("CH_NEFCM")
             })
 
@@ -117,7 +117,7 @@ describe("ClearingHouse badDebt", () => {
                 // partial close bob's position: 7.866 * 25% = 1.88784
                 // exchanged notional: 1.629
                 // realized PnL: 1.629 - 800 * 0.25 = -198.371
-                // account value: 100 + 7.866 * 75% * 101.025123697070076996 - 800 + 1.629 = -102.3732827491 (bad debt)
+                // account value: 100 + 7.866 * 75% * 103.222 - 800 + 1.629 = -89.413 (bad debt)
                 await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEFCM")
             })
         })
@@ -145,7 +145,7 @@ describe("ClearingHouse badDebt", () => {
                 // bob short 1 ETH to reduce position
                 // exchanged notional: 103.013
                 // realized PnL: 103.013 - 1/7.866 * 800 = 1.20991652
-                // account value: 100 + 6.866 * 66.712342714851817157 - 800 + 103.013 = -138.9400549198 (bad debt)
+                // account value: 100 + 6.866 * 10 - 800 + 103.013 = -528.327 (bad debt)
                 await expect(b2qExactInput(fixture, bob, "1", baseToken.address)).to.be.revertedWith("CH_NEFCM")
             })
         })
