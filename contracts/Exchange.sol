@@ -24,7 +24,7 @@ import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
-import { ExchangeStorageV3 } from "./storage/ExchangeStorage.sol";
+import { ExchangeStorageV2 } from "./storage/ExchangeStorage.sol";
 import { IExchange } from "./interface/IExchange.sol";
 import { OpenOrder } from "./lib/OpenOrder.sol";
 
@@ -35,7 +35,7 @@ contract Exchange is
     BlockContext,
     ClearingHouseCallee,
     UniswapV3CallbackBridge,
-    ExchangeStorageV3
+    ExchangeStorageV2
 {
     using AddressUpgradeable for address;
     using SafeMathUpgradeable for uint256;
@@ -135,12 +135,6 @@ contract Exchange is
 
         _maxTickCrossedWithinBlockMap[baseToken] = maxTickCrossedWithinBlock;
         emit MaxTickCrossedWithinBlockChanged(baseToken, maxTickCrossedWithinBlock);
-    }
-
-    /// @dev Set the price band for the base token. can accept 0 as price band (no priceBand)
-    function setPriceBand(address baseToken, uint24 priceBand) external onlyOwner {
-        _baseTokenPriceBand[baseToken] = priceBand;
-        emit PriceBandChanged(baseToken, priceBand);
     }
 
     /// @inheritdoc IUniswapV3SwapCallback
@@ -339,16 +333,7 @@ contract Exchange is
 
     /// @inheritdoc IExchange
     function isOverPriceSpread(address baseToken) external view override returns (bool) {
-        uint256 markPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
-        uint256 indexTwap =
-            IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-        uint256 spread = markPrice > indexTwap ? markPrice.sub(indexTwap) : indexTwap.sub(markPrice);
-        return spread > PerpMath.mulRatio(indexTwap, _MAX_PRICE_SPREAD_RATIO);
-    }
-
-    /// @inheritdoc IExchange
-    function getPriceBand(address baseToken) external view override returns (uint24) {
-        return _baseTokenPriceBand[baseToken];
+        return _getPriceSpreadRatio(baseToken) > _MAX_PRICE_SPREAD_RATIO;
     }
 
     //
@@ -463,7 +448,7 @@ contract Exchange is
                 })
             );
 
-        uint256 priceSpreadAbsBeforeSwap = _getPriceSpreadAbs(params.baseToken);
+        uint256 priceSpreadRatioBeforeSwap = _getPriceSpreadRatio(params.baseToken);
 
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
@@ -489,15 +474,13 @@ contract Exchange is
 
         // check price band after swap
         {
-            uint256 priceBand = _baseTokenPriceBand[params.baseToken].toUint256();
-            uint256 priceSpreadAbsAfterSwap = _getPriceSpreadAbs(params.baseToken);
-
-            if (priceBand != 0) {
-                if (priceSpreadAbsBeforeSwap > priceBand) {
-                    require(priceSpreadAbsAfterSwap < priceSpreadAbsBeforeSwap, "EX_OPB");
-                } else if (priceSpreadAbsBeforeSwap < priceBand) {
-                    require(priceSpreadAbsAfterSwap <= priceBand, "EX_OPB");
-                }
+            uint256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken);
+            if (priceSpreadRatioBeforeSwap > _MAX_PRICE_SPREAD_RATIO) {
+                // EX_PSGBS: price spread greater than before swap spread
+                require(priceSpreadRatioAfterSwap < priceSpreadRatioBeforeSwap, "EX_PSGBS");
+            } else {
+                // EX_OPSAS: over price spread after swap
+                require(priceSpreadRatioAfterSwap <= _MAX_PRICE_SPREAD_RATIO, "EX_OPSAS");
             }
         }
 
@@ -755,13 +738,11 @@ contract Exchange is
         return _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP;
     }
 
-    function _getPriceSpreadAbs(address baseToken) internal view returns (uint256) {
+    function _getPriceSpreadRatio(address baseToken) internal view returns (uint24) {
         uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
         uint256 indexTwap =
             IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-        return
-            marketPrice > indexTwap
-                ? marketPrice.sub(indexTwap).toInt256().mulDiv(1e6, indexTwap).toUint256()
-                : indexTwap.sub(marketPrice).toInt256().mulDiv(1e6, indexTwap).toUint256();
+        uint256 spread = marketPrice > indexTwap ? marketPrice.sub(indexTwap) : indexTwap.sub(marketPrice);
+        return FullMath.mulDiv(spread, 1e6, indexTwap).toUint24();
     }
 }
