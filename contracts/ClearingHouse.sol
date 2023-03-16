@@ -848,25 +848,32 @@ contract ClearingHouse is
             0
         );
 
-        int256 takerPositionSizeAfterSwap =
-            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+        if (takerPositionSizeBeforeSwap != 0) {
+            int256 takerPositionSizeAfterSwap =
+                IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+            bool hasBecameInversePosition = takerPositionSizeBeforeSwap ^ takerPositionSizeAfterSwap < 0;
+            bool isReducingPosition = takerPositionSizeBeforeSwap < 0 != params.isBaseToQuote;
 
-        bool hasBecameInversePosition = takerPositionSizeBeforeSwap ^ takerPositionSizeAfterSwap < 0;
+            if (isReducingPosition && !hasBecameInversePosition) {
+                // check margin free collateral by mmRatio after swap (reducing and closing position)
+                // trader cannot reduce/close position if the free collateral by mmRatio is not enough
+                // for preventing bad debt and not enough liquidation penalty fee
+                // only liquidator can take over this position
 
-        if (response.pnlToBeRealized != 0 && !hasBecameInversePosition) {
-            // check margin free collateral by mmRatio after swap (reducing and closing position)
-            // trader cannot reduce/close position if the free collateral by mmRatio is not enough
-            // for preventing bad debt and not enough liquidation penalty fee
-            // only liquidator can take over this position
-
-            // CH_NEFCM: not enough free collateral by mmRatio
-            require(
-                (_getFreeCollateralByRatio(params.trader, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) >=
-                    0),
-                "CH_NEFCM"
-            );
+                // CH_NEFCM: not enough free collateral by mmRatio
+                require(
+                    (_getFreeCollateralByRatio(
+                        params.trader,
+                        IClearingHouseConfig(_clearingHouseConfig).getMmRatio()
+                    ) >= 0),
+                    "CH_NEFCM"
+                );
+            } else {
+                // check margin free collateral by imRatio after swap (increasing and reversing position)
+                _requireEnoughFreeCollateral(params.trader);
+            }
         } else {
-            // check margin free collateral by imRatio after swap (increasing and reversing position)
+            // check margin free collateral by imRatio after swap (opening a position)
             _requireEnoughFreeCollateral(params.trader);
         }
 
