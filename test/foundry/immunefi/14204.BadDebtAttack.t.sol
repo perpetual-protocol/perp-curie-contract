@@ -410,11 +410,11 @@ contract BadDebtAttackTest is Setup {
         badDebter.unlimitedLP(address(baseToken), 200000 ether);
 
         console.log("7. badDebter close position and realize a huge loss");
-        vm.expectRevert(bytes("EX_OPLAS"));
+        vm.expectRevert(bytes("EX_OPSAS"));
         badDebter.closePosition(address(baseToken), Utils.getSqrtRatioAtTick(Utils.MIN_TICK) + 100);
 
         console.log("8. exploiter close position and take the profit");
-        vm.expectRevert(bytes("EX_OPLAS"));
+        vm.expectRevert(bytes("EX_OPSAS"));
         exploiter.closePosition(address(baseToken), Utils.getSqrtRatioAtTick(Utils.MAX_TICK) - 100);
 
         exploiter.withdrawAll();
@@ -446,7 +446,7 @@ contract BadDebtAttackTest is Setup {
                 // half of usdcAmount goes to exploiter, another half goes to badDebter
                 usdc.transfer(address(exploiter), usdcAmount);
 
-                vm.expectRevert(bytes("EX_OPLAS"));
+                vm.expectRevert(bytes("EX_OPSAS"));
                 exploiter.attack2(address(baseToken), tick + 60 * i, usdcAmount / 2);
 
                 // the revert will be caught by Foundry,

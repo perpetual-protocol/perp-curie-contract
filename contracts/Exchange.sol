@@ -738,11 +738,12 @@ contract Exchange is
         return _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP;
     }
 
-    function _getPriceSpreadRatio(address baseToken) internal view returns (uint24) {
+    /// @dev ratio will return in uint256
+    function _getPriceSpreadRatio(address baseToken) internal view returns (uint256) {
         uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
         uint256 indexTwap =
             IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
         uint256 spread = marketPrice > indexTwap ? marketPrice.sub(indexTwap) : indexTwap.sub(marketPrice);
-        return FullMath.mulDiv(spread, 1e6, indexTwap).toUint24();
+        return FullMath.mulDiv(spread, 1e6, indexTwap);
     }
 }
