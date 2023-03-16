@@ -926,9 +926,13 @@ contract ClearingHouse is
         int256 takerPositionSizeAfterSwap =
             IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
 
-        bool hasBecameInversePosition = takerPositionSizeBeforeSwap ^ takerPositionSizeAfterSwap < 0;
+        bool hasBecameInversePosition =
+            takerPositionSizeBeforeSwap != 0 && takerPositionSizeBeforeSwap ^ takerPositionSizeAfterSwap < 0;
 
-        if (response.pnlToBeRealized != 0 && !hasBecameInversePosition) {
+        if (hasBecameInversePosition || takerPositionSizeBeforeSwap == 0) {
+            // check margin free collateral by imRatio after swap (increasing, decreasing and reversing position)
+            _requireEnoughFreeCollateral(params.trader);
+        } else {
             // check margin free collateral by mmRatio after swap (reducing and closing position)
             // trader cannot reduce/close position if the free collateral by mmRatio is not enough
             // for preventing bad debt and not enough liquidation penalty fee
@@ -940,9 +944,6 @@ contract ClearingHouse is
                     0),
                 "CH_NEFCM"
             );
-        } else {
-            // check margin free collateral by imRatio after swap (increasing and reversing position)
-            _requireEnoughFreeCollateral(params.trader);
         }
 
         // openNotional will be zero if baseToken is deregistered from trader's token list.
