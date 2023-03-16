@@ -15,9 +15,6 @@ contract ClearingHousePriceBandTest is Setup {
     function setUp() public virtual override {
         Setup.setUp();
 
-        // set baseToken priceBand to 10%
-        exchange.setPriceBand(address(baseToken), 0.1e6);
-
         // initial market
         pool.initialize(792281625142 ether);
         pool.increaseObservationCardinalityNext(250);
@@ -94,6 +91,103 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
+    // before in range, after out of range
+    function test_revert_open_long_position_when_before_in_range_but_after_our_of_range() public {
+        // open long position => market price > index price
+        // before:
+        //  - market price: 99.9999999998
+        //  - spread: 0
+        // after:
+        //  - market price: 110.1450249998
+        //  - spread: 101450 (10.1450 %)
+        vm.prank(address(trader));
+        vm.expectRevert(bytes("EX_OPSAS"));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 1000 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+    }
+
+    // before out of range, after spread greater than before spread
+    function test_revert_increase_long_position_when_before_out_of_range_and_after_spread_greater_than_before() public {
+        // open 100 U long position
+        vm.prank(address(trader));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+
+        // mock index price to 90
+        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(90 * 1e8));
+
+        // expect revert if user still open long position (enlarge price spread)
+        vm.prank(address(trader));
+        vm.expectRevert(bytes("EX_PSGBS"));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+    }
+
+    // before out of range, after spread less than before spread
+    function test_reduce_long_position_when_before_out_of_range_and_after_spread_less_than_before() public {
+        // open 100 U long position
+        vm.prank(address(trader));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+
+        // mock index price to 90
+        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(90 * 1e8));
+
+        vm.prank(address(trader));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: 50 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+    }
+
     // before in range, after in range
     function test_open_short_position_when_before_and_after_is_in_range() public {
         // open long position => market price < index price
@@ -119,32 +213,7 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before in range, after out of range
-    function test_open_long_position_when_before_in_range_but_after_our_of_range() public {
-        // open long position => market price > index price
-        // before:
-        //  - market price: 99.9999999998
-        //  - spread: 0
-        // after:
-        //  - market price: 110.1450249998
-        //  - spread: 101450 (10.1450 %)
-        vm.prank(address(trader));
-        vm.expectRevert(bytes("EX_OPB"));
-        clearingHouse.openPosition(
-            IClearingHouse.OpenPositionParams({
-                baseToken: address(baseToken),
-                isBaseToQuote: false,
-                isExactInput: true,
-                amount: 1000 ether,
-                oppositeAmountBound: 0,
-                deadline: block.timestamp,
-                sqrtPriceLimitX96: 0,
-                referralCode: ""
-            })
-        );
-    }
-
-    // before in range, after out of range
-    function test_open_short_position_when_before_in_range_but_after_our_of_range() public {
+    function test_revert_open_short_position_when_before_in_range_but_after_our_of_range() public {
         // open long position => market price > index price
         // before:
         //  - market price: 99.9999999998
@@ -153,7 +222,7 @@ contract ClearingHousePriceBandTest is Setup {
         //  - market price: 88.9996440013
         //  - spread: 110003 (11.0003 %)
         vm.prank(address(trader));
-        vm.expectRevert(bytes("EX_OPB"));
+        vm.expectRevert(bytes("EX_OPSAS"));
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
@@ -168,44 +237,41 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // before out of range, after spread less than before spread
-    function test_open_long_position_when_before_out_of_range_and_after_spread_less_than_before_spread() public {
-        // set price band to zero, and dump market price, let price spread > 10%
-        exchange.setPriceBand(address(baseToken), 0);
-
-        for (uint256 i = 0; i < 6; i++) {
-            vm.prank(address(trader));
-            clearingHouse.openPosition(
-                IClearingHouse.OpenPositionParams({
-                    baseToken: address(baseToken),
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    amount: 2 ether,
-                    oppositeAmountBound: 0,
-                    deadline: block.timestamp,
-                    sqrtPriceLimitX96: 0,
-                    referralCode: ""
-                })
-            );
-            vm.warp(block.timestamp + 15);
-        }
-
-        // set price band to 10% and open short position
-        exchange.setPriceBand(address(baseToken), 0.1e6);
-
-        // before:
-        //  - market price: 88.9996440013
-        //  - spread: 110003 (11.0003 %)
-        // after:
-        //  - market price: 89.8452415712
-        //  - spread: 101547 (10.1547 %), still > 10% but less than before spread
+    // before out of range, after spread greater than before spread
+    function test_revert_increase_short_position_when_before_out_of_range_and_after_spread_greater_than_before()
+        public
+    {
+        // open 100 U short position
         vm.prank(address(trader));
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
-                isBaseToQuote: false,
+                isBaseToQuote: true,
                 isExactInput: false,
-                amount: 1 ether,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+
+        // mock index price to 110
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encode(110 * 1e8)
+        );
+
+        // expect revert if user still open short position (enlarge price spread)
+        vm.prank(address(trader));
+        vm.expectRevert(bytes("EX_PSGBS"));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: 100 ether,
                 oppositeAmountBound: 0,
                 deadline: block.timestamp,
                 sqrtPriceLimitX96: 0,
@@ -215,43 +281,36 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before out of range, after spread less than before spread
-    function test_open_short_position_when_before_out_of_range_and_after_spread_less_than_before_spread() public {
-        // set price band to zero, and pump market price, let price spread > 10%
-        exchange.setPriceBand(address(baseToken), 0);
-
-        for (uint256 i = 0; i < 6; i++) {
-            vm.prank(address(trader));
-            clearingHouse.openPosition(
-                IClearingHouse.OpenPositionParams({
-                    baseToken: address(baseToken),
-                    isBaseToQuote: false,
-                    isExactInput: true,
-                    amount: 200 ether,
-                    oppositeAmountBound: 0,
-                    deadline: block.timestamp,
-                    sqrtPriceLimitX96: 0,
-                    referralCode: ""
-                })
-            );
-            vm.warp(block.timestamp + 15);
-        }
-
-        // set price band to 10% and open short position
-        exchange.setPriceBand(address(baseToken), 0.1e6);
-
-        // before:
-        //  - market price: 112.2328359998
-        //  - spread: 122328 (12.2328 %)
-        // after:
-        //  - market price: 110.1028370201
-        //  - spread: 101028 (10.1028 %), still > 10% but less than before spread
+    function test_reduce_short_position_when_before_out_of_range_and_after_spread_less_than_before() public {
+        // open 100 U short position
         vm.prank(address(trader));
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
                 isBaseToQuote: true,
                 isExactInput: false,
-                amount: 200 ether,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+
+        // mock index price to 110
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encode(110 * 1e8)
+        );
+
+        vm.prank(address(trader));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 50 ether,
                 oppositeAmountBound: 0,
                 deadline: block.timestamp,
                 sqrtPriceLimitX96: 0,
