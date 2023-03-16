@@ -851,7 +851,8 @@ contract ClearingHouse is
         if (takerPositionSizeBeforeSwap != 0) {
             int256 takerPositionSizeAfterSwap =
                 IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
-            bool hasBecameInversePosition = takerPositionSizeBeforeSwap ^ takerPositionSizeAfterSwap < 0;
+            bool hasBecameInversePosition =
+                _isReversingPosition(takerPositionSizeBeforeSwap, takerPositionSizeAfterSwap);
             bool isReducingPosition = takerPositionSizeBeforeSwap < 0 != params.isBaseToQuote;
 
             if (isReducingPosition && !hasBecameInversePosition) {
@@ -1196,5 +1197,9 @@ contract ClearingHouse is
     ) internal pure {
         // CH_PSCF: price slippage check fails
         require(base >= minBase && quote >= minQuote, "CH_PSCF");
+    }
+
+    function _isReversingPosition(int256 sizeBefore, int256 sizeAfter) internal pure returns (bool) {
+        return !(sizeAfter == 0 || sizeBefore == 0) && sizeBefore ^ sizeAfter < 0;
     }
 }
