@@ -101,7 +101,7 @@ contract ClearingHousePriceBandTest is Setup {
         //  - market price: 110.1450249998
         //  - spread: 101450 (10.1450 %)
         vm.prank(address(trader));
-        vm.expectRevert(bytes("EX_OPSAS"));
+        vm.expectRevert(bytes("EX_OPB"));
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
@@ -138,13 +138,52 @@ contract ClearingHousePriceBandTest is Setup {
 
         // expect revert if user still open long position (enlarge price spread)
         vm.prank(address(trader));
-        vm.expectRevert(bytes("EX_PSGBS"));
+        vm.expectRevert(bytes("EX_OPB"));
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
                 isBaseToQuote: false,
                 isExactInput: true,
                 amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+    }
+
+    // both before, after out of range, but after.abs() < before.abs()
+    function test_revert_reverse_long_position_when_both_before_and_after_out_of_range() public {
+        // open 100 U long position
+        vm.prank(address(trader));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+
+        // mock index price to 85
+        // market price after swap: 100.9847237481 => will have 18.80555735% price spread
+        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(85 * 1e8));
+
+        // expect revert if user open reverse position to over negative price band
+        // market price after swap: 72.8341977555 => will have -14.31270852% price spread
+        vm.prank(address(trader));
+        vm.expectRevert(bytes("EX_OPB"));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: 3000 ether,
                 oppositeAmountBound: 0,
                 deadline: block.timestamp,
                 sqrtPriceLimitX96: 0,
@@ -222,7 +261,7 @@ contract ClearingHousePriceBandTest is Setup {
         //  - market price: 88.9996440013
         //  - spread: 110003 (11.0003 %)
         vm.prank(address(trader));
-        vm.expectRevert(bytes("EX_OPSAS"));
+        vm.expectRevert(bytes("EX_OPB"));
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
@@ -265,13 +304,56 @@ contract ClearingHousePriceBandTest is Setup {
 
         // expect revert if user still open short position (enlarge price spread)
         vm.prank(address(trader));
-        vm.expectRevert(bytes("EX_PSGBS"));
+        vm.expectRevert(bytes("EX_OPB"));
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
                 isBaseToQuote: true,
                 isExactInput: false,
                 amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+    }
+
+    // both before, after out of range, but after.abs() < before.abs()
+    function test_revert_reverse_short_position_when_both_before_and_after_out_of_range() public {
+        // open 100 U short position
+        vm.prank(address(trader));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: true,
+                isExactInput: false,
+                amount: 100 ether,
+                oppositeAmountBound: 0,
+                deadline: block.timestamp,
+                sqrtPriceLimitX96: 0,
+                referralCode: ""
+            })
+        );
+
+        // mock index price to 115
+        // market price after swap: 98.9851912207 => will have -13.92592067% price spread
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encode(115 * 1e8)
+        );
+
+        // expect revert if user open reverse position to over positive price band
+        // market price after swap: 72.8341977555 => will have 13.69215476% price spread
+        vm.prank(address(trader));
+        vm.expectRevert(bytes("EX_OPB"));
+        clearingHouse.openPosition(
+            IClearingHouse.OpenPositionParams({
+                baseToken: address(baseToken),
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: 3000 ether,
                 oppositeAmountBound: 0,
                 deadline: block.timestamp,
                 sqrtPriceLimitX96: 0,
