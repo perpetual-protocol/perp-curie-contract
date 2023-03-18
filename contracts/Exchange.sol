@@ -737,13 +737,11 @@ contract Exchange is
 
     /// @dev ratio will return in int256
     function _getPriceSpreadRatio(address baseToken) internal view returns (int256) {
-        int256 marketPrice =
-            getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18().toInt256();
-        int256 indexTwap =
-            IIndexPrice(baseToken)
-                .getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval())
-                .toInt256();
-        int256 spread = marketPrice.sub(indexTwap);
-        return spread.mulDiv(1e6, indexTwap.toUint256());
+        uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+        uint256 indexTwap =
+            IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        int256 spread =
+            marketPrice > indexTwap ? marketPrice.sub(indexTwap).toInt256() : indexTwap.sub(marketPrice).neg256();
+        return spread.mulDiv(1e6, indexTwap);
     }
 }
