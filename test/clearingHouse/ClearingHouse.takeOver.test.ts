@@ -462,10 +462,17 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("davis has long position and liquidates bob's long position, no pnl realized", async () => {
+                // mock index price to do long
+                setPool1IndexPrice(1000)
+
                 // davis long ETH before liquidate bob's ETH long position
                 // quote: -1010.149094153067713775
                 // base: 1
                 await q2bExactOutput(fixture, davis, 1, baseToken.address)
+                // market price: 1000.06357828794760671
+
+                // mock index price to make bob's margin ratio is within 3.125% and 6.25%
+                setPool1IndexPrice(900)
 
                 // liquidate when
                 // marginRatio 0.045
@@ -636,10 +643,16 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("davis has long position and liquidates bob's long position, no pnl realized", async () => {
+                // mock index price to do long
+                setPool1IndexPrice(1000)
+
                 // davis long ETH before liquidate bob's ETH long position
                 // quote: -1010.149094153067713775
                 // base: 1
                 await q2bExactOutput(fixture, davis, 1, baseToken.address)
+
+                // mock index price to make bob's margin ratio is below 3.125%
+                setPool1IndexPrice(880)
 
                 // liquidate when
                 // marginRatio 0.024
