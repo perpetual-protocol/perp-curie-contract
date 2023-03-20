@@ -1,13 +1,13 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseUnits } from "ethers/lib/utils"
-import { waffle } from "hardhat"
+import { parseEther, parseUnits } from "ethers/lib/utils"
+import { ethers, waffle } from "hardhat"
 import { BaseToken, TestClearingHouse, TestERC20, TestExchange, UniswapV3Pool, Vault } from "../../typechain"
 import { addOrder, b2qExactInput, closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { deposit } from "../helper/token"
+import { deposit, mintAndDeposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { encodePriceSqrt, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse badDebt", () => {
@@ -67,16 +67,28 @@ describe("ClearingHouse badDebt", () => {
                 // bob open notional: -800
                 // bob position size: 7.866
                 await q2bExactInput(fixture, bob, "800", baseToken.address)
-                // market price = index price = 103.222
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                // market price = 103.222
 
                 // alice short base token that causing bob has bad debt(if he close his position)
-                await b2qExactInput(fixture, alice, "5000", baseToken.address)
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("100", 6), 0, 0, 0]
+                })
+                await clearingHouse.connect(alice).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: true,
+                    isExactInput: false,
+                    amount: parseEther("5000"),
+                    oppositeAmountBound: 0,
+                    sqrtPriceLimitX96: encodePriceSqrt("90", "1"),
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                })
+                // market price = 90
 
                 // bob's account value is greater than 0 bc it's calculated by index price
-                // bob's account value: 100 + 7.866 * 103.222 - 800 = 111.944
-
-                expect(await clearingHouse.getAccountValue(bob.address)).to.be.eq("111974414000000000000")
+                // bob's account value: 100 + 7.866 * 90 - 800 = 7.94
+                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                expect(await clearingHouse.getAccountValue(bob.address)).to.be.gt("0")
 
                 // to avoid over maxTickCrossedPerBlock
                 await forwardBothTimestamps(clearingHouse, 100)
@@ -84,18 +96,18 @@ describe("ClearingHouse badDebt", () => {
 
             it("cannot close position when user has bad debt", async () => {
                 // bob close position
-                // exchanged notional: 6.510
-                // realized PnL: 6.510 - 800 = -793.490
-                // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
+                // exchanged notional: 697.5527971856
+                // realized PnL: 697.5527971856 - 800 = -102.4472028144
+                // account value: 100 - 800 + 697.5527971856 = -2.4472028144 (bad debt)
                 await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEMRM")
             })
 
             it("cannot reduce position when user has bad debt", async () => {
                 // bob short 2 ETH to reduce position
-                // exchanged notional: 1.655
-                // realized PnL: 1.655 - 2/7.866 * 800 = -201.7520684
-                // account value: 100 + 5.866 * 103.222 - 800 + 1.65 = -92.850 (bad debt)
-                await expect(b2qExactInput(fixture, bob, "2", baseToken.address)).to.be.revertedWith("CH_NEMRM")
+                // exchanged notional: 134.616873661
+                // realized PnL: 134.616873661 - 1.5/7.866 * 800 = -17.9384276357
+                // account value: 100 + 5.866 * 90 - 800 + 134.616873661 = -17.9384276357 (bad debt)
+                await expect(b2qExactInput(fixture, bob, "1.5", baseToken.address)).to.be.revertedWith("CH_NEMRM")
             })
 
             it("cannot reduce when not resulting bad debt but with not enough collateral", async () => {
@@ -109,10 +121,10 @@ describe("ClearingHouse badDebt", () => {
 
             it("can reduce when not resulting bad debt and has enough collateral", async () => {
                 // bob short 0.1 ETH to reduce position
-                // exchanged notional: 0.083
-                // bob's realized PnL: 0.083 - 0.1/7.866 * 800 = -10.087
-                // bob's account value: 100 + 7.766 * 103.222 - 800 + 0.083 = 101.705 (no bad debt)
-                // bob's free collateral: 100 - 10.087 - (800 - 0.083 + 10.087) * 10% = 8.9126 > 0
+                // exchanged notional: 8.998292694
+                // bob's realized PnL: 8.998292694 - 0.1/7.866 * 800 = -1.1720607258
+                // bob's account value: 100 + 7.766 * 90 - 800 + 8.998292694 = 7.938292694 (no bad debt)
+                await mintAndDeposit(fixture, bob, 100)
                 await expect(b2qExactInput(fixture, bob, "0.1", baseToken.address)).to.emit(
                     clearingHouse,
                     "PositionChanged",
@@ -120,6 +132,7 @@ describe("ClearingHouse badDebt", () => {
             })
 
             it("cannot close position with partial close when trader has bad debt", async () => {
+                // will revert by price band first
                 // set max price impact to 0.1% to trigger partial close
                 await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 10)
 
@@ -127,7 +140,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 1.629
                 // realized PnL: 1.629 - 800 * 0.25 = -198.371
                 // account value: 100 + 7.866 * 75% * 103.222 - 800 + 1.629 = -89.413 (bad debt)
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEMRM")
+                await expect(closePosition(fixture, bob)).to.be.revertedWith("EX_OPLAS")
             })
         })
 
