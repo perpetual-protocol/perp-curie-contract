@@ -167,10 +167,6 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-
-            console.log(
-                `taker open notional: ${await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)}`,
-            )
         })
 
         describe("open another long", () => {
