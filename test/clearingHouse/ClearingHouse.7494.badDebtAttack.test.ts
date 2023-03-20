@@ -177,9 +177,17 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         await testNoProfit(false)
     })
 
-    it("end price $1.44 (spread more than 10%)", async () => {
-        await manipulatePrice(1.44)
-        // account 2 can not add liquidity
-        await testBlockBadDebtAttack()
+    it("can not manipulate end price $1.44 (spread more than 10%)", async () => {
+        let canManipulated = true
+
+        try {
+            await manipulatePrice(1.44)
+        } catch (e: any) {
+            if (e.message.includes("EX_OPSAS")) {
+                canManipulated = false
+            }
+        }
+
+        expect(canManipulated).to.eq(false)
     })
 })
