@@ -183,7 +183,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         try {
             await manipulatePrice(1.44)
         } catch (e: any) {
-            if (e.message.includes("EX_OPSAS")) {
+            if (e.message.includes("EX_OPB")) {
                 canManipulated = false
             }
         }
