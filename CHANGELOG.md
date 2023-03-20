@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+
+## [2.4.4] - 2023-03-20
+- Fix margin requirement check for reducing positions when leverage exceeds 10x.
+
 ## [2.4.3] - 2023-02-07
 - Update the price limit check on last tick of markets per 15 (Exchange._PRICE_LIMIT_INTERVAL) seconds.
 
