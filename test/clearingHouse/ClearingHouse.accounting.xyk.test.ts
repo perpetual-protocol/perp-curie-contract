@@ -523,7 +523,6 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await q2bExactInput(fixture, taker, 2.1234)
             await forwardBothTimestamps(clearingHouse, 300)
 
-            console.log((await exchange.getSqrtMarkTwapX96(baseToken.address, 0)).toString())
             // index price change and funding rate reversed
             // market price: 10.042470530144136
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
@@ -600,7 +599,6 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         it("bad debt", async () => {
             // maker add liquidity
             await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
-            console.log(0)
 
             // taker open, quote input: 300, base output: 26.06426925
             // set index price higher, let taker can open long position
