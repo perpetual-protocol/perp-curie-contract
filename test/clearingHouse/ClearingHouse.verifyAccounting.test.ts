@@ -144,11 +144,11 @@ describe("ClearingHouse verify accounting", () => {
             })
 
             it("q2bExactInput", async () => {
-                await q2bExactInput(fixture, alice, 100)
+                await q2bExactInput(fixture, alice, 10)
             })
 
             it("b2qExactOutput", async () => {
-                await b2qExactOutput(fixture, alice, 100)
+                await b2qExactOutput(fixture, alice, 10)
             })
 
             it("b2qExactInput", async () => {
@@ -161,7 +161,7 @@ describe("ClearingHouse verify accounting", () => {
             await q2bExactOutput(fixture, alice, 1)
 
             // bob
-            await b2qExactOutput(fixture, bob, 100)
+            await b2qExactOutput(fixture, bob, 10)
 
             // carol
             await b2qExactInput(fixture, carol, 1)
@@ -169,14 +169,14 @@ describe("ClearingHouse verify accounting", () => {
 
         it("takerAddLiquidityWhileHavingPosition", async () => {
             // alice take position
-            await q2bExactInput(fixture, alice, 100)
+            await q2bExactInput(fixture, alice, 10)
 
             // bob take position, bob profit++
-            await q2bExactInput(fixture, bob, 100)
+            await q2bExactInput(fixture, bob, 10)
 
             // alice
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
-            await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
+            await addOrder(fixture, alice, 1, 10, lowerTick, upperTick)
             await removeOrder(fixture, alice, 0, lowerTick, upperTick)
             await closePosition(fixture, alice)
 
@@ -186,11 +186,11 @@ describe("ClearingHouse verify accounting", () => {
 
         it("makerOpenPosition", async () => {
             // alice
-            await addOrder(fixture, alice, 1, 100, lowerTick, upperTick)
-            await q2bExactInput(fixture, alice, 100)
+            await addOrder(fixture, alice, 1, 10, lowerTick, upperTick)
+            await q2bExactInput(fixture, alice, 10)
 
             // bob take position, bob profit++
-            await q2bExactInput(fixture, bob, 100)
+            await q2bExactInput(fixture, bob, 10)
         })
     }
 })

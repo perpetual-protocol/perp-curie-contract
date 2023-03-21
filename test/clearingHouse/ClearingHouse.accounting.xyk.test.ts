@@ -618,7 +618,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             })
 
             // taker cannot close position (quote output: 184.21649272), but can be liquidated
-            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_NEMRM")
+            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_NEFCM")
 
             await clearingHouse
                 .connect(taker2)

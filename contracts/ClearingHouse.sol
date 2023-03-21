@@ -203,81 +203,6 @@ contract ClearingHouse is
 
         _checkSlippageAfterLiquidityChange(response.base, params.minBase, response.quote, params.minQuote);
 
-        // if !useTakerBalance, takerBalance won't change, only need to collects fee to oweRealizedPnl
-        if (params.useTakerBalance) {
-            bool isBaseAdded = response.base != 0;
-
-            // can't add liquidity within range from take position
-            require(isBaseAdded != (response.quote != 0), "CH_CALWRFTP");
-
-            AccountMarket.Info memory accountMarketInfo =
-                IAccountBalance(_accountBalance).getAccountInfo(trader, params.baseToken);
-
-            // the signs of removedPositionSize and removedOpenNotional are always the opposite.
-            int256 removedPositionSize;
-            int256 removedOpenNotional;
-            if (isBaseAdded) {
-                // taker base not enough
-                require(accountMarketInfo.takerPositionSize >= response.base.toInt256(), "CH_TBNE");
-
-                removedPositionSize = response.base.neg256();
-
-                // move quote debt from taker to maker:
-                // takerOpenNotional(-) * removedPositionSize(-) / takerPositionSize(+)
-
-                // overflow inspection:
-                // Assume collateral is 2.406159692E28 and index price is 1e-18
-                // takerOpenNotional ~= 10 * 2.406159692E28 = 2.406159692E29 --> x
-                // takerPositionSize ~= takerOpenNotional/index price = x * 1e18 = 2.4061597E38
-                // max of removedPositionSize = takerPositionSize = 2.4061597E38
-                // (takerOpenNotional * removedPositionSize) < 2^255
-                // 2.406159692E29 ^2 * 1e18 < 2^255
-                removedOpenNotional = accountMarketInfo.takerOpenNotional.mul(removedPositionSize).div(
-                    accountMarketInfo.takerPositionSize
-                );
-            } else {
-                // taker quote not enough
-                require(accountMarketInfo.takerOpenNotional >= response.quote.toInt256(), "CH_TQNE");
-
-                removedOpenNotional = response.quote.neg256();
-
-                // move base debt from taker to maker:
-                // takerPositionSize(-) * removedOpenNotional(-) / takerOpenNotional(+)
-                // overflow inspection: same as above
-                removedPositionSize = accountMarketInfo.takerPositionSize.mul(removedOpenNotional).div(
-                    accountMarketInfo.takerOpenNotional
-                );
-            }
-
-            // update orderDebt to record the cost of this order
-            IOrderBook(_orderBook).updateOrderDebt(
-                OpenOrder.calcOrderKey(trader, params.baseToken, params.lowerTick, params.upperTick),
-                removedPositionSize,
-                removedOpenNotional
-            );
-
-            // update takerBalances as we're using takerBalances to provide liquidity
-            (, int256 takerOpenNotional) =
-                IAccountBalance(_accountBalance).modifyTakerBalance(
-                    trader,
-                    params.baseToken,
-                    removedPositionSize,
-                    removedOpenNotional
-                );
-
-            uint256 sqrtPrice = _getSqrtMarkX96(params.baseToken);
-            _emitPositionChanged(
-                trader,
-                params.baseToken,
-                removedPositionSize, // exchangedPositionSize
-                removedOpenNotional, // exchangedPositionNotional
-                0, // fee
-                takerOpenNotional, // openNotional
-                0, // realizedPnl
-                sqrtPrice // sqrtPriceAfterX96
-            );
-        }
-
         // fees always have to be collected to owedRealizedPnl, as long as there is a change in liquidity
         _modifyOwedRealizedPnl(trader, response.fee.toInt256());
 
@@ -894,6 +819,9 @@ contract ClearingHouse is
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
     ///      https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events
     function _openPosition(InternalOpenPositionParams memory params) internal returns (IExchange.SwapResponse memory) {
+        int256 takerPositionSizeBeforeSwap =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+
         IExchange.SwapResponse memory response =
             IExchange(_exchange).swap(
                 IExchange.SwapParams({
@@ -920,30 +848,33 @@ contract ClearingHouse is
             0
         );
 
-        if (response.pnlToBeRealized != 0) {
-            // if realized pnl is not zero, that means trader is reducing or closing position
-            // trader cannot reduce/close position if the remaining account value is less than
-            // accountValue * LiquidationPenaltyRatio, which
-            // enforces traders to keep LiquidationPenaltyRatio of accountValue to
-            // shore the remaining positions and make sure traders having enough money to pay liquidation penalty.
+        if (takerPositionSizeBeforeSwap != 0) {
+            int256 takerPositionSizeAfterSwap =
+                IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+            bool hasBecameInversePosition =
+                _isReversingPosition(takerPositionSizeBeforeSwap, takerPositionSizeAfterSwap);
+            bool isReducingPosition = takerPositionSizeBeforeSwap < 0 != params.isBaseToQuote;
 
-            // CH_NEMRM : not enough minimum required margin after reducing/closing position
-            require(
-                getAccountValue(params.trader) >=
-                    _getTotalAbsPositionValue(params.trader).mulRatio(_getLiquidationPenaltyRatio()).toInt256(),
-                "CH_NEMRM"
-            );
-        }
+            if (isReducingPosition && !hasBecameInversePosition) {
+                // check margin free collateral by mmRatio after swap (reducing and closing position)
+                // trader cannot reduce/close position if the free collateral by mmRatio is not enough
+                // for preventing bad debt and not enough liquidation penalty fee
+                // only liquidator can take over this position
 
-        // check margin ratio after swap: mmRatio for closing position; else, imRatio
-        if (params.isClose) {
-            // CH_NEFCM: not enough free collateral by mmRatio
-            require(
-                (_getFreeCollateralByRatio(params.trader, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) >=
-                    0),
-                "CH_NEFCM"
-            );
+                // CH_NEFCM: not enough free collateral by mmRatio
+                require(
+                    (_getFreeCollateralByRatio(
+                        params.trader,
+                        IClearingHouseConfig(_clearingHouseConfig).getMmRatio()
+                    ) >= 0),
+                    "CH_NEFCM"
+                );
+            } else {
+                // check margin free collateral by imRatio after swap (increasing and reversing position)
+                _requireEnoughFreeCollateral(params.trader);
+            }
         } else {
+            // check margin free collateral by imRatio after swap (opening a position)
             _requireEnoughFreeCollateral(params.trader);
         }
 
@@ -1266,5 +1197,9 @@ contract ClearingHouse is
     ) internal pure {
         // CH_PSCF: price slippage check fails
         require(base >= minBase && quote >= minQuote, "CH_PSCF");
+    }
+
+    function _isReversingPosition(int256 sizeBefore, int256 sizeAfter) internal pure returns (bool) {
+        return !(sizeAfter == 0 || sizeBefore == 0) && sizeBefore ^ sizeAfter < 0;
     }
 }
