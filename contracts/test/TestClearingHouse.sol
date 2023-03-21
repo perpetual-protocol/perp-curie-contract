@@ -104,4 +104,8 @@ contract TestClearingHouse is ClearingHouse {
         int256 quote = IAccountBalance(_accountBalance).getQuote(trader, baseToken);
         return (base, quote);
     }
+
+    function isReversingPosition(int256 sizeBefore, int256 sizeAfter) external pure returns (bool) {
+        return _isReversingPosition(sizeBefore, sizeAfter);
+    }
 }

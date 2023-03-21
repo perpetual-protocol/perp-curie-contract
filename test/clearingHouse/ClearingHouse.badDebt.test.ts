@@ -87,7 +87,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 6.510
                 // realized PnL: 6.510 - 800 = -793.490
                 // account value: 100 - 800 + 6.510 = -693.49 (bad debt)
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEMRM")
+                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEFCM")
             })
 
             it("cannot reduce position when user has bad debt", async () => {
@@ -95,16 +95,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 1.655
                 // realized PnL: 1.655 - 2/7.866 * 800 = -201.7520684
                 // account value: 100 + 5.866 * 103.222 - 800 + 1.65 = -92.850 (bad debt)
-                await expect(b2qExactInput(fixture, bob, "2", baseToken.address)).to.be.revertedWith("CH_NEMRM")
-            })
-
-            it("cannot reduce when not resulting bad debt but with not enough collateral", async () => {
-                // bob short 0.5 ETH to reduce position
-                // exchanged notional: 0.4139
-                // realized PnL: 0.4139 - 0.5/7.866 * 800 = -50.438
-                // account value: 100 + 7.366 * 103.222 - 800 + 0.4139 = 60.75 (no bad debt)
-                // free collateral: 100 - 50.438 - (800 - 0.4139 + 50.438) * 10% = -35.440
-                await expect(b2qExactInput(fixture, bob, "0.5", baseToken.address)).to.be.revertedWith("CH_NEFCI")
+                await expect(b2qExactInput(fixture, bob, "2", baseToken.address)).to.be.revertedWith("CH_NEFCM")
             })
 
             it("can reduce when not resulting bad debt and has enough collateral", async () => {
@@ -127,7 +118,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 1.629
                 // realized PnL: 1.629 - 800 * 0.25 = -198.371
                 // account value: 100 + 7.866 * 75% * 103.222 - 800 + 1.629 = -89.413 (bad debt)
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEMRM")
+                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEFCM")
             })
         })
 
@@ -155,7 +146,7 @@ describe("ClearingHouse badDebt", () => {
                 // exchanged notional: 103.013
                 // realized PnL: 103.013 - 1/7.866 * 800 = 1.20991652
                 // account value: 100 + 6.866 * 10 - 800 + 103.013 = -528.327 (bad debt)
-                await expect(b2qExactInput(fixture, bob, "1", baseToken.address)).to.be.revertedWith("CH_NEMRM")
+                await expect(b2qExactInput(fixture, bob, "1", baseToken.address)).to.be.revertedWith("CH_NEFCM")
             })
         })
     })
