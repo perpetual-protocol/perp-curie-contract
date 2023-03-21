@@ -154,6 +154,11 @@ describe("Clearinghouse StopMarket", async () => {
 
         describe("funding payment", async () => {
             beforeEach(async () => {
+                // mock index price to do long
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("150", 6), 0, 0, 0]
+                })
+
                 // bob open long position
                 for (let i = 0; i < 3; i++) {
                     await q2bExactInput(fixture, bob, 10 + i * 5, baseToken.address)
@@ -244,12 +249,20 @@ describe("Clearinghouse StopMarket", async () => {
         })
 
         describe("accounting", async () => {
+            let pausedIndexPrice = "50"
             beforeEach(async () => {
+                // mock index price to do long
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("150", 6), 0, 0, 0]
+                })
+
                 // open position on two market
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
+                // market price: 152.57455726629748304
 
+                // mock index price as pause price
                 mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("50", 6), 0, 0, 0]
+                    return [0, parseUnits(pausedIndexPrice, 6), 0, 0, 0]
                 })
 
                 await pauseMarket(baseToken)
@@ -268,7 +281,7 @@ describe("Clearinghouse StopMarket", async () => {
 
                 // TODO: why don't we use getTotalPositionValue here?
                 expect(bobUnrealizedPnl).to.be.eq(
-                    bobStoppedMarketPositionSize.mul("50").add(bobStoppedMarketQuoteBalance),
+                    bobStoppedMarketPositionSize.mul(pausedIndexPrice).add(bobStoppedMarketQuoteBalance),
                 )
 
                 const aliceStoppedMarketPositionSize = await accountBalance.getTotalPositionSize(
@@ -282,7 +295,7 @@ describe("Clearinghouse StopMarket", async () => {
                 const [, aliceUnrealizedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
 
                 expect(aliceUnrealizedPnl).to.be.closeTo(
-                    aliceStoppedMarketPositionSize.mul("50").add(aliceStoppedMarketQuoteBalance),
+                    aliceStoppedMarketPositionSize.mul(pausedIndexPrice).add(aliceStoppedMarketQuoteBalance),
                     1,
                 )
             })
@@ -306,8 +319,8 @@ describe("Clearinghouse StopMarket", async () => {
                     baseToken.address,
                 )
 
-                expect(bobStoppedMarketPositionValue).to.be.eq(bobStoppedMarketPositionSize.mul("50"))
-                expect(aliceStoppedMarketPositionValue).to.be.eq(aliceStoppedMarketPositionSize.mul("50"))
+                expect(bobStoppedMarketPositionValue).to.be.eq(bobStoppedMarketPositionSize.mul(pausedIndexPrice))
+                expect(aliceStoppedMarketPositionValue).to.be.eq(aliceStoppedMarketPositionSize.mul(pausedIndexPrice))
             })
         })
     })
@@ -901,6 +914,11 @@ describe("Clearinghouse StopMarket", async () => {
             // Bob as taker in baseToken market
             await addOrder(fixture, alice, 300, 30000, lowerTick, upperTick, false, baseToken.address)
 
+            // mock index price to do long
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("250", 6), 0, 0, 0]
+            })
+
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
@@ -931,18 +949,26 @@ describe("Clearinghouse StopMarket", async () => {
             // Bob add liquidity to baseToken2 market
             await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
+            // mock index price to do long
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("250", 6), 0, 0, 0]
+            })
+
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
                 await forwardBothTimestamps(clearingHouse, 100)
             }
 
-            await pauseMarket(baseToken2)
-
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
+                return [0, parseUnits("50", 6), 0, 0, 0]
             })
+
+            // make bob to pay funding payment to make him to be liquidated
+            await forwardBothTimestamps(clearingHouse, 86400)
+
+            await pauseMarket(baseToken2)
 
             // Bob's free collateral should be 0 if his position is underwater
             expect(await vault.getFreeCollateral(bob.address)).to.be.eq("0")
@@ -962,6 +988,11 @@ describe("Clearinghouse StopMarket", async () => {
             // bob add liquidity to baseToken2 market
             await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
+            // mock index price to do long
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("250", 6), 0, 0, 0]
+            })
+
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
@@ -973,8 +1004,11 @@ describe("Clearinghouse StopMarket", async () => {
 
             // drop price on baseToken market
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
+                return [0, parseUnits("50", 6), 0, 0, 0]
             })
+
+            // make bob to pay funding payment to make him to be liquidated
+            await forwardBothTimestamps(clearingHouse, 86400)
 
             // Bob's free collateral should be 0 if his position is underwater
             expect(await vault.getFreeCollateral(bob.address)).to.be.eq("0")
