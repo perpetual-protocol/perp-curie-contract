@@ -1627,7 +1627,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await b2qExactOutput(fixture, alice, 6_000_000, baseToken2.address)
 
             // bob can not close btc position due to enough remaining margin
-            await expect(closePosition(fixture, bob, 0, baseToken2.address)).to.be.revertedWith("CH_NEMRM")
+            await expect(closePosition(fixture, bob, 0, baseToken2.address)).to.be.revertedWith("CH_NEFCM")
         })
 
         it("bob cannot close position as his margin ratio will be lower than getFreeCollateralByRatio(mmRatio) after closing", async () => {
