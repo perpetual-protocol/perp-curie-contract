@@ -68,6 +68,7 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before in range, after in range
+    // example: before: before: 5%, after 7% (open long position)
     function test_open_long_position_when_before_and_after_is_in_range() public {
         // open long position => market price > index price
         // before:
@@ -92,6 +93,7 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before in range, after out of range
+    // example: before: 9%, after 11% (open long position)
     function test_revert_open_long_position_when_before_in_range_but_after_our_of_range() public {
         // open long position => market price > index price
         // before:
@@ -116,7 +118,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // before in range, after out of range (reverse position)
+    // before in range, after out of range
+    // example: before: 5%, after -12% (open reverse position)
     function test_revert_reverse_long_position_when_before_in_range_but_after_our_of_range() public {
         // open long position => market price > index price
         // before:
@@ -156,7 +159,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // both before, after out of range, and after spread greater than before
+    // before out of range, after out of range
+    // example: before: 12%, after 14% (increase long position)
     function test_revert_increase_long_position_when_before_out_of_range_and_after_spread_greater_than_before() public {
         // open 100 U long position
         vm.prank(address(trader));
@@ -193,7 +197,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // both before, after out of range, and after spread less than before (reverse position)
+    // before out of range, after out of range
+    // example: before: 12%, after -11% (open reverse position)
     function test_revert_reverse_long_position_when_both_before_and_after_out_of_range() public {
         // open 100 U long position
         vm.prank(address(trader));
@@ -232,7 +237,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // both before, after out of range, but after spread less than before (reduce position)
+    // before out of range, after out of range
+    // example: before: 12%, after 11%  (reduce position)
     function test_reduce_long_position_when_both_before_after_out_of_range_but_after_less_than_before() public {
         // open 100 U long position
         vm.prank(address(trader));
@@ -269,7 +275,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // before out of range, after in range (reduce position)
+    // before out of range, after in range
+    // example: before: 11%, after 9% (reduce position)
     function test_reduce_long_position_when_before_out_of_range_and_after_in_range() public {
         // open 100 U long position
         vm.prank(address(trader));
@@ -307,6 +314,7 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before in range, after in range
+    // example: before: before: -5%, after -7% (open short position)
     function test_open_short_position_when_before_and_after_is_in_range() public {
         // open long position => market price < index price
         // before:
@@ -331,6 +339,7 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before in range, after out of range
+    // example: before: -9%, after -11% (open short position)
     function test_revert_open_short_position_when_before_in_range_but_after_our_of_range() public {
         // open long position => market price > index price
         // before:
@@ -355,7 +364,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // before in range, after out of range (reverse position)
+    // before in range, after out of range
+    // example: before: -5%, after 12% (open reverse position)
     function test_revert_reverse_short_position_when_before_in_range_but_after_our_of_range() public {
         // open long position => market price > index price
         // before:
@@ -396,7 +406,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // both before, after out of range, and after spread greater than before
+    // before out of range, after out of range
+    // example: before: -12%, after -14% (increase short position)
     function test_revert_increase_short_position_when_before_out_of_range_and_after_spread_greater_than_before()
         public
     {
@@ -439,7 +450,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // both before, after out of range, and after spread less than before (reverse position)
+    // before out of range, after out of range
+    // example: before: -12%, after 11% (open reverse position)
     function test_revert_reverse_short_position_when_both_before_and_after_out_of_range() public {
         // open 100 U short position
         vm.prank(address(trader));
@@ -482,7 +494,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // both before, after out of range, but after spread less than before (reduce position)
+    // before out of range, after out of range
+    // example: before: -12%, after -11%  (reduce position)
     function test_reduce_short_position_when_both_before_after_out_of_range_but_after_less_than_before() public {
         // open 100 U short position
         vm.prank(address(trader));
@@ -523,7 +536,8 @@ contract ClearingHousePriceBandTest is Setup {
         );
     }
 
-    // before out of range, after in range (reduce position)
+    // before out of range, after in range
+    // example: before: -11%, after -9% (reduce position)
     function test_reduce_short_position_when_before_out_of_range_and_after_in_range() public {
         // open 100 U short position
         vm.prank(address(trader));
