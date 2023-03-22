@@ -100,12 +100,12 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
                     isBaseToQuote: true,
                     isExactInput: false,
                     oppositeAmountBound: 0,
-                    amount: parseEther("1000"),
+                    amount: parseEther("10"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                expect(response.quote).to.be.eq(parseEther("1000"))
+                expect(response.quote).to.be.eq(parseEther("10"))
             })
 
             it("long exact input", async () => {
@@ -114,26 +114,26 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
                     isBaseToQuote: false,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    amount: "1280383806188353801279",
+                    amount: "12803838061883538012",
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                expect(response.quote).to.be.eq("1280383806188353801279")
+                expect(response.quote).to.be.eq("12803838061883538012")
             })
 
-            it("long exact input with 1000", async () => {
+            it("long exact input with 10", async () => {
                 const response = await clearingHouse.connect(taker).callStatic.openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    amount: parseEther("1000"),
+                    amount: parseEther("10"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                expect(response.quote).to.be.eq(parseEther("1000"))
+                expect(response.quote).to.be.eq(parseEther("10"))
             })
         })
 
