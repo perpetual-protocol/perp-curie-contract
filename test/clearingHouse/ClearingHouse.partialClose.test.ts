@@ -146,14 +146,14 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         it("force error, partial closing a position does not apply to opening a reverse position with openPosition", async () => {
-            // carol longs 25 eth
+            // carol longs 2.5 eth
             await expect(
                 clearingHouse.connect(carol).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
                     oppositeAmountBound: ethers.constants.MaxUint256,
-                    amount: parseEther("25"),
+                    amount: parseEther("2.5"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
