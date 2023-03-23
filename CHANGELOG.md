@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
-
+- Add price band check when taker swap.
 
 ## [2.4.4] - 2023-03-20
 - Fix margin requirement check for reducing positions when leverage exceeds 10x.
