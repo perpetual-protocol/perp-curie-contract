@@ -74,6 +74,11 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         return tick
     }
 
+    async function getMarketPrice(): Promise<number> {
+        const slot0 = await pool.slot0()
+        return Number(formatSqrtPriceX96ToPrice(slot0.sqrtPriceX96))
+    }
+
     async function manipulatePrice(endPrice: number) {
         // console.log("===================================== test end price:", endPrice)
         const account1Margin = parseUnits("220000", collateralDecimals)
@@ -84,8 +89,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         let price: number
         let count = 0
         while (true) {
-            const slot0 = await pool.slot0()
-            price = Number(formatSqrtPriceX96ToPrice(slot0.sqrtPriceX96))
+            price = await getMarketPrice()
             if (price >= endPrice) break
 
             await q2bExactInput(fixture, account1, 6300)
@@ -104,31 +108,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         // console.log(`minimal margin for account1: ${account1MinimalMargin.toString()}`)
     }
 
-    async function testBlockBadDebtAttack() {
-        const positionSize = formatEther(
-            (await accountBalance.getTakerPositionSize(account1.address, baseToken.address)).toString(),
-        )
-
-        const slot0 = await pool.slot0()
-        const price = Number(formatSqrtPriceX96ToPrice(slot0.sqrtPriceX96))
-        const tick = slot0.tick
-        // console.log("===================================== test mark price:", price)
-
-        // account2 deposit margin with amount same to the account1's position notional
-        const account2Margin = Math.round(Number(positionSize) * price) / 10 + 10
-        // console.log(`minimal margin for account2: ${account2Margin}`)
-        const accoun2MarginInWei = parseUnits(account2Margin.toString(), collateralDecimals)
-        await collateral.mint(account2.address, accoun2MarginInWei)
-        await deposit(account2, vault, account2Margin, collateral)
-
-        const upperTick = getLatestTickBelowPrice(price, tick)
-        // account2 add single side liquidity just below the end price
-        await expect(addOrder(fixture, account2, 0, account2Margin * 10, upperTick - 10, upperTick)).to.be.revertedWith(
-            "CH_OMPS",
-        )
-    }
-
-    async function testNoProfit(isBadDebt: boolean) {
+    async function testNoProfitAndNoBadDebt() {
         const positionSize = formatEther(
             (await accountBalance.getTakerPositionSize(account1.address, baseToken.address)).toString(),
         )
@@ -154,11 +134,7 @@ describe("ClearingHouse 7494 bad debt attack", () => {
 
         // account2 might be in bad debt status
         const account2AccountValue = await vault.getAccountValue(account2.address)
-        if (isBadDebt) {
-            expect(account2AccountValue).to.be.lt("0")
-        } else {
-            expect(account2AccountValue).to.be.gte("0")
-        }
+        expect(account2AccountValue).to.be.gte("0")
 
         // account1's free collateral now greater than account1 & account2's margin
         const account1FreeCollateral = await vault.getFreeCollateral(account1.address)
@@ -174,20 +150,23 @@ describe("ClearingHouse 7494 bad debt attack", () => {
         await manipulatePrice(1.4)
         // account 2 has no bad debt
         // account 1 should have no profit
-        await testNoProfit(false)
+        await testNoProfitAndNoBadDebt()
     })
 
     it("can not manipulate end price $1.44 (spread more than 10%)", async () => {
-        let canManipulated = true
+        const targetPrice = 1.44
+        let isManipulated = true
 
         try {
-            await manipulatePrice(1.44)
+            await manipulatePrice(targetPrice)
         } catch (e: any) {
             if (e.message.includes("EX_OPB")) {
-                canManipulated = false
+                isManipulated = false
             }
         }
+        expect(isManipulated).to.eq(false)
+        expect(await getMarketPrice()).lt(targetPrice)
 
-        expect(canManipulated).to.eq(false)
+        await testNoProfitAndNoBadDebt()
     })
 })
