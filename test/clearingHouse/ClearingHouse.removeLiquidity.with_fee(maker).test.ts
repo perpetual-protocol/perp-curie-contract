@@ -1200,11 +1200,11 @@ describe("ClearingHouse removeLiquidity with fee", () => {
             await addOrder(fixture, alice, 10, 2000, lowerTick, upperTick)
 
             // bob trade
-            await q2bExactInput(fixture, bob, 123.456)
+            await q2bExactInput(fixture, bob, 12.3456)
             // carol trade
-            await q2bExactInput(fixture, carol, 654.321)
+            await q2bExactInput(fixture, carol, 6.54321)
             // davis trade
-            await b2qExactInput(fixture, davis, 1.0002)
+            await b2qExactInput(fixture, davis, 0.10002)
 
             // carol close
             await closePosition(fixture, carol)
