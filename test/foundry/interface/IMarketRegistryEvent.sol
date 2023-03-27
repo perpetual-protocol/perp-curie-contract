@@ -6,4 +6,5 @@ interface IMarketRegistryEvent {
     event FeeRatioChanged(address baseToken, uint24 feeRatio);
     event InsuranceFundFeeRatioChanged(address baseToken, uint24 feeRatio);
     event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
+    event MarketMaxPriceSpreadRatioChanged(address indexed baseToken, uint24 spreadRatio);
 }
