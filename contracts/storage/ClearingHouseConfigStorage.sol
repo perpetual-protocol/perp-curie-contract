@@ -18,9 +18,3 @@ abstract contract ClearingHouseConfigStorageV1 {
 abstract contract ClearingHouseConfigStorageV2 is ClearingHouseConfigStorageV1 {
     mapping(address => bool) internal _backstopLiquidityProviderMap;
 }
-
-abstract contract ClearingHouseConfigStorageV3 is ClearingHouseConfigStorageV2 {
-    // key: base token
-    // value: the max price spread ratio of the market
-    mapping(address => uint24) internal _marketMaxPriceSpreadRatioMap;
-}

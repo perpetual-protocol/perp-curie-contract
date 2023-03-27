@@ -28,7 +28,4 @@ interface IClearingHouseConfig {
 
     /// @return isBackstopLiquidityProvider is backstop liquidity provider
     function isBackstopLiquidityProvider(address account) external view returns (bool isBackstopLiquidityProvider);
-
-    /// @return marketMaxPriceSpreadRatio Max price spread ratio of the market
-    function getMarketMaxPriceSpreadRatio(address baseToken) external view returns (uint24 marketMaxPriceSpreadRatio);
 }
