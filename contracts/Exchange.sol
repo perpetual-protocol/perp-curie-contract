@@ -333,7 +333,9 @@ contract Exchange is
 
     /// @inheritdoc IExchange
     function isOverPriceSpread(address baseToken) external view override returns (bool) {
-        return _getPriceSpreadRatio(baseToken).abs() > _MAX_PRICE_SPREAD_RATIO;
+        return
+            _getPriceSpreadRatio(baseToken, IClearingHouseConfig(_clearingHouseConfig).getTwapInterval()).abs() >
+            _MAX_PRICE_SPREAD_RATIO;
     }
 
     //
@@ -448,7 +450,7 @@ contract Exchange is
                 })
             );
 
-        int256 priceSpreadRatioBeforeSwap = _getPriceSpreadRatio(params.baseToken);
+        int256 priceSpreadRatioBeforeSwap = _getPriceSpreadRatio(params.baseToken, 0);
 
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
@@ -475,7 +477,7 @@ contract Exchange is
         // avoid stack too deep
         {
             // check price band after swap
-            int256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken);
+            int256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken, 0);
             int256 maxPriceSpreadRatio =
                 IMarketRegistry(_marketRegistry).getMarketMaxPriceSpreadRatio(params.baseToken).toInt256();
             require(
@@ -683,9 +685,9 @@ contract Exchange is
     }
 
     /// @dev ratio will return in int256
-    function _getPriceSpreadRatio(address baseToken) internal view returns (int256) {
+    function _getPriceSpreadRatio(address baseToken, uint32 twapInterval) internal view returns (int256) {
         uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
-        uint256 indexPrice = IIndexPrice(baseToken).getIndexPrice(0);
+        uint256 indexPrice = IIndexPrice(baseToken).getIndexPrice(twapInterval);
         int256 spread =
             marketPrice > indexPrice ? marketPrice.sub(indexPrice).toInt256() : indexPrice.sub(marketPrice).neg256();
         return spread.mulDiv(1e6, indexPrice);

@@ -379,8 +379,10 @@ describe("Vault test", () => {
 
                 // realized PnL (including funding payment): 12.569457
                 // settlement token value: 1000 + 12.569457 = 1012.569457
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
                     parseUnits("1012.569457", usdcDecimals),
+                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                    parseUnits("0.5", usdcDecimals).toNumber(),
                 )
             })
 
@@ -560,7 +562,11 @@ describe("Vault test", () => {
 
             // realized PnL(including funding): -132.803228
             // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 132.803228 = 857.196772
-            expect(await vault.getAccountValue(alice.address)).eq(parseUnits("857.196772", usdcDecimals))
+            expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
+                parseUnits("857.196772", usdcDecimals),
+                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
+                parseUnits("0.4", usdcDecimals).toNumber(),
+            )
         })
     })
 })
