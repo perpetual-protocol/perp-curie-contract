@@ -85,7 +85,6 @@ contract Exchange is
 
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     uint24 internal constant _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP = 1000; // 10%
-    uint24 internal constant _MAX_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
     uint256 internal constant _PRICE_LIMIT_INTERVAL = 15; // 15 sec
 
     //
@@ -332,8 +331,11 @@ contract Exchange is
     }
 
     /// @inheritdoc IExchange
+    /// @dev is over price spread when add liquidity
     function isOverPriceSpread(address baseToken) external view override returns (bool) {
-        return _getPriceSpreadRatio(baseToken).abs() > _MAX_PRICE_SPREAD_RATIO;
+        return
+            _getPriceSpreadRatio(baseToken).abs() >
+            IClearingHouseConfig(_clearingHouseConfig).getMaxPriceSpreadRatioForAddLiquidity();
     }
 
     //

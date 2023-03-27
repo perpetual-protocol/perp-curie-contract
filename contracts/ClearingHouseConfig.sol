@@ -11,6 +11,7 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     // CONSTANT
     //
     uint24 internal constant _DEFAULT_MAX_MARKET_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
+    uint24 internal constant _MAX_PRICE_SPREAD_RATIO_FOR_ADD_LIQUIDITY = 0.1e6; // 10% in decimal 6
 
     //
     // EVENT
@@ -151,12 +152,18 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     }
 
     /// @inheritdoc IClearingHouseConfig
-    /// @dev if we didn't set the max spread ratio for the market, we will use the default value
+    /// @dev if we didn't set the max spread ratio for the market, we will use the default value(10%)
     function getMarketMaxPriceSpreadRatio(address baseToken) external view override returns (uint24) {
         uint24 maxSpreadRatio =
             _marketMaxPriceSpreadRatioMap[baseToken] > 0
                 ? _marketMaxPriceSpreadRatioMap[baseToken]
                 : _DEFAULT_MAX_MARKET_PRICE_SPREAD_RATIO;
         return maxSpreadRatio;
+    }
+
+    /// @inheritdoc IClearingHouseConfig
+    /// @dev we use same price spread ratio(10%) when add liquidity
+    function getMaxPriceSpreadRatioForAddLiquidity() external view override returns (uint24) {
+        return _MAX_PRICE_SPREAD_RATIO_FOR_ADD_LIQUIDITY;
     }
 }
