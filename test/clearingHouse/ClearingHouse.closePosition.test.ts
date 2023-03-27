@@ -109,13 +109,10 @@ describe("ClearingHouse closePosition", () => {
 
             // taker pays 0.06151334175725025 / 0.99 = 0.06213468864 quote to pay back 0.0004084104205 base
             // using original sqrtPriceX96 to avoid over price limit
-            await clearingHouse.connect(bob).openPosition({
+            await clearingHouse.connect(bob).closePosition({
                 baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: false,
-                oppositeAmountBound: 0,
-                amount: parseEther("0.0004084104205"),
                 sqrtPriceLimitX96: encodePriceSqrt("151.373306858723226652", "1"),
+                oppositeAmountBound: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
@@ -198,13 +195,10 @@ describe("ClearingHouse closePosition", () => {
             })
 
             // using original sqrtPriceX96 to avoid over price limit
-            await clearingHouse.connect(carol).openPosition({
+            await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: false,
-                oppositeAmountBound: 0,
-                amount: base.sub(base.div(2)),
                 sqrtPriceLimitX96: encodePriceSqrt("151.373306858723226652", "1"),
+                oppositeAmountBound: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })

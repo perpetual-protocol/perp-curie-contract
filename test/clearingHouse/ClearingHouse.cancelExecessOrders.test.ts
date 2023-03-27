@@ -240,7 +240,6 @@ describe("ClearingHouse cancelExcessOrders", () => {
             await deposit(carol, vault, 20, collateral)
         })
 
-        // TODO: need to rewrite this test based on new price protected design
         it("bob should get realizedPnl after cancel orders", async () => {
             // set index price to near market price (alice tick range is 92200 ~ 92400)
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

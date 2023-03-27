@@ -472,14 +472,18 @@ contract Exchange is
                 )
             );
 
-        // check price band after swap
-        int256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken);
-        require(
-            PerpMath.min(priceSpreadRatioBeforeSwap, _MAX_PRICE_SPREAD_RATIO.toInt256().neg256()) <=
-                priceSpreadRatioAfterSwap &&
-                priceSpreadRatioAfterSwap <= PerpMath.max(priceSpreadRatioBeforeSwap, _MAX_PRICE_SPREAD_RATIO),
-            "EX_OPB"
-        );
+        // avoid stack too deep
+        {
+            // check price band after swap
+            int256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken);
+            int256 maxPriceSpreadRatio =
+                IMarketRegistry(_marketRegistry).getMarketMaxPriceSpreadRatio(params.baseToken).toInt256();
+            require(
+                PerpMath.min(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio.neg256()) <= priceSpreadRatioAfterSwap &&
+                    priceSpreadRatioAfterSwap <= PerpMath.max(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio),
+                "EX_OPB"
+            );
+        }
 
         // as we charge fees in ClearingHouse instead of in Uniswap pools,
         // we need to scale up base or quote amounts to get the exact exchanged position size and notional
@@ -678,6 +682,15 @@ contract Exchange is
         }
     }
 
+    /// @dev ratio will return in int256
+    function _getPriceSpreadRatio(address baseToken) internal view returns (int256) {
+        uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+        uint256 indexPrice = IIndexPrice(baseToken).getIndexPrice(0);
+        int256 spread =
+            marketPrice > indexPrice ? marketPrice.sub(indexPrice).toInt256() : indexPrice.sub(marketPrice).neg256();
+        return spread.mulDiv(1e6, indexPrice);
+    }
+
     function _getPnlToBeRealized(InternalRealizePnlParams memory params) internal pure returns (int256) {
         // closedRatio is based on the position size
         uint256 closedRatio = FullMath.mulDiv(params.base.abs(), _FULLY_CLOSED_RATIO, params.takerPositionSize.abs());
@@ -733,15 +746,5 @@ contract Exchange is
     // @dev use virtual for testing
     function _getMaxTickCrossedWithinBlockCap() internal pure virtual returns (uint24) {
         return _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP;
-    }
-
-    /// @dev ratio will return in int256
-    function _getPriceSpreadRatio(address baseToken) internal view returns (int256) {
-        uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
-        uint256 indexTwap =
-            IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-        int256 spread =
-            marketPrice > indexTwap ? marketPrice.sub(indexTwap).toInt256() : indexTwap.sub(marketPrice).neg256();
-        return spread.mulDiv(1e6, indexTwap);
     }
 }
