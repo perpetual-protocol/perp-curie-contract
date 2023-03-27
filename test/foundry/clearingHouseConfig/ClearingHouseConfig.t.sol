@@ -32,8 +32,4 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup {
         clearingHouseConfig.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
         assertEq(uint256(clearingHouseConfig.getMarketMaxPriceSpreadRatio(address(baseToken))), 0.2e6);
     }
-
-    function test_getMaxPriceSpreadForAddLiquidity() public {
-        assertEq(uint256(clearingHouseConfig.getMaxPriceSpreadRatioForAddLiquidity()), 0.1e6);
-    }
 }

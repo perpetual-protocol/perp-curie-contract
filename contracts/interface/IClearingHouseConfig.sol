@@ -31,7 +31,4 @@ interface IClearingHouseConfig {
 
     /// @return marketMaxPriceSpreadRatio Max price spread ratio of the market
     function getMarketMaxPriceSpreadRatio(address baseToken) external view returns (uint24 marketMaxPriceSpreadRatio);
-
-    /// @return maxPriceSpreadRatioForAddLiquidity Max price spread ratio for add liquidity
-    function getMaxPriceSpreadRatioForAddLiquidity() external view returns (uint24 maxPriceSpreadRatioForAddLiquidity);
 }
