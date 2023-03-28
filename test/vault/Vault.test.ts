@@ -381,8 +381,8 @@ describe("Vault test", () => {
                 // settlement token value: 1000 + 12.569457 = 1012.569457
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
                     parseUnits("1012.569457", usdcDecimals),
-                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                    parseUnits("0.5", usdcDecimals).toNumber(),
+                    // there can be a little imprecision due to pending funding payment and decimal conversion
+                    parseUnits("0.01", usdcDecimals).toNumber(),
                 )
             })
 
@@ -398,8 +398,9 @@ describe("Vault test", () => {
 
                 // realized PnL (including funding payment): -132.53927
                 // settlement token value: 1000 - 132.53927 = 867.460730
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
                     parseUnits("867.460730", usdcDecimals),
+                    parseUnits("0.01", usdcDecimals).toNumber(),
                 )
             })
         })
@@ -544,7 +545,11 @@ describe("Vault test", () => {
 
             // realized PnL(including funding): 13.096488
             // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 13.096488 = 1003.096488
-            expect(await vault.getAccountValue(alice.address)).eq(parseUnits("1003.096488", usdcDecimals))
+            expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
+                parseUnits("1003.096488", usdcDecimals),
+                // there can be a little imprecision due to pending funding payment and decimal conversion
+                parseUnits("0.01", usdcDecimals).toNumber(),
+            )
         })
 
         it("trader has negative realized PnL", async () => {
@@ -564,8 +569,8 @@ describe("Vault test", () => {
             // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 132.803228 = 857.196772
             expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
                 parseUnits("857.196772", usdcDecimals),
-                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                parseUnits("0.4", usdcDecimals).toNumber(),
+                // there can be a little imprecision due to pending funding payment and decimal conversion
+                parseUnits("0.01", usdcDecimals).toNumber(),
             )
         })
     })
