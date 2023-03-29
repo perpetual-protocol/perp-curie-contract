@@ -242,8 +242,8 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before in range, after in range
-    // example: before: before: -5%, after -7% (increase negative spread)
-    function test_open_increase_negative_spread_when_before_and_after_is_in_range() public {
+    // example: before: -5%, after -7% (increase negative spread)
+    function test_increase_negative_spread_when_before_and_after_is_in_range() public {
         // open short position => market price < index price
         // before:
         //  - market price: 99.9999999998
