@@ -478,8 +478,7 @@ contract Exchange is
         {
             // check price band after swap
             int256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken, 0);
-            int256 maxPriceSpreadRatio =
-                IMarketRegistry(_marketRegistry).getMarketMaxPriceSpreadRatio(params.baseToken).toInt256();
+            int256 maxPriceSpreadRatio = marketInfo.maxPriceSpreadRatio.toInt256();
             require(
                 PerpMath.min(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio.neg256()) <= priceSpreadRatioAfterSwap &&
                     priceSpreadRatioAfterSwap <= PerpMath.max(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio),
