@@ -8,6 +8,7 @@ import "../interface/IMarketRegistryEvent.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { ILegacyMarketRegistry } from "./ILegacyMarketRegistry.sol";
 
 contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
     function setUp() public virtual override {
@@ -245,5 +246,23 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
     function test_getMarketMaxPriceSpreadRatio_when_set() public {
         marketRegistry.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
         assertEq(uint256(marketRegistry.getMarketMaxPriceSpreadRatio(address(baseToken))), 0.2e6);
+    }
+
+    function test_getMarketInfo() public {
+        IMarketRegistry.MarketInfo memory marketInfo = marketRegistry.getMarketInfo(address(baseToken));
+        assertEq(marketInfo.pool, address(pool));
+        assertEq(uint256(marketInfo.exchangeFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(marketInfo.uniswapFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(marketInfo.insuranceFundFeeRatio), 0);
+        assertEq(uint256(marketInfo.maxPriceSpreadRatio), 0.1e6);
+    }
+
+    function test_getMarketInfo_legacy_struct() public {
+        ILegacyMarketRegistry.LegacyMarketInfo memory legacyMarketInfo =
+            ILegacyMarketRegistry(address(marketRegistry)).getMarketInfo(address(baseToken));
+        assertEq(legacyMarketInfo.pool, address(pool));
+        assertEq(uint256(legacyMarketInfo.exchangeFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(legacyMarketInfo.uniswapFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(legacyMarketInfo.insuranceFundFeeRatio), 0);
     }
 }
