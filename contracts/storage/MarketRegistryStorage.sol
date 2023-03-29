@@ -22,3 +22,9 @@ abstract contract MarketRegistryStorageV1 {
     // key: baseToken, _uniswapFeeRatioMap cache only
     mapping(address => uint24) internal _uniswapFeeRatioMap;
 }
+
+abstract contract MarketRegistryStorageV2 is MarketRegistryStorageV1 {
+    // key: base token
+    // value: the max price spread ratio of the market
+    mapping(address => uint24) internal _marketMaxPriceSpreadRatioMap;
+}

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.4.5] - 2023-03-28
+- Ensure that the market price should be within a price band (defaulting to the index price +/- 10%, but adaptable to market conditions) before performing any swaps, including opening, reducing, or closing positions.
 
 ## [2.4.4] - 2023-03-20
 - Fix margin requirement check for reducing positions when leverage exceeds 10x.

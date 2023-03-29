@@ -180,6 +180,12 @@ describe("ClearingHouse cancelExcessOrders", () => {
             const amount = parseUnits("10", await collateral.decimals())
             await collateral.transfer(carol.address, amount)
             await deposit(carol, vault, 10, collateral)
+
+            // set index price to near market price (alice tick range is 92200 ~ 92400)
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("10101", 6), 0, 0, 0]
+            })
+
             // carol position size: 0 -> 0.000490465148677081
             // alice position size: 0 -> -0.000490465148677081
             await clearingHouse.connect(carol).openPosition({
@@ -235,6 +241,11 @@ describe("ClearingHouse cancelExcessOrders", () => {
         })
 
         it("bob should get realizedPnl after cancel orders", async () => {
+            // set index price to near market price (alice tick range is 92200 ~ 92400)
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("10101", 6), 0, 0, 0]
+            })
+
             // 1. bob opens a long position, position size: 0.000490465148677081
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
@@ -259,11 +270,18 @@ describe("ClearingHouse cancelExcessOrders", () => {
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
                 return [0, parseUnits("100", 6), 0, 0, 0]
             })
-            await vault.connect(bob).withdraw(collateral.address, parseUnits("1980", await collateral.decimals()))
+
+            await vault
+                .connect(bob)
+                .withdraw(collateral.address, parseUnits("1984.553951", await collateral.decimals()))
 
             // 4. carol opens a long position and bob incurs a short position
             // carol position size: 0 -> 0.000961493924477756
             // bob position size: 0 -> -0.000961493924477756
+            // set index price higher to let carol can open a long position
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("10101", 6), 0, 0, 0]
+            })
             await q2bExactInput(fixture, carol, "10", baseToken.address)
 
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {

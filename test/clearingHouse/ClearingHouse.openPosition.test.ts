@@ -255,7 +255,7 @@ describe("ClearingHouse openPosition", () => {
                         isBaseToQuote: true,
                         isExactInput: false,
                         oppositeAmountBound: 0,
-                        amount: parseEther("100"),
+                        amount: parseEther("0.001"),
                         sqrtPriceLimitX96: 0,
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
@@ -281,7 +281,7 @@ describe("ClearingHouse openPosition", () => {
                         isBaseToQuote: false,
                         isExactInput: true,
                         oppositeAmountBound: 0,
-                        amount: parseEther("100"),
+                        amount: parseEther("0.001"),
                         sqrtPriceLimitX96: 0,
                         deadline: ethers.constants.MaxUint256,
                         referralCode: ethers.constants.HashZero,
@@ -791,6 +791,9 @@ describe("ClearingHouse openPosition", () => {
 
             // carol pays $1000 for ETH long
             // 71.8931973198 - 884.6906588359 ^ 2 / (10886.6706588362 + 990) = 5.9927792385
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("180", 6), 0, 0, 0]
+            })
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -809,6 +812,9 @@ describe("ClearingHouse openPosition", () => {
             //   amount out would be:
             //     11876.6706588362 - 884.6906588359 ^ 2 / (65.9004180813 + 0.013077866441492721) = 2.3564447634
             // taker gets 2.3564447634 * 0.99 = 2.3328803158
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("151", 6), 0, 0, 0]
+            })
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -859,6 +865,9 @@ describe("ClearingHouse openPosition", () => {
             // carol pays for $1000 ETH short
             // B2QFee: CH actually gets 1000 / 0.99 = 1010.101010101 quote
             // 884.6906588359 ^ 2 / (10886.6706588362 - 1010.101010101) - 71.8931973198 = 7.3526936796
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("124", 6), 0, 0, 0]
+            })
             await clearingHouse.connect(carol).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
@@ -1247,7 +1256,7 @@ describe("ClearingHouse openPosition", () => {
                     isBaseToQuote: true,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    amount: parseEther("10"),
+                    amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,

@@ -123,6 +123,8 @@ describe("ClearingHouse liquidate maker", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
         await deposit(bob, vault, 10000000, collateral)
+
+        setPoolIndexPrice(40, Pool.Pool1)
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -146,6 +148,8 @@ describe("ClearingHouse liquidate maker", () => {
         // bob long
         await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
         await deposit(bob, vault, 10000000, collateral)
+
+        setPoolIndexPrice(40, Pool.Pool1)
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -229,6 +233,8 @@ describe("ClearingHouse liquidate maker", () => {
             // bob long
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
+
+            setPoolIndexPrice(40, Pool.Pool1)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -338,6 +344,8 @@ describe("ClearingHouse liquidate maker", () => {
             // bob long
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
+
+            setPoolIndexPrice(40, Pool.Pool1)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -458,6 +466,8 @@ describe("ClearingHouse liquidate maker", () => {
                 // bob long in pool1
                 await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
                 await deposit(bob, vault, 10000000, collateral)
+
+                setPoolIndexPrice(40, Pool.Pool1)
                 await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false, // quote to base
@@ -470,6 +480,7 @@ describe("ClearingHouse liquidate maker", () => {
                 })
 
                 // bob long in pool2
+                setPoolIndexPrice(40, Pool.Pool2)
                 await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken2.address,
                     isBaseToQuote: false, // quote to base
@@ -555,6 +566,7 @@ describe("ClearingHouse liquidate maker", () => {
                     })
 
                     // bob long in pool1
+                    setPoolIndexPrice(40, Pool.Pool1)
                     await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false, // quote to base
@@ -647,6 +659,7 @@ describe("ClearingHouse liquidate maker", () => {
 
                 it("one order in each market; liquidation in pool2 doesn't help margin ratio, thus also liquidating the position in pool1", async () => {
                     // bob long in pool1
+                    setPoolIndexPrice(40, Pool.Pool1)
                     await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false, // quote to base
@@ -659,6 +672,7 @@ describe("ClearingHouse liquidate maker", () => {
                     })
 
                     // bob long in pool2
+                    setPoolIndexPrice(40, Pool.Pool2)
                     await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken2.address,
                         isBaseToQuote: false, // quote to base
@@ -738,6 +752,8 @@ describe("ClearingHouse liquidate maker", () => {
             // bob long on pool1, and alice and carol get shorts
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
+
+            setPoolIndexPrice(40, Pool.Pool1)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -750,6 +766,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
 
             // bob long on pool2, and alice and carol get shorts
+            setPoolIndexPrice(40, Pool.Pool2)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: false, // quote to base
@@ -788,6 +805,8 @@ describe("ClearingHouse liquidate maker", () => {
             // bob long on pool1
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
+
+            setPoolIndexPrice(40, Pool.Pool1)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -800,6 +819,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
 
             // bob long on pool2
+            setPoolIndexPrice(40, Pool.Pool2)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: false, // quote to base
@@ -810,8 +830,10 @@ describe("ClearingHouse liquidate maker", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
+
             // only pool1 index price goes up
             setPoolIndexPrice(105, Pool.Pool1)
+            setPoolIndexPrice(10, Pool.Pool2)
 
             // cancel maker's order on all markets
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
@@ -838,6 +860,8 @@ describe("ClearingHouse liquidate maker", () => {
             // bob long on pool1
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
+
+            setPoolIndexPrice(40, Pool.Pool1)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -850,6 +874,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
 
             // bob long on pool2
+            setPoolIndexPrice(40, Pool.Pool2)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: false, // quote to base

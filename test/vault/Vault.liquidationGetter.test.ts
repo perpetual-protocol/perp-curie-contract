@@ -74,9 +74,16 @@ describe("Vault liquidationGetter test", () => {
         // debt = 9000 (> collateralValueDust = 500), eth = 1, liquidation ratio = 0.5,
         // discount rate = 0.1, cl insurance rate = 0.03
         it("discounted collateral value less than max repay notional", async () => {
-            await q2bExactInput(fixture, alice, 10000)
+            // mock index price to do long
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0", 6), 0, 0, 0]
+                return [0, parseUnits("200", 6), 0, 0, 0]
+            })
+
+            await q2bExactInput(fixture, alice, 10000)
+
+            // mock index price to make bad debt
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("50", 6), 0, 0, 0]
             })
             // maxRepaidSettlementX10_S = 1 * 2700 = 2700
             // maxLiquidatableCollateral = min(4500 (= 9000 * 0.5, cuz collateralValueDust = 500) / 0.97 / (3000 * 0.9), 1) = 1
@@ -154,6 +161,12 @@ describe("Vault liquidationGetter test", () => {
         beforeEach(async () => {
             await deposit(alice, vault, 1000, usdc)
             await deposit(alice, vault, 1, weth)
+
+            // mock index price to do long
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("200", 6), 0, 0, 0]
+            })
+
             // totalMarginRequirement = 4000 * 10% = 400
             await q2bExactInput(fixture, alice, 4000)
             // position size = 24.868218

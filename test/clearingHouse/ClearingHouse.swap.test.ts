@@ -98,6 +98,11 @@ describe("ClearingHouse.swap", () => {
 
         describe("reduce 25% position (exactInput), profit", () => {
             beforeEach(async () => {
+                // mock index price to do short
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("8", 6), 0, 0, 0]
+                })
+
                 // another trader carol sell base, price down
                 await collateral.mint(carol.address, parseUnits("100", collateralDecimals))
                 await deposit(carol, vault, 100, collateral)
@@ -108,6 +113,7 @@ describe("ClearingHouse.swap", () => {
                     amount: parseEther("10"),
                     sqrtPriceLimitX96: 0,
                 })
+                // market price: 8.116224332440548657
 
                 // bob reduce 25% position
                 await clearingHouse.connect(bob).swap({
@@ -117,6 +123,7 @@ describe("ClearingHouse.swap", () => {
                     amount: parseEther("0.25"),
                     sqrtPriceLimitX96: 0,
                 })
+                //market price: 8.152907785517378433
             })
 
             it("openNotionalAbs--", async () => {
@@ -174,6 +181,11 @@ describe("ClearingHouse.swap", () => {
         beforeEach(async () => {
             await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
             await deposit(bob, vault, 25, collateral)
+
+            // mock index price to do long
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("20", 6), 0, 0, 0]
+            })
             await clearingHouse.connect(bob).swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -182,6 +194,8 @@ describe("ClearingHouse.swap", () => {
                 amount: parseEther("250"),
                 sqrtPriceLimitX96: 0,
             })
+            // market price: 15.5625625
+
             initOpenNotional = await accountBalance.getTotalOpenNotional(bob.address, baseToken.address)
             posSizeBefore = await accountBalance.getTotalPositionSize(bob.address, baseToken.address)
         })
@@ -207,6 +221,11 @@ describe("ClearingHouse.swap", () => {
 
         describe("reduce 75% position (exactOutput), loss", () => {
             beforeEach(async () => {
+                // mock index price to do short
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("10", 6), 0, 0, 0]
+                })
+
                 // another trader carol sell base, price down
                 await collateral.mint(carol.address, parseUnits("10000", collateralDecimals))
                 await deposit(carol, vault, 10000, collateral)
@@ -246,6 +265,11 @@ describe("ClearingHouse.swap", () => {
 
         describe("swap reverse and larger amount, only fee loss", () => {
             beforeEach(async () => {
+                // mock index price to do short
+                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                    return [0, parseUnits("5", 6), 0, 0, 0]
+                })
+
                 // bob opens a larger reverse position (short)
                 await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))
                 await deposit(bob, vault, 1000, collateral)
@@ -256,6 +280,7 @@ describe("ClearingHouse.swap", () => {
                     amount: parseEther("400"),
                     sqrtPriceLimitX96: 0,
                 })
+                // market price: 7.114240900163248648
             })
 
             it("realizedPnl is negative", async () => {

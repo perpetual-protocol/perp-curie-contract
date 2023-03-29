@@ -224,4 +224,26 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup {
         vm.expectRevert(bytes("MR_PNE"));
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken2), _ONE_HUNDRED_PERCENT_RATIO);
     }
+
+    function test_setMarketMaxPriceSpreadRatio() public {
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
+        emit MarketMaxPriceSpreadRatioChanged(address(baseToken), 0.2e6);
+        marketRegistry.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
+    }
+
+    function test_revert_setMarketMaxPriceSpreadRatio_when_not_owner() public {
+        address notOwner = makeAddr("NotOwner");
+        vm.expectRevert(bytes("SO_CNO"));
+        vm.prank(notOwner);
+        marketRegistry.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
+    }
+
+    function test_getMarketMaxPriceSpreadRatio_when_not_set() public {
+        assertEq(uint256(marketRegistry.getMarketMaxPriceSpreadRatio(address(baseToken))), 0.1e6);
+    }
+
+    function test_getMarketMaxPriceSpreadRatio_when_set() public {
+        marketRegistry.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
+        assertEq(uint256(marketRegistry.getMarketMaxPriceSpreadRatio(address(baseToken))), 0.2e6);
+    }
 }
