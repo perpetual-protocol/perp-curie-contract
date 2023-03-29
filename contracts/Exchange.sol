@@ -44,6 +44,7 @@ contract Exchange is
     using PerpMath for uint256;
     using PerpMath for uint160;
     using PerpMath for int256;
+    using PerpSafeCast for uint24;
     using PerpSafeCast for uint256;
     using PerpSafeCast for int256;
 
@@ -332,11 +333,9 @@ contract Exchange is
 
     /// @inheritdoc IExchange
     function isOverPriceSpread(address baseToken) external view override returns (bool) {
-        uint256 marketPrice = _getSqrtMarketTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
-        uint256 indexTwap =
-            IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
-        uint256 spread = marketPrice > indexTwap ? marketPrice.sub(indexTwap) : indexTwap.sub(marketPrice);
-        return spread > PerpMath.mulRatio(indexTwap, _MAX_PRICE_SPREAD_RATIO);
+        return
+            _getPriceSpreadRatio(baseToken, IClearingHouseConfig(_clearingHouseConfig).getTwapInterval()).abs() >
+            _MAX_PRICE_SPREAD_RATIO;
     }
 
     /// @inheritdoc IExchange
@@ -456,6 +455,9 @@ contract Exchange is
                     globalFundingGrowth: fundingGrowthGlobal
                 })
             );
+
+        int256 priceSpreadRatioBeforeSwap = _getPriceSpreadRatio(params.baseToken, 0);
+
         UniswapV3Broker.SwapResponse memory response =
             UniswapV3Broker.swap(
                 UniswapV3Broker.SwapParams(
@@ -477,6 +479,18 @@ contract Exchange is
                     )
                 )
             );
+
+        // avoid stack too deep
+        {
+            // check price band after swap
+            int256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken, 0);
+            int256 maxPriceSpreadRatio = marketInfo.maxPriceSpreadRatio.toInt256();
+            require(
+                PerpMath.min(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio.neg256()) <= priceSpreadRatioAfterSwap &&
+                    priceSpreadRatioAfterSwap <= PerpMath.max(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio),
+                "EX_OPB"
+            );
+        }
 
         // as we charge fees in ClearingHouse instead of in Uniswap pools,
         // we need to scale up base or quote amounts to get the exact exchanged position size and notional
@@ -677,6 +691,15 @@ contract Exchange is
             absDeltaTwapX96 = indexTwapX96.sub(marketTwapX96);
             deltaTwapX96 = absDeltaTwapX96 > maxDeltaTwapX96 ? maxDeltaTwapX96.neg256() : absDeltaTwapX96.neg256();
         }
+    }
+
+    /// @dev ratio will return in int256
+    function _getPriceSpreadRatio(address baseToken, uint32 twapInterval) internal view returns (int256) {
+        uint256 marketPrice = _getSqrtMarketTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+        uint256 indexPrice = IIndexPrice(baseToken).getIndexPrice(twapInterval);
+        int256 spread =
+            marketPrice > indexPrice ? marketPrice.sub(indexPrice).toInt256() : indexPrice.sub(marketPrice).neg256();
+        return spread.mulDiv(1e6, indexPrice);
     }
 
     function _getPnlToBeRealized(InternalRealizePnlParams memory params) internal pure returns (int256) {

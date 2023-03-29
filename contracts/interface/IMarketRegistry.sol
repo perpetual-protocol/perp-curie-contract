@@ -8,6 +8,7 @@ interface IMarketRegistry {
         uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
         uint24 insuranceFundFeeRatio;
+        uint24 maxPriceSpreadRatio;
     }
 
     /// @notice Emitted when a new market is created.
@@ -30,25 +31,10 @@ interface IMarketRegistry {
     /// @param maxOrdersPerMarket Max orders per market
     event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
 
-    /// @dev Add a new pool to the registry.
-    /// @param baseToken The token that the pool is for.
-    /// @param feeRatio The fee ratio for the pool.
-    /// @return pool The address of the pool.
-    function addPool(address baseToken, uint24 feeRatio) external returns (address pool);
-
-    /// @dev Set the fee ratio for a pool
-    /// @param baseToken The token address of the pool.
-    /// @param feeRatio The fee ratio for the pool.
-    function setFeeRatio(address baseToken, uint24 feeRatio) external;
-
-    /// @dev Set insurance fund fee ratio for a pool
-    /// @param baseToken The token address of the pool.
-    /// @param insuranceFundFeeRatioArg The fee ratio for the pool.
-    function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg) external;
-
-    /// @dev Set max allowed orders per market
-    /// @param maxOrdersPerMarketArg The max allowed orders per market
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external;
+    /// @notice Emitted when the max market price spread ratio is updated.
+    /// @param baseToken The address of the base token
+    /// @param spreadRatio Max market price spread ratio
+    event MarketMaxPriceSpreadRatioChanged(address indexed baseToken, uint24 spreadRatio);
 
     /// @notice Get the pool address (UNIv3 pool) by given base token address
     /// @param baseToken The address of the base token
@@ -87,4 +73,7 @@ interface IMarketRegistry {
     /// @notice Check if a pool exist by given base token address
     /// @return hasPool True if the pool exist, false otherwise
     function hasPool(address baseToken) external view returns (bool hasPool);
+
+    /// @return marketMaxPriceSpreadRatio Max price spread ratio of the market
+    function getMarketMaxPriceSpreadRatio(address baseToken) external view returns (uint24 marketMaxPriceSpreadRatio);
 }

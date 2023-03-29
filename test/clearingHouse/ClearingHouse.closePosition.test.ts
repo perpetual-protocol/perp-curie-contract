@@ -9,12 +9,14 @@ import {
     TestClearingHouse,
     TestERC20,
     TestExchange,
+    UniswapV3Pool,
     Vault,
 } from "../../typechain"
 import { addOrder, closePosition, q2bExactInput, q2bExactOutput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
+import { encodePriceSqrt } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse closePosition", () => {
@@ -31,6 +33,7 @@ describe("ClearingHouse closePosition", () => {
     let mockedBaseAggregator: MockContract
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
+    let pool: UniswapV3Pool
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -42,6 +45,7 @@ describe("ClearingHouse closePosition", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         mockedBaseAggregator = fixture.mockedBaseAggregator
+        pool = fixture.pool
 
         const collateralDecimals = await collateral.decimals()
         // mint
@@ -104,13 +108,17 @@ describe("ClearingHouse closePosition", () => {
             })
 
             // taker pays 0.06151334175725025 / 0.99 = 0.06213468864 quote to pay back 0.0004084104205 base
+            // using original sqrtPriceX96 to avoid over price limit
             await clearingHouse.connect(bob).closePosition({
                 baseToken: baseToken.address,
-                sqrtPriceLimitX96: 0,
+                sqrtPriceLimitX96: encodePriceSqrt("151.373306858723226652", "1"),
                 oppositeAmountBound: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
+
+            // bob has dust due to uniswapV3
+            const bobDust = 153
 
             // assure that the position of the taker is closed completely, and so is maker's position
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(0)
@@ -118,7 +126,7 @@ describe("ClearingHouse closePosition", () => {
 
             // taker sells all quote, making netQuoteBalance == 0
             const [bobNetQuoteBalance, bobFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)
-            expect(bobNetQuoteBalance.add(bobFee)).to.eq(0)
+            expect(bobNetQuoteBalance.add(bobFee)).to.be.closeTo("0", bobDust)
 
             // maker gets 0.06151334175725025 * 0.01 + 0.06213468864 * 0.01 = 0.001236480304
             const pnlMaker = parseEther("0.001236480304009373")
@@ -131,7 +139,7 @@ describe("ClearingHouse closePosition", () => {
             // for maker, it's unrealizedPnl, thus getting the second element [1] of the array
             let owedOrUnrealizedPnlMaker = (await accountBalance.getPnlAndPendingFee(alice.address))[1]
             let feeMaker = (await accountBalance.getPnlAndPendingFee(alice.address))[2]
-            expect(owedRealizedPnlTaker.abs()).to.be.closeTo(owedOrUnrealizedPnlMaker.add(feeMaker).abs(), 10)
+            expect(owedRealizedPnlTaker.abs()).to.be.closeTo(owedOrUnrealizedPnlMaker.add(feeMaker).abs(), bobDust)
             expect(owedOrUnrealizedPnlMaker.add(feeMaker)).to.eq(pnlMaker)
 
             await clearingHouse.connect(alice).removeLiquidity({
@@ -186,13 +194,17 @@ describe("ClearingHouse closePosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
+            // using original sqrtPriceX96 to avoid over price limit
             await clearingHouse.connect(carol).closePosition({
                 baseToken: baseToken.address,
-                sqrtPriceLimitX96: 0,
+                sqrtPriceLimitX96: encodePriceSqrt("151.373306858723226652", "1"),
                 oppositeAmountBound: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
+
+            // carol has dust due to uniswapV3
+            const carolDust = 153
 
             // assure that position of takers are closed completely, and so is maker's position
             expect(await accountBalance.getTotalPositionSize(bob.address, baseToken.address)).to.eq(0)
@@ -205,7 +217,7 @@ describe("ClearingHouse closePosition", () => {
             const [aliceNetQuoteBalance, aliceFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(alice.address)
 
             expect(bobNetQuoteBalance).to.eq(0)
-            expect(carolNetQuoteBalance).to.eq(0)
+            expect(carolNetQuoteBalance).to.be.closeTo("0", carolDust)
 
             // maker gets 0.06151334175725025 * 0.01 + 0.06213468864 * 0.01 = 0.001236480304
             const pnlMaker = parseEther("0.001236480304009373")
@@ -223,7 +235,7 @@ describe("ClearingHouse closePosition", () => {
             let feeMaker = (await accountBalance.getPnlAndPendingFee(alice.address))[2]
             expect(owedRealizedPnlBob.add(owedRealizedPnlCarol).abs()).to.be.closeTo(
                 owedOrUnrealizedPnlMaker.add(feeMaker).abs(),
-                10,
+                carolDust,
             )
             expect(owedOrUnrealizedPnlMaker.add(feeMaker)).to.eq(pnlMaker)
 
@@ -659,10 +671,13 @@ describe("ClearingHouse closePosition", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            await clearingHouse.connect(bob).closePosition({
+            await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
-                sqrtPriceLimitX96: 0,
+                isBaseToQuote: false,
+                isExactInput: false,
                 oppositeAmountBound: 0,
+                amount: parseEther("0.0004084104205"),
+                sqrtPriceLimitX96: encodePriceSqrt(initPrice, 1),
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
@@ -691,7 +706,7 @@ describe("ClearingHouse closePosition", () => {
             await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
 
             // bob swap to let alice has maker impermanent position
-            await q2bExactInput(fixture, bob, 100)
+            await q2bExactInput(fixture, bob, 10)
 
             // alice has maker position
             const totalPositionSize = await accountBalance.getTotalPositionSize(alice.address, baseToken.address)
@@ -700,25 +715,23 @@ describe("ClearingHouse closePosition", () => {
             expect(makerPositionSize).to.be.lt(0)
             expect(takerPositionSize).to.be.eq(0)
 
-            // alice has taker position, swap 100 quote to 0.49 base
-            await q2bExactInput(fixture, alice, 100)
+            // alice has taker position, swap 10 quote to 0.06350274755 base
+            await q2bExactInput(fixture, alice, 10)
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
-                "496742576407532823",
+                "63502747547593254",
             )
             // total position unchanged
-            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.closeTo(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.eq(
                 totalPositionSize,
-                1,
             )
 
             // alice close position
             await closePosition(fixture, alice)
             // taker position size is 0
-            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.closeTo("0", 1)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
             // total position(only maker) unchanged
-            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.closeTo(
+            expect(await accountBalance.getTotalPositionSize(alice.address, baseToken.address)).to.be.eq(
                 makerPositionSize,
-                1,
             )
         })
 
@@ -726,10 +739,10 @@ describe("ClearingHouse closePosition", () => {
             await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
 
             // bob swap, alice has maker impermanent position
-            await q2bExactInput(fixture, bob, 100)
+            await q2bExactInput(fixture, bob, 10)
 
             // alice has maker position and 0 taker position
-            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.closeTo("0", 1)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(0)
 
             // alice close position
@@ -738,29 +751,33 @@ describe("ClearingHouse closePosition", () => {
 
         it("can not partial close if over price limit", async () => {
             // alice add liquidity
-            await addOrder(fixture, alice, 10, 1000, lowerTick, upperTick)
+            await addOrder(fixture, alice, 10, 1510, lowerTick, upperTick)
+
+            // mock index price higher, so that taker can push more market price
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("165", 6), 0, 0, 0]
+            })
 
             // bob swap let alice has maker position
+            // after bob swap, market price: 153.36, index price: 165, spread: -7.7%
             await q2bExactInput(fixture, bob, 10)
 
             // alice swap
-            await q2bExactOutput(fixture, alice, 5)
+            // after alice swap, market price: 170.095, index price: 165, spread: 3.37%
+            await q2bExactOutput(fixture, alice, 0.5)
 
-            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
-                parseEther("5"),
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(
+                parseEther("0.5"),
             )
 
             // alice partial close position, forward timestamp to bypass over price limit timestamp check
             await forwardBothTimestamps(clearingHouse, 3000)
 
             // set MaxTickCrossedWithinBlock so that trigger over price limit
-            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 1000)
-            await expect(closePosition(fixture, alice)).to.be.revertedWith("EX_OPLAS")
+            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 250)
 
-            // // expect partial close 5 * 25% = 1.25
-            // expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.deep.eq(
-            //     parseEther("3.75"),
-            // )
+            // after alice partial close, market price: 165.664, index price: 165, spread: 0.44% (nor over price band limit)
+            await expect(closePosition(fixture, alice)).to.be.revertedWith("EX_OPLAS")
         })
     })
 })

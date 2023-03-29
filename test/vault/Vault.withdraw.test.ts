@@ -88,7 +88,7 @@ describe("Vault withdraw test", () => {
         await wbtc.mint(alice.address, parseUnits("200", await wbtc.decimals()))
 
         // bob mint and add liquidity
-        await usdc.mint(bob.address, parseUnits("1000", usdcDecimals))
+        await usdc.mint(bob.address, parseUnits("10000", usdcDecimals))
     })
 
     describe("withdraw check", async () => {
@@ -97,8 +97,8 @@ describe("Vault withdraw test", () => {
             await deposit(alice, vault, 10000, usdc)
 
             // bob deposit and add liquidity
-            await deposit(bob, vault, 1000, usdc)
-            await addOrder(fixture, bob, 10, 1500, 0, 150000)
+            await deposit(bob, vault, 10000, usdc)
+            await addOrder(fixture, bob, 100, 15000, 0, 150000)
 
             // alice swap
             await q2bExactInput(fixture, alice, 100)

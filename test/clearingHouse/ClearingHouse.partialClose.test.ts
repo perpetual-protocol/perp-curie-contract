@@ -102,13 +102,13 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("25"),
+                amount: parseEther("2.5"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
 
-            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-25"))
+            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-2.5"))
 
             // move to next 15 secs to renew the over price checking window,to simplify test case
             await forwardBothTimestamps(clearingHouse, 15)
@@ -131,7 +131,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-24.9"))
+            expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-2.4"))
         })
 
         it("revert when it's over price limit", async () => {
@@ -147,14 +147,14 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
 
         it("force error, partial closing a position does not apply to opening a reverse position with openPosition", async () => {
-            // carol longs 25 eth
+            // carol longs 2.5 eth
             await expect(
                 clearingHouse.connect(carol).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
                     oppositeAmountBound: ethers.constants.MaxUint256,
-                    amount: parseEther("25"),
+                    amount: parseEther("2.5"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,

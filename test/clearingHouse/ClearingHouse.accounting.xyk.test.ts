@@ -218,18 +218,18 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     }
 
     it("taker's balance after = taker's balance before + realizedPnl", async () => {
-        await takerLongExactInput(100)
+        await takerLongExactInput(10)
         await takerCloseEth()
         const freeCollateral = await vault.getFreeCollateral(taker.address)
 
         await vault.connect(taker).withdraw(collateral.address, freeCollateral.toString())
 
-        // 100 - 0.199900000000000024 ~= 99.800100
-        expect(await collateral.balanceOf(taker.address)).eq(parseUnits("99.800099", 6))
+        // 100 - 0.0199900000000000024 ~= 99.98001
+        expect(await collateral.balanceOf(taker.address)).eq(parseUnits("99.980009", 6))
     })
 
     it("won't emit funding payment settled event since the time is freeze", async () => {
-        const openPositionTx = await takerLongExactInput(100)
+        const openPositionTx = await takerLongExactInput(10)
         await expect(openPositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
         const closePositionTx = await takerCloseEth()
         await expect(closePositionTx).not.to.emit(clearingHouse, "FundingPaymentSettled")
@@ -248,7 +248,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         })
 
         it("taker long exact input", async () => {
-            await takerLongExactInput(100)
+            await takerLongExactInput(10)
             expect(await getTakerMakerPositionSizeDelta()).be.closeTo(BigNumber.from(0), 2)
 
             await takerCloseEth()
@@ -278,7 +278,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         })
 
         it("taker short exact output", async () => {
-            await takerShortExactOutput(100)
+            await takerShortExactOutput(10)
             expect(await getTakerMakerPositionSizeDelta()).be.closeTo(BigNumber.from(0), 2)
 
             await takerCloseEth()
@@ -289,28 +289,28 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     })
 
     it("has same realizedPnl once everyone close their position", async () => {
-        const openPositionTx = await takerLongExactInput(100)
+        const openPositionTx = await takerLongExactInput(10)
         await expect(openPositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
-            "9082643876716065096", // exchangedPositionSize
-            "-99899999999999999999", // exchangedPositionNotional
-            "100000000000000001", // fee
-            "-100000000000000000000", // openNotional
+            "989118704145585599", // exchangedPositionSize
+            "-9989999999999999999", // exchangedPositionNotional
+            "10000000000000001", // fee
+            "-10000000000000000000", // openNotional
             "0", // realizedPnl
-            "275570539067715219511427190085", // sqrtPriceAfterX96
+            "253044357444314660018820777121", // sqrtPriceAfterX96
         )
 
         const closePositionTx = await takerCloseEth()
         await expect(closePositionTx).to.emit(clearingHouse, "PositionChanged").withArgs(
             taker.address, // trader
             baseToken.address, // baseToken
-            "-9082643876716065096", // exchangedPositionSize
-            "99899999999999999978", // exchangedPositionNotional
-            "99900000000000001", // fee
+            "-989118704145585599", // exchangedPositionSize
+            "9989999999999999988", // exchangedPositionNotional
+            "9990000000000001", // fee
             "0", // openNotional
-            "-199900000000000023", // realizedPnl
-            "250541448375047931191432615077", // sqrtPriceAfterX96
+            "-19990000000000013", // realizedPnl
+            "250541448375047931188927200593", // sqrtPriceAfterX96
         )
 
         // maker remove liquidity
@@ -331,16 +331,16 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             quoteToken.address,
             lowerTick,
             upperTick,
-            "-99999999999999999982", // return base
-            "-1000000000000000000019", // return quote
+            "-99999999999999999983", // return base
+            "-1000000000000000000009", // return quote
             "-316227766016837933205", // liquidity
-            "179909999999999999", // fee (100000000000000001 + 99900000000000001) * 90%
+            "17990999999999999", // fee (10000000000000001 + 9990000000000001) * 90%
         )
 
         // ifOwedRealizedPnl + taker's realizedPnl from event + maker's quoteFee from event ~= 0
         const ifOwedRealizedPnl = (await accountBalance.getPnlAndPendingFee(insuranceFund.address))[0]
         expect(
-            ifOwedRealizedPnl.add(BigNumber.from("179909999999999999")).sub(BigNumber.from("199900000000000024")),
+            ifOwedRealizedPnl.add(BigNumber.from("17990999999999999")).sub(BigNumber.from("19990000000000013")),
         ).be.closeTo(BigNumber.from("0"), 25)
     })
 
@@ -371,8 +371,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         })
 
         it("single take", async () => {
-            // taker open, taker fee 100 * 0.1% = 0.1
-            await q2bExactInput(fixture, taker, 100)
+            // taker open, taker fee 10 * 0.1% = 0.01
+            await q2bExactInput(fixture, taker, 10)
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
@@ -421,7 +421,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
         it("multiple makers with multiple takers", async () => {
             // taker, taker2, taker3 open
-            await q2bExactInput(fixture, taker, 50.456)
+            await q2bExactInput(fixture, taker, 5.456)
             await q2bExactInput(fixture, taker2, 0.123)
             await b2qExactInput(fixture, taker3, 0.987)
 
@@ -452,11 +452,11 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker1 and maker2 add liquidity
             // current tick = 23027
-            await addOrder(fixture, maker, 2, 200, 23000, 24000)
-            await addOrder(fixture, maker2, 2, 200, 25000, 27000)
+            await addOrder(fixture, maker, 2, 200, 23000, 23600)
+            await addOrder(fixture, maker2, 2, 200, 24000, 27000)
 
-            // end tick = 25689
-            await q2bExactInput(fixture, taker, 30)
+            // end tick = 23445
+            await q2bExactInput(fixture, taker, 15)
 
             // taker close position
             await closePosition(fixture, taker)
@@ -471,8 +471,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         })
 
         it("taker takes profit", async () => {
-            // taker open, taker fee 100 * 0.1% = 0.1
-            await q2bExactInput(fixture, taker, 100)
+            // taker open, taker fee 10 * 0.1% = 0.01
+            await q2bExactInput(fixture, taker, 10)
 
             // maker move
             await removeAllOrders(fixture, maker)
@@ -480,7 +480,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await addOrder(fixture, maker, 100, 1000, lowerTick + 2000, upperTick - 2000)
 
             // taker reduce position
-            await b2qExactOutput(fixture, taker, 30)
+            await b2qExactOutput(fixture, taker, 3)
 
             // taker withdraw
             const takerFreeCollateral = await vault.getFreeCollateral(taker.address)
@@ -519,16 +519,17 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
         it("funding payment arbitrage", async () => {
             // taker open
-            await q2bExactInput(fixture, taker, 20.1234)
+            await q2bExactInput(fixture, taker, 2.1234)
             await forwardBothTimestamps(clearingHouse, 300)
 
             // index price change and funding rate reversed
+            // market price: 10.042470530144136
             mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("15", 6), 0, 0, 0]
+                return [0, parseUnits("11", 6), 0, 0, 0]
             })
 
             // taker open reverse
-            await b2qExactOutput(fixture, taker, 30)
+            await b2qExactOutput(fixture, taker, 3)
             await forwardBothTimestamps(clearingHouse, 300)
 
             // taker close
@@ -542,14 +543,14 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // maker add liquidity
             await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
 
-            // taker open
-            await q2bExactInput(fixture, taker, 150)
+            // taker open short
+            await b2qExactOutput(fixture, taker, 100)
 
             // mock mark price to let taker underwater
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("0.1"))
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("20"))
 
             // liquidate taker
-            while ((await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).gt(0)) {
+            while (!(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(0)) {
                 await clearingHouse
                     .connect(taker2)
                     ["liquidate(address,address,int256)"](taker.address, baseToken.address, 0)
@@ -569,7 +570,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // maker add liquidity
             await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
             // taker open
-            await q2bExactInput(fixture, taker, 150)
+            await q2bExactInput(fixture, taker, 90)
 
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("4"))
             // set index price to let taker pay funding fee
@@ -600,6 +601,10 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
 
             // taker open, quote input: 300, base output: 26.06426925
+            // set index price higher, let taker can open long position
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("15", 6), 0, 0, 0]
+            })
             await q2bExactInput(fixture, taker, 300)
 
             // maker move liquidity
@@ -607,11 +612,16 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await syncIndexToMarketPrice(mockedBaseAggregator, pool)
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
-            // taker cannot close position (quote output: 184.21649272), but can be liquidated
-            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_NEMRM")
-
             // mock mark price to let taker be liquidated
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("4"))
+
+            // set index price to let taker be liquidated
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("4", 6), 0, 0, 0]
+            })
+
+            // taker cannot close position (quote output: 184.21649272), but can be liquidated
+            await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_NEFCM")
 
             await clearingHouse
                 .connect(taker2)
@@ -629,7 +639,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
 
             // taker open
-            await q2bExactInput(fixture, taker, 150)
+            await q2bExactInput(fixture, taker, 90)
         })
     })
 
@@ -641,21 +651,33 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await mintAndDeposit(fixture, maker, 10000)
 
             // maker add liquidity, current tick 23027
-            await addOrder(fixture, maker, 10, 1000, 22000, 24000)
+            await addOrder(fixture, maker, 10, 100, 22000, 24000)
 
-            // set index price to let taker pay funding fee
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("4", 6), 0, 0, 0]
-            })
             // prepare collateral
             await mintAndDeposit(fixture, taker, 1000)
 
             // there is only around 1000 USD in the pool
-            // taker swap all liquidity, current tick in pool becomes to MAX_TICK-1 (887271)
-            await q2bExactInput(fixture, taker, 2000)
+            // taker swap all liquidity, current tick in pool is over 24000 (the upper tick of order)
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("11", 6), 0, 0, 0]
+            })
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                amount: parseEther("2000"),
+                oppositeAmountBound: 0,
+                deadline: ethers.constants.MaxUint256,
+                // swap to tick 24060
+                sqrtPriceLimitX96: BigNumber.from("26382122004").mul("10000000000000000000"),
+                referralCode: ethers.constants.HashZero,
+            })
 
-            // failed to swap again
-            await expect(q2bExactInput(fixture, taker2, 100)).to.revertedWith("SPL")
+            const { tick } = await pool.slot0()
+            expect(tick).to.be.eq(24060)
+
+            // failed to swap again, there is no liquidity in pool
+            await expect(q2bExactInput(fixture, taker2, 100)).to.revertedWith("CH_F0S")
 
             // maker's fee are collected
             const fee = (
@@ -671,21 +693,14 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             ).fee
             expect(fee).to.be.gt("0")
 
-            await forwardBothTimestamps(clearingHouse, 200)
-            expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
-
-            await clearingHouse.connect(taker).settleAllFunding(taker.address)
-
-            await forwardBothTimestamps(clearingHouse, 200)
-            expect(await exchange.getPendingFundingPayment(taker.address, baseToken.address)).to.be.gt("0")
-
-            // Due to current tick hits the MAX_TICK-1, that means the mark price will be super large.
-            // Can not add more liquidity since it will be failed by price spread checking.
             // Can only open opposite positions
+            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+                return [0, parseUnits("10", 6), 0, 0, 0]
+            })
             await closePosition(fixture, taker, 0, baseToken.address)
 
             // taker2 can keep on swapping
-            await q2bExactInput(fixture, taker2, 100)
+            await q2bExactInput(fixture, taker2, 1)
         })
     })
 })

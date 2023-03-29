@@ -7,12 +7,17 @@ import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
-import { MarketRegistryStorageV1 } from "./storage/MarketRegistryStorage.sol";
+import { MarketRegistryStorageV2 } from "./storage/MarketRegistryStorage.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryStorageV1 {
+contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryStorageV2 {
     using AddressUpgradeable for address;
+
+    //
+    // CONSTANT
+    //
+    uint24 internal constant _DEFAULT_MAX_MARKET_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
 
     //
     // MODIFIER
@@ -48,8 +53,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         _maxOrdersPerMarket = type(uint8).max;
     }
 
-    /// @inheritdoc IMarketRegistry
-    function addPool(address baseToken, uint24 feeRatio) external override onlyOwner returns (address) {
+    function addPool(address baseToken, uint24 feeRatio) external onlyOwner returns (address) {
         // existent pool
         require(_poolMap[baseToken] == address(0), "MR_EP");
         // baseToken decimals is not 18
@@ -90,10 +94,8 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         return pool;
     }
 
-    /// @inheritdoc IMarketRegistry
     function setFeeRatio(address baseToken, uint24 feeRatio)
         external
-        override
         checkPool(baseToken)
         checkRatio(feeRatio)
         onlyOwner
@@ -102,10 +104,8 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         emit FeeRatioChanged(baseToken, feeRatio);
     }
 
-    /// @inheritdoc IMarketRegistry
     function setInsuranceFundFeeRatio(address baseToken, uint24 insuranceFundFeeRatioArg)
         external
-        override
         checkPool(baseToken)
         checkRatio(insuranceFundFeeRatioArg)
         onlyOwner
@@ -114,10 +114,14 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         emit InsuranceFundFeeRatioChanged(baseToken, insuranceFundFeeRatioArg);
     }
 
-    /// @inheritdoc IMarketRegistry
-    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external override onlyOwner {
+    function setMaxOrdersPerMarket(uint8 maxOrdersPerMarketArg) external onlyOwner {
         _maxOrdersPerMarket = maxOrdersPerMarketArg;
         emit MaxOrdersPerMarketChanged(maxOrdersPerMarketArg);
+    }
+
+    function setMarketMaxPriceSpreadRatio(address baseToken, uint24 ratio) external onlyOwner {
+        _marketMaxPriceSpreadRatioMap[baseToken] = ratio;
+        emit MarketMaxPriceSpreadRatioChanged(baseToken, ratio);
     }
 
     //
@@ -155,18 +159,37 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     }
 
     /// @inheritdoc IMarketRegistry
+    /// @dev if we didn't set the max spread ratio for the market, we will use the default value
+    function getMarketMaxPriceSpreadRatio(address baseToken) external view override returns (uint24) {
+        return _getMarketMaxPriceSpreadRatio(baseToken);
+    }
+
+    /// @inheritdoc IMarketRegistry
     function getMarketInfo(address baseToken) external view override checkPool(baseToken) returns (MarketInfo memory) {
         return
             MarketInfo({
                 pool: _poolMap[baseToken],
                 exchangeFeeRatio: _exchangeFeeRatioMap[baseToken],
                 uniswapFeeRatio: _uniswapFeeRatioMap[baseToken],
-                insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken]
+                insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken],
+                maxPriceSpreadRatio: _getMarketMaxPriceSpreadRatio(baseToken)
             });
     }
 
     /// @inheritdoc IMarketRegistry
     function hasPool(address baseToken) external view override returns (bool) {
         return _poolMap[baseToken] != address(0);
+    }
+
+    //
+    // INTERNAL VIEW
+    //
+
+    function _getMarketMaxPriceSpreadRatio(address baseToken) internal view returns (uint24) {
+        uint24 maxSpreadRatio =
+            _marketMaxPriceSpreadRatioMap[baseToken] > 0
+                ? _marketMaxPriceSpreadRatioMap[baseToken]
+                : _DEFAULT_MAX_MARKET_PRICE_SPREAD_RATIO;
+        return maxSpreadRatio;
     }
 }

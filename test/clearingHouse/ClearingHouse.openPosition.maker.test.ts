@@ -81,14 +81,14 @@ describe("ClearingHouse maker close position", () => {
     // https://docs.google.com/spreadsheets/d/1kjs6thR9hXP2CCgn9zDcQESV5sWWumWIsKjBKJJC7Oc/edit#gid=574020995
     it("bob long, maker remove and close", async () => {
         // bob long
-        await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
-        await deposit(bob, vault, 250, collateral)
+        await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
+        await deposit(bob, vault, 25, collateral)
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
             isExactInput: true,
             oppositeAmountBound: 0, // exact input (quote)
-            amount: parseEther("250"),
+            amount: parseEther("25"),
             sqrtPriceLimitX96: 0,
             deadline: ethers.constants.MaxUint256,
             referralCode: ethers.constants.HashZero,
@@ -108,7 +108,7 @@ describe("ClearingHouse maker close position", () => {
         })
 
         // maker close position
-        // positionSize: -1983967935871743488
+        // positionSize: -0.2415223225
         const posSize = await accountBalance.getTotalPositionSize(alice.address, baseToken.address)
         // maker should settle maker position to taker position
         expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(posSize)
@@ -126,20 +126,20 @@ describe("ClearingHouse maker close position", () => {
 
         // available + earned fee - debt = (124.75 - 31.75 - 0.32) + (2.5 * 10%) - 100 = -7.07
         const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-        expect(aliceOwedPnl).to.closeTo(parseEther("-7.069408740359897192"), 1)
+        expect(aliceOwedPnl).to.closeTo(parseEther("-0.068939583855602924"), 1)
         expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq("0")
     })
 
     it("bob long, maker remove, reduce half then close", async () => {
         // bob long
-        await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
-        await deposit(bob, vault, 250, collateral)
+        await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
+        await deposit(bob, vault, 25, collateral)
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
             isExactInput: true,
             oppositeAmountBound: 0, // exact input (quote)
-            amount: parseEther("250"),
+            amount: parseEther("25"),
             sqrtPriceLimitX96: 0,
             deadline: ethers.constants.MaxUint256,
             referralCode: ethers.constants.HashZero,
@@ -174,7 +174,7 @@ describe("ClearingHouse maker close position", () => {
 
             // include pnl, collectedFee and fundingPayment
             const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-            expect(aliceOwedPnl).to.closeTo(parseEther("-3.186153358681875804"), 1)
+            expect(aliceOwedPnl).to.closeTo(parseEther("-0.020201214169483049"), 1)
             expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(posSize.div(2))
         }
 
@@ -191,7 +191,7 @@ describe("ClearingHouse maker close position", () => {
             referralCode: ethers.constants.HashZero,
         })
         const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-        expect(aliceOwedPnl).closeTo(parseEther("-7.069408740359897191"), 3)
+        expect(aliceOwedPnl).closeTo(parseEther("-0.068939583855602925"), 3)
         expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq("0")
     })
 
@@ -204,7 +204,7 @@ describe("ClearingHouse maker close position", () => {
             isBaseToQuote: true,
             isExactInput: true,
             oppositeAmountBound: 0,
-            amount: parseEther("25"),
+            amount: parseEther("2.5"),
             sqrtPriceLimitX96: 0,
             deadline: ethers.constants.MaxUint256,
             referralCode: ethers.constants.HashZero,
@@ -238,7 +238,7 @@ describe("ClearingHouse maker close position", () => {
 
         // available + earned fee - debt = (80 - -15.65 - 0.16) + (2 * 10%) - 100 = -4.3043478260869
         const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-        expect(aliceOwedPnl).deep.eq(parseEther("-4.304347826086956531"))
+        expect(aliceOwedPnl).deep.eq(parseEther("-0.065260382333553077"))
     })
 
     describe("maker for more than 1 market", () => {
@@ -283,14 +283,14 @@ describe("ClearingHouse maker close position", () => {
 
         it("bob long, maker remove and close", async () => {
             // bob long
-            await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
-            await deposit(bob, vault, 250, collateral)
+            await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
+            await deposit(bob, vault, 25, collateral)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
                 isExactInput: true,
                 oppositeAmountBound: 0, // exact input (quote)
-                amount: parseEther("250"),
+                amount: parseEther("25"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
@@ -324,19 +324,19 @@ describe("ClearingHouse maker close position", () => {
 
             // should be same as the situation when adding liquidity in 1 pool
             const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-            expect(aliceOwedPnl).to.closeTo(parseEther("-7.069408740359897192"), 1)
+            expect(aliceOwedPnl).to.closeTo(parseEther("-0.068939583855602924"), 1)
         })
 
         it("bob short, maker close", async () => {
             // bob long
-            await collateral.mint(bob.address, parseUnits("250", collateralDecimals))
-            await deposit(bob, vault, 250, collateral)
+            await collateral.mint(bob.address, parseUnits("25", collateralDecimals))
+            await deposit(bob, vault, 25, collateral)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("25"),
+                amount: parseEther("2.5"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
@@ -370,7 +370,7 @@ describe("ClearingHouse maker close position", () => {
 
             // should be same as the situation when adding liquidity in 1 pool
             const [aliceOwedPnl] = await accountBalance.getPnlAndPendingFee(alice.address)
-            expect(aliceOwedPnl).deep.eq(parseEther("-4.304347826086956531"))
+            expect(aliceOwedPnl).deep.eq(parseEther("-0.065260382333553077"))
         })
     })
 })
