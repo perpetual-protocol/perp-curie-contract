@@ -3,9 +3,9 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
-import { syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition in xyk pool", () => {

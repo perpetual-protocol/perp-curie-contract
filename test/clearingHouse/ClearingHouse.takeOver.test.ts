@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import bn from "bignumber.js"
 import { expect } from "chai"
-import { Wallet } from "ethers"
+import { BigNumberish, Wallet } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -49,7 +49,14 @@ describe("ClearingHouse takeOver (liquidate)", () => {
     let pool2: UniswapV3Pool
     let mockedBaseAggregator: MockContract
     let mockedBaseAggregator2: MockContract
+    const oracleDecimals = 6
     const blockTimeStamp = 1
+
+    function setPool1IndexPrice(price: BigNumberish) {
+        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
+            return [0, parseUnits(price.toString(), oracleDecimals), 0, 0, 0]
+        })
+    }
 
     async function _getMarginRatio(trader: Wallet) {
         const accountValue = await clearingHouse.getAccountValue(trader.address)
