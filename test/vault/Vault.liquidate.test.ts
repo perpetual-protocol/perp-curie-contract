@@ -907,7 +907,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             })
         })
 
-        describe.only("# settle bad debt", async () => {
+        describe("# settle bad debt", async () => {
             beforeEach(async () => {
                 // set a large debt dust for convenience
                 await collateralManager.setCollateralValueDust(parseUnits("100000", usdcDecimals))
