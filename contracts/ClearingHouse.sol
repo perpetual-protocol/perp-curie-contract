@@ -822,6 +822,9 @@ contract ClearingHouse is
     /// @dev explainer diagram for the relationship between exchangedPositionNotional, fee and openNotional:
     ///      https://www.figma.com/file/xuue5qGH4RalX7uAbbzgP3/swap-accounting-and-events
     function _openPosition(InternalOpenPositionParams memory params) internal returns (IExchange.SwapResponse memory) {
+        int256 takerPositionSizeBeforeSwap =
+            IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+
         IExchange.SwapResponse memory response =
             IExchange(_exchange).swap(
                 IExchange.SwapParams({
@@ -848,30 +851,33 @@ contract ClearingHouse is
             0
         );
 
-        if (response.pnlToBeRealized != 0) {
-            // if realized pnl is not zero, that means trader is reducing or closing position
-            // trader cannot reduce/close position if the remaining account value is less than
-            // accountValue * LiquidationPenaltyRatio, which
-            // enforces traders to keep LiquidationPenaltyRatio of accountValue to
-            // shore the remaining positions and make sure traders having enough money to pay liquidation penalty.
+        if (takerPositionSizeBeforeSwap != 0) {
+            int256 takerPositionSizeAfterSwap =
+                IAccountBalance(_accountBalance).getTakerPositionSize(params.trader, params.baseToken);
+            bool hasBecameInversePosition =
+                _isReversingPosition(takerPositionSizeBeforeSwap, takerPositionSizeAfterSwap);
+            bool isReducingPosition = takerPositionSizeBeforeSwap < 0 != params.isBaseToQuote;
 
-            // CH_NEMRM : not enough minimum required margin after reducing/closing position
-            require(
-                getAccountValue(params.trader) >=
-                    _getTotalAbsPositionValue(params.trader).mulRatio(_getLiquidationPenaltyRatio()).toInt256(),
-                "CH_NEMRM"
-            );
-        }
+            if (isReducingPosition && !hasBecameInversePosition) {
+                // check margin free collateral by mmRatio after swap (reducing and closing position)
+                // trader cannot reduce/close position if the free collateral by mmRatio is not enough
+                // for preventing bad debt and not enough liquidation penalty fee
+                // only liquidator can take over this position
 
-        // check margin ratio after swap: mmRatio for closing position; else, imRatio
-        if (params.isClose) {
-            // CH_NEFCM: not enough free collateral by mmRatio
-            require(
-                (_getFreeCollateralByRatio(params.trader, IClearingHouseConfig(_clearingHouseConfig).getMmRatio()) >=
-                    0),
-                "CH_NEFCM"
-            );
+                // CH_NEFCM: not enough free collateral by mmRatio
+                require(
+                    (_getFreeCollateralByRatio(
+                        params.trader,
+                        IClearingHouseConfig(_clearingHouseConfig).getMmRatio()
+                    ) >= 0),
+                    "CH_NEFCM"
+                );
+            } else {
+                // check margin free collateral by imRatio after swap (increasing and reversing position)
+                _requireEnoughFreeCollateral(params.trader);
+            }
         } else {
+            // check margin free collateral by imRatio after swap (opening a position)
             _requireEnoughFreeCollateral(params.trader);
         }
 
@@ -1193,5 +1199,9 @@ contract ClearingHouse is
     ) internal pure {
         // CH_PSCF: price slippage check fails
         require(base >= minBase && quote >= minQuote, "CH_PSCF");
+    }
+
+    function _isReversingPosition(int256 sizeBefore, int256 sizeAfter) internal pure returns (bool) {
+        return !(sizeAfter == 0 || sizeBefore == 0) && sizeBefore ^ sizeAfter < 0;
     }
 }

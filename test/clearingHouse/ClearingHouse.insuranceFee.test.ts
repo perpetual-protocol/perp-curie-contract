@@ -86,6 +86,8 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=523274954
     describe("swap within the same range", () => {
         beforeEach(async () => {
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
+
             await clearingHouse.connect(taker1).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -192,6 +194,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     })
 
     it("take swaps three times crossing multiple ticks; one after insuranceFundFeeRatio is decreased", async () => {
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
         await clearingHouse.connect(taker1).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false,

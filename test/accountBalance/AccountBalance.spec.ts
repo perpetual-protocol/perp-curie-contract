@@ -186,13 +186,13 @@ describe("AccountBalance", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            // bob short 1 base (baseToken2)
+            // bob short 0.1 base (baseToken2)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("1"),
+                amount: parseEther("0.1"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
@@ -200,13 +200,13 @@ describe("AccountBalance", () => {
 
             expect(await accountBalance.getBaseTokens(bob.address)).be.deep.eq([baseToken2.address])
 
-            // bob long 100 quote (baseToken)
+            // bob long 10 quote (baseToken)
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("100"),
+                amount: parseEther("10"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,

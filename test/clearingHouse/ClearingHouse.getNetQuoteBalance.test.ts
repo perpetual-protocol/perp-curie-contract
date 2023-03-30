@@ -130,31 +130,31 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
             })
 
             // taker swaps
-            // base: 1
-            // B2QFee: CH actually shorts 1 / 0.99 = 1.0101010101 and get 63.7442741703 quote
-            // bob gets 63.7442741703 * 0.99 = 63.1068314286
+            // base: 0.01
+            // B2QFee: CH actually shorts 0.01 / 0.99 = 0.0101010101 and get 1.518499515798962 quote
+            // bob gets 1.518499515798962 * 0.99 = 1.503314520640972389
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("1"),
+                amount: parseEther("0.01"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            // current price = 26.3852759058
+            // current price = 149.7299207456
 
             let [netQuoteBalanceAlice, pendingFeeAlice] = await accountBalance.getNetQuoteBalanceAndPendingFee(
                 bob.address,
             )
-            expect(netQuoteBalanceAlice.add(pendingFeeAlice)).to.eq(parseEther("63.106831428587933867"))
+            expect(netQuoteBalanceAlice.add(pendingFeeAlice)).to.eq(parseEther("1.503314520640972389"))
             const [netQuoteBalanceBob, pendingFeeBob] = await accountBalance.getNetQuoteBalanceAndPendingFee(
                 bob.address,
             )
-            expect(netQuoteBalanceBob.add(pendingFeeBob)).to.be.eq(parseEther("63.106831428587933867"))
+            expect(netQuoteBalanceBob.add(pendingFeeBob)).to.be.eq(parseEther("1.503314520640972389"))
 
-            // taker pays 63.7442741703 / 0.99 = 64.3881557276 quote to pay back 1 base
+            // taker pays 1.518499515798962 / 0.99 = 1.5338378947464264 quote to pay back 0.01 base
             await clearingHouse.connect(bob).closePosition({
                 baseToken: baseToken.address,
                 sqrtPriceLimitX96: 0,
@@ -166,14 +166,14 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
             // taker sells all quote, making netQuoteBalance == 0
             expect((await accountBalance.getNetQuoteBalanceAndPendingFee(bob.address)).netQuoteBalance).to.eq(0)
 
-            // when taker swaps, maker gets 63.106831428587933867 / 0.99 * 0.01 = 0.6374427417
-            // when taker closes position, maker gets 64.388155727566507365 * 0.01 = 0.6438815573
-            // maker should get 0.6374427417 + 0.6438815573 = 1.281324299 quote as fee
+            // when taker swaps, maker gets 1.503314520640972389 / 0.99 * 0.01 = 0.015184995157989621
+            // when taker closes position, maker gets 1.5338378947464264 * 0.01 = 0.015338378947464264
+            // maker should get 0.015184995157989621 + 0.015338378947464264 = 0.030523374105453885 quote as fee
             ;[netQuoteBalanceAlice, pendingFeeAlice] = await accountBalance.getNetQuoteBalanceAndPendingFee(
                 alice.address,
             )
             expect(netQuoteBalanceAlice).to.be.closeTo("0", 1)
-            expect(pendingFeeAlice).to.eq(parseEther("1.281324298978573496"))
+            expect(pendingFeeAlice).to.eq(parseEther("0.030523374105453883"))
         })
 
         it("two makers; a taker swaps and then one maker closes position", async () => {
@@ -201,18 +201,18 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
                 deadline: ethers.constants.MaxUint256,
             })
 
-            // taker swaps 1 base to 133.884011906796397781 quote
+            // taker swaps 0.01 base to 1.5241759209384165 quote
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("1"),
+                amount: parseEther("0.01"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            // current price = 70.3806594937
+            // current price = 153.91433937753962
 
             // expect taker's netQuoteBalance == makers' netQuoteBalance
             let [aliceNetQuoteBalance, alicePendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(
@@ -255,7 +255,7 @@ describe("ClearingHouse getNetQuoteBalanceAndPendingFee", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            // current price = 26.3852759058
+            // current price = 149.7299207455638
             ;[aliceNetQuoteBalance, alicePendingFee] = await accountBalance.getNetQuoteBalanceAndPendingFee(
                 alice.address,
             )

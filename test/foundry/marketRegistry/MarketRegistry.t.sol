@@ -8,6 +8,7 @@ import "../interface/IMarketRegistryEvent.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IUniswapV3PoolState } from "@uniswap/v3-core/contracts/interfaces/pool/IUniswapV3PoolState.sol";
 import { UniswapV3Pool } from "@uniswap/v3-core/contracts/UniswapV3Pool.sol";
+import { ILegacyMarketRegistry } from "./ILegacyMarketRegistry.sol";
 
 contract MarketRegistryAddPoolTest is IMarketRegistryEvent, Setup {
     function setUp() public virtual override {
@@ -221,5 +222,45 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         BaseToken baseToken2 = _create_BaseToken("BASE2", address(quoteToken), address(clearingHouse), false);
         vm.expectRevert(bytes("MR_PNE"));
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken2), _ONE_HUNDRED_PERCENT_RATIO);
+    }
+
+    function test_setMarketMaxPriceSpreadRatio() public {
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
+        emit MarketMaxPriceSpreadRatioChanged(address(baseToken), 0.2e6);
+        marketRegistry.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
+    }
+
+    function test_revert_setMarketMaxPriceSpreadRatio_when_not_owner() public {
+        address notOwner = makeAddr("NotOwner");
+        vm.expectRevert(bytes("SO_CNO"));
+        vm.prank(notOwner);
+        marketRegistry.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
+    }
+
+    function test_getMarketMaxPriceSpreadRatio_when_not_set() public {
+        assertEq(uint256(marketRegistry.getMarketMaxPriceSpreadRatio(address(baseToken))), 0.1e6);
+    }
+
+    function test_getMarketMaxPriceSpreadRatio_when_set() public {
+        marketRegistry.setMarketMaxPriceSpreadRatio(address(baseToken), 0.2e6);
+        assertEq(uint256(marketRegistry.getMarketMaxPriceSpreadRatio(address(baseToken))), 0.2e6);
+    }
+
+    function test_getMarketInfo() public {
+        IMarketRegistry.MarketInfo memory marketInfo = marketRegistry.getMarketInfo(address(baseToken));
+        assertEq(marketInfo.pool, address(pool));
+        assertEq(uint256(marketInfo.exchangeFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(marketInfo.uniswapFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(marketInfo.insuranceFundFeeRatio), 0);
+        assertEq(uint256(marketInfo.maxPriceSpreadRatio), 0.1e6);
+    }
+
+    function test_getMarketInfo_legacy_struct() public {
+        ILegacyMarketRegistry.LegacyMarketInfo memory legacyMarketInfo =
+            ILegacyMarketRegistry(address(marketRegistry)).getMarketInfo(address(baseToken));
+        assertEq(legacyMarketInfo.pool, address(pool));
+        assertEq(uint256(legacyMarketInfo.exchangeFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(legacyMarketInfo.uniswapFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(legacyMarketInfo.insuranceFundFeeRatio), 0);
     }
 }

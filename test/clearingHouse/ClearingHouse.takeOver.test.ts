@@ -28,6 +28,7 @@ import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
 import {
     calculateLiquidatePositionSize,
     getMarginRatio,
+    mockIndexPrice,
     syncIndexToMarketPrice,
     syncMarkPriceToMarketPrice,
 } from "../shared/utilities"
@@ -49,7 +50,6 @@ describe("ClearingHouse takeOver (liquidate)", () => {
     let pool2: UniswapV3Pool
     let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
-    const blockTimeStamp = 1
 
     async function _getMarginRatio(trader: Wallet) {
         const accountValue = await clearingHouse.getAccountValue(trader.address)
@@ -460,10 +460,17 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("davis has long position and liquidates bob's long position, no pnl realized", async () => {
+                // mock index price to do long
+                await mockIndexPrice(mockedPriceFeedDispatcher, "1000")
+
                 // davis long ETH before liquidate bob's ETH long position
                 // quote: -1010.149094153067713775
                 // base: 1
                 await q2bExactOutput(fixture, davis, 1, baseToken.address)
+                // market price: 1000.06357828794760671
+
+                // mock index price to make bob's margin ratio is within 3.125% and 6.25%
+                await mockIndexPrice(mockedPriceFeedDispatcher, "900")
 
                 // liquidate when
                 // marginRatio 0.045
@@ -634,10 +641,16 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("davis has long position and liquidates bob's long position, no pnl realized", async () => {
+                // mock index price to do long
+                await mockIndexPrice(mockedPriceFeedDispatcher, "1000")
+
                 // davis long ETH before liquidate bob's ETH long position
                 // quote: -1010.149094153067713775
                 // base: 1
                 await q2bExactOutput(fixture, davis, 1, baseToken.address)
+
+                // mock index price to make bob's margin ratio is below 3.125%
+                await mockIndexPrice(mockedPriceFeedDispatcher, "880")
 
                 // liquidate when
                 // marginRatio 0.024
@@ -1625,7 +1638,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await b2qExactOutput(fixture, alice, 6_000_000, baseToken2.address)
 
             // bob can not close btc position due to enough remaining margin
-            await expect(closePosition(fixture, bob, 0, baseToken2.address)).to.be.revertedWith("CH_NEMRM")
+            await expect(closePosition(fixture, bob, 0, baseToken2.address)).to.be.revertedWith("CH_NEFCM")
         })
 
         it("bob cannot close position as his margin ratio will be lower than getFreeCollateralByRatio(mmRatio) after closing", async () => {

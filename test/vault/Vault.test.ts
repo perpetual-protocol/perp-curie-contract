@@ -344,6 +344,8 @@ describe("Vault test", () => {
             })
 
             it("trader is both maker & taker", async () => {
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
+
                 await addOrder(fixture, alice, 10, 2000, 0, 150000)
                 // bob swap, alice get maker fee
                 await q2bExactInput(fixture, bob, 3000, baseToken.address)
@@ -359,58 +361,57 @@ describe("Vault test", () => {
 
                 // total position size: 18.52739798
                 // total quote balance in order: 60.47455739
-                // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.406193
-                // pending maker fee: 0.61085412
-                // pending funding payment: -0.37171688
-                // settlement token value: 1000 + 0.61085412 - (-0.37171688) + 395.406193 = 1396.388764
+                // total open notional: -3000 + 60.47455739 = -2939.52544261
+                // unrealized PnL: 18.52739798 * 180 - 2939.52544261 = 395.40619379
+                // pending maker fee: 0.549769
+                // pending funding payment: -0.371717
+                // settlement token value: 1000 + 0.549769 - (-0.371717) + 395.40619379 = 1396.327679
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
-                    parseUnits("1396.388764", usdcDecimals),
-                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                    parseUnits("0.5", usdcDecimals).toNumber(),
+                    parseUnits("1396.327679", usdcDecimals),
+                    // there can be a little imprecision due to pending funding payment and decimal conversion
+                    parseUnits("0.01", usdcDecimals).toNumber(),
                 )
             })
 
             it("trader has positive realized PnL", async () => {
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
+
                 // bob long, so alice can have positive realized PnL after closing position
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
 
                 // mock mark price to make trader has profit
                 await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
-                // mock index price to calculate founding payment
-                await mockIndexPrice(mockedPriceFeedDispatcher, "180")
-
                 await forwardBothTimestamps(clearingHouse, 360)
 
                 await closePosition(fixture, alice)
-
-                // realized PnL (including funding payment): 13.875441
-                // settlement token value: 1000 + 13.875441 = 1013.875441
+                // realized PnL (including funding payment): 12.569457
+                // settlement token value: 1000 + 12.569457 = 1012.569457
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
-                    parseUnits("1013.875441", usdcDecimals),
-                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                    parseUnits("0.5", usdcDecimals).toNumber(),
+                    parseUnits("1012.569457", usdcDecimals),
+                    // there can be a little imprecision due to pending funding payment and decimal conversion
+                    parseUnits("0.01", usdcDecimals).toNumber(),
                 )
             })
 
             it("trader has negative realized PnL", async () => {
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
+
                 // bob short, so alice can have negative realized PnL after closing position
                 await b2qExactOutput(fixture, bob, 1000, baseToken.address)
 
                 // mock mark price to make trader has loss
                 await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
 
-                // mock index price to calculate founding payment
-                await mockIndexPrice(mockedPriceFeedDispatcher, "180")
-
                 await forwardBothTimestamps(clearingHouse, 360)
 
                 await closePosition(fixture, alice)
 
-                // realized PnL (including funding payment): -131.456293
-                // settlement token value: 1000 - 131.456293 = 868.543707
-                expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
-                    parseUnits("868.543706", usdcDecimals),
+                // realized PnL (including funding payment): -132.53927
+                // settlement token value: 1000 - 132.53927 = 867.460730
+                expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
+                    parseUnits("867.460730", usdcDecimals),
+                    parseUnits("0.01", usdcDecimals).toNumber(),
                 )
             })
         })
@@ -457,9 +458,7 @@ describe("Vault test", () => {
             it("trader is both maker & taker", async () => {
                 await addOrder(fixture, alice, 10, 2000, 0, 150000)
                 // bob swap, alice get maker fee
-                await q2bExactInput(fixture, bob, 3000, baseToken.address)
-
-                // market price: 175.63239005
+                await q2bExactInput(fixture, bob, 300, baseToken.address)
 
                 // mock mark price to make trader has profit
                 await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
@@ -469,16 +468,16 @@ describe("Vault test", () => {
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
-                // total position size: 18.52739798
-                // total quote balance in order: 60.47455739
-                // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.406193
-                // pending maker fee: 0.61085412
-                // pending funding payment: -0.36089388
-                // settlement token value: 0.61085412 - (-0.36089388) + 395.406193 = 396.377941
+                // total position size: 18.84750169711406076
+                // total open notional: -2993.952544261279477388
+                // unrealized PnL: 18.84750169711406076 * 180 -2993.952544261279477388 = 398.5977612193
+                // pending maker fee: 0.054976870352004751
+                // pending funding payment: -1.219374926076949977
+                // settlement token value: 0.054976870352004751 - (-1.219374926076949977) + 398.5977612193 = 399.872113
                 expect(await vault.getSettlementTokenValue(alice.address)).to.be.closeTo(
-                    parseUnits("396.377941", usdcDecimals),
-                    // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                    parseUnits("0.15", usdcDecimals).toNumber(),
+                    parseUnits("399.872113", usdcDecimals),
+                    // there can be a little imprecision due to pending funding payment and decimal conversion
+                    parseUnits("0.01", usdcDecimals).toNumber(),
                 )
             })
         })
@@ -496,105 +495,113 @@ describe("Vault test", () => {
         it("trader has negative unrealized pnl", async () => {
             // mock mark price to make trader has loss
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+
             // mock index price to calculate founding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
             await forwardBothTimestamps(clearingHouse, 360)
-            // unrealized PnL: 100 * 18.88437579 - 3000 = -1111.562421
-            // funding payment: 0.80214883
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 0.80214883 - 1111.562421 = -122.364569
+
+            // unrealized PnL: 100 * 18.884375790674023929 - 3000 = -1111.5624209326
+            // funding payment: 0.78684899127808433
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 0.78684899127808433 - 1111.5624209326 = -122.349267
             expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
-                parseUnits("-122.364568", usdcDecimals),
-                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                parseUnits("0.05", usdcDecimals).toNumber(),
+                parseUnits("-122.349267", usdcDecimals),
+                // there can be a little imprecision due to pending funding payment and decimal conversion
+                parseUnits("0.01", usdcDecimals).toNumber(),
             )
         })
 
         it("trader has positive unrealized pnl", async () => {
             // mock mark price to make trader has profit
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
             // mock index price to calculate founding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "180")
 
             await forwardBothTimestamps(clearingHouse, 360)
             // unrealized PnL: 180 * 18.88437579 - 3000 = 399.1876422
-            // funding payment: -1.35194469
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - (-1.35194469) + 399.1876422 = 1390.53958689
+            // funding payment: -1.326158286620314967
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - (-1.326158286620314967) + 399.1876422 = 1390.513800
             expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
-                parseUnits("1390.539586", usdcDecimals),
-                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                parseUnits("0.5", usdcDecimals).toNumber(),
+                parseUnits("1390.513800", usdcDecimals),
+                // there can be a little imprecision due to pending funding payment and decimal conversion
+                parseUnits("0.01", usdcDecimals).toNumber(),
             )
         })
 
         it("trader is both maker & taker", async () => {
             await addOrder(fixture, alice, 10, 2000, 0, 150000)
             // bob swap, alice get maker fee
-            await q2bExactInput(fixture, bob, 3000, baseToken.address)
+            await q2bExactInput(fixture, bob, 300, baseToken.address)
 
-            // market price: 175.63239005
+            // market price: 164.605506117068038532
 
             // mock mark price to make trader has profit
             await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+
             // mock index price to calculate funding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "180")
 
             await forwardBothTimestamps(clearingHouse, 360)
 
-            // total position size: 18.52739798
-            // total quote balance in order: 60.47455739
-            // unrealized PnL: 18.52739798 * 180 - 3000 + 60.47455739 = 395.406193
-            // pending maker fee: 0.61085412
-            // pending funding payment: -0.39209485
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 0.61085412 - (-0.39209485) + 395.406193 = 1386.40914197
+            // total position size: 18.84750169711406076
+            // total open notional: -2993.952544261279477388
+            // unrealized PnL: 18.84750169711406076 * 180 - 2993.952544261279477388 = 398.5977612193
+            // pending maker fee: 0.054976870352004751
+            // pending funding payment: -1.230993742106468956
+            // account value: (500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7) + 0.054976870352004751 - (-1.219374926076949977) + 398.5977612193 = 1389.872113
             expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
-                parseUnits("1386.409141", usdcDecimals),
-                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                parseUnits("0.5", usdcDecimals).toNumber(),
+                parseUnits("1389.872113", usdcDecimals),
+                // there can be a little imprecision due to pending funding payment and decimal conversion
+                parseUnits("0.1", usdcDecimals).toNumber(),
             )
         })
 
         it("trader has positive realized PnL", async () => {
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             // bob long, so alice can have positive realized PnL after closing position
             await q2bExactInput(fixture, bob, 1000, baseToken.address)
 
             // mock mark price to make trader has profit
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("170"))
+
             // mock index price to calculate founding payment
-            await mockIndexPrice(mockedPriceFeedDispatcher, "180")
+            await mockIndexPrice(mockedPriceFeedDispatcher, "170")
 
             await forwardBothTimestamps(clearingHouse, 360)
 
             await closePosition(fixture, alice)
 
-            // realized PnL(including funding): 13.905703
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 13.905703 = 1003.905703
+            // realized PnL(including funding): 13.096488
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 + 13.096488 = 1003.096488
             expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
-                parseUnits("1003.905703", usdcDecimals),
-                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                parseUnits("0.4", usdcDecimals).toNumber(),
+                parseUnits("1003.096488", usdcDecimals),
+                // there can be a little imprecision due to pending funding payment and decimal conversion
+                parseUnits("0.01", usdcDecimals).toNumber(),
             )
         })
 
         it("trader has negative realized PnL", async () => {
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             // bob short, so alice can have negative realized PnL after closing position
             await b2qExactOutput(fixture, bob, 1000, baseToken.address)
 
             // mock mark price to make trader has losee
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            await accountBalance.mockMarkPrice(baseToken.address, parseEther("160"))
+
             // mock index price to calculate founding payment
-            await mockIndexPrice(mockedPriceFeedDispatcher, "180")
+            await mockIndexPrice(mockedPriceFeedDispatcher, "160")
 
             await forwardBothTimestamps(clearingHouse, 360)
 
             await closePosition(fixture, alice)
 
-            // realized PnL(including funding): -131.424819
-            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 131.424819 = 858.575181
+            // realized PnL(including funding): -132.803228
+            // account value: 500 + 0.1 * 3000 * 0.7 + 0.01 * 40000 * 0.7 - 132.803228 = 857.196772
             expect(await vault.getAccountValue(alice.address)).to.be.closeTo(
-                parseUnits("858.575181", usdcDecimals),
-                // there can be a huge imprecision, thus giving an about 0.05% fault tolerance range
-                parseUnits("0.4", usdcDecimals).toNumber(),
+                parseUnits("857.196772", usdcDecimals),
+                // there can be a little imprecision due to pending funding payment and decimal conversion
+                parseUnits("0.01", usdcDecimals).toNumber(),
             )
         })
     })

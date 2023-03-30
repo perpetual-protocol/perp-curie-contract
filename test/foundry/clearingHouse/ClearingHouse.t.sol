@@ -3,24 +3,18 @@ pragma abicoder v2;
 
 import "forge-std/Test.sol";
 import "../helper/Setup.sol";
-import "../../../contracts/interface/IExchange.sol";
-import "../../../contracts/interface/IClearingHouse.sol";
-import "../../../contracts/BaseToken.sol";
-import "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol";
+import { IClearingHouse } from "../../../contracts/interface/IClearingHouse.sol";
+import { BaseToken } from "../../../contracts/BaseToken.sol";
+import { IPriceFeedDispatcher } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol";
 
 contract ClearingHouseTest is Setup {
-    uint256 traderPrivateKey = uint256(1);
-    uint256 makerPrivateKey = uint256(2);
-    address trader = vm.addr(traderPrivateKey);
-    address maker = vm.addr(makerPrivateKey);
+    address trader = makeAddr("Trader");
+    address maker = makeAddr("Maker");
 
     uint8 usdcDecimals;
 
     function setUp() public virtual override {
         Setup.setUp();
-
-        vm.label(trader, "Trader");
-        vm.label(maker, "Maker");
 
         // initial market
         pool.initialize(792281625142 ether);
@@ -58,7 +52,7 @@ contract ClearingHouseTest is Setup {
         vm.stopPrank();
 
         // maker add liquidity
-        vm.startPrank(maker);
+        vm.prank(maker);
         clearingHouse.addLiquidity(
             IClearingHouse.AddLiquidityParams({
                 baseToken: address(baseToken),
@@ -72,17 +66,13 @@ contract ClearingHouseTest is Setup {
                 deadline: block.timestamp + 1000
             })
         );
-        vm.stopPrank();
 
         // initiate timestamp to enable last tick update; should be larger than Exchange._PRICE_LIMIT_INTERVAL
         vm.warp(block.timestamp + 100);
-
-        // mock price oracle
     }
 
     function test_open_position_example() external {
         vm.prank(address(trader));
-
         clearingHouse.openPosition(
             IClearingHouse.OpenPositionParams({
                 baseToken: address(baseToken),
@@ -95,8 +85,6 @@ contract ClearingHouseTest is Setup {
                 referralCode: ""
             })
         );
-
-        vm.stopPrank();
 
         int256 positionSize = accountBalance.getTakerPositionSize(address(trader), address(baseToken));
         assertEq(positionSize, -1 ether);

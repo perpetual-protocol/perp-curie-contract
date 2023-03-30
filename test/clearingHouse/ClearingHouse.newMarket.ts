@@ -223,13 +223,18 @@ describe("ClearingHouse new market listing", () => {
             // bob open position in baseToken, baseToken3 market
             await q2bExactInput(fixture, bob, 800, baseToken.address)
             await q2bExactInput(fixture, bob, 800, baseToken3.address)
-
             // pause any swap in baseToken3 market, not delist
             await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "0")
+
+            // drop index price to let alice open short position
+            await mockIndexPrice(mockedPriceFeedDispatcher, "123")
 
             // drop baseToken mark price to make bob to be liquidatable
             await b2qExactOutput(fixture, alice, 10000, baseToken.address)
             await forwardBothTimestamps(clearingHouse, 1800)
+
+            // pump index price to let alice close short position
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
             await closePosition(fixture, alice, 0, baseToken.address)
             // For market 1:
             //   indexPrice: 148.0

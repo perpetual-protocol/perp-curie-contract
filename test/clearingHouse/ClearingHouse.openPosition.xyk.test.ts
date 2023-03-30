@@ -2,10 +2,10 @@ import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, Vault } from "../../typechain"
+import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { mockIndexPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition in xyk pool", () => {
@@ -21,6 +21,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
+    let pool: UniswapV3Pool
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -30,6 +31,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
@@ -77,47 +79,10 @@ describe("ClearingHouse openPosition in xyk pool", () => {
         })
 
         it("increase positionSize and openNotional (negative for long) - exactInput", async () => {
-            // taker swap exact 250 USD for 19.84 ETH
+            // taker swap exact 25 USD for 2.4152232252 ETH
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
-                isExactInput: true,
-                oppositeAmountBound: 0,
-                amount: parseEther("250"),
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(
-                parseEther("19.839679358717434869"),
-            )
-            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("-250"))
-        })
-
-        it("increase positionSize and openNotional (negative for long) - exactOutput", async () => {
-            // taker swap 252.53 USD for exact 20 ETH
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: false,
-                oppositeAmountBound: 0,
-                amount: parseEther("20"),
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("20"))
-            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).closeTo(
-                parseEther("-252.525252525252525252"),
-                1,
-            )
-        })
-
-        it("increase -positionSize and openNotional (positive for short) - exactInput", async () => {
-            // taker swap exact 25 ETH for 198 USD
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
                 amount: parseEther("25"),
@@ -125,36 +90,77 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
-            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(
+                parseEther("2.415223225176872407"),
+            )
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("-25"))
         })
 
-        it("increase -positionSize and openNotional (positive for short) - exactOutput", async () => {
-            // taker swap exact 25 ETH for 198 USD
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: true,
-                isExactInput: false,
-                oppositeAmountBound: 0,
-                amount: parseEther("198"),
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-25"))
-            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("198"))
-        })
-    })
-
-    describe("opens long then", () => {
-        beforeEach(async () => {
-            // taker swap 252.53 USD for exact 20 ETH
+        it("increase positionSize and openNotional (negative for long) - exactOutput", async () => {
+            // taker swap 20.614 USD for exact 2 ETH
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
                 isExactInput: false,
                 oppositeAmountBound: 0,
-                amount: parseEther("20"),
+                amount: parseEther("2"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("2"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).closeTo(
+                parseEther("-20.614306328592042878"),
+                1,
+            )
+        })
+
+        it("increase -positionSize and openNotional (positive for short) - exactInput", async () => {
+            // taker swap exact 2 ETH for 19.411764705882352940 USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("2"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-2"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
+                parseEther("19.411764705882352940"),
+            )
+        })
+
+        it("increase -positionSize and openNotional (positive for short) - exactOutput", async () => {
+            // taker swap exact 2 ETH for 19.411764705882352940 USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: true,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("19.411764705882352940"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-2"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
+                parseEther("19.411764705882352940"),
+            )
+        })
+    })
+
+    describe("opens long then", () => {
+        beforeEach(async () => {
+            // taker swap 20.6143063286 USD for exact 2 ETH
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: false,
+                oppositeAmountBound: 0,
+                amount: parseEther("2"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
@@ -163,12 +169,13 @@ describe("ClearingHouse openPosition in xyk pool", () => {
 
         describe("open another long", () => {
             beforeEach(async () => {
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
                     oppositeAmountBound: 0,
-                    amount: parseEther("20"),
+                    amount: parseEther("2"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
@@ -176,11 +183,10 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             })
 
             it("increase positionSize and openNotional", async () => {
-                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("40"))
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("4"))
 
-                expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).closeTo(
-                    parseEther("-673.400673400673400666"),
-                    2,
+                expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
+                    parseEther("-42.087542087542087543"),
                 )
 
                 const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
@@ -195,7 +201,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     isBaseToQuote: true,
                     isExactInput: true,
                     oppositeAmountBound: 0,
-                    amount: parseEther("10"),
+                    amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
@@ -203,10 +209,10 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             })
 
             it("half the posSize and openNotional", async () => {
-                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("10"))
-                // 252.525252525252525252 / 2 = 126.2626262626
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("1"))
+                // 20.6143063286 / 2 = 10.3071531643
                 expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
-                    parseEther("-126.262626262626262626"),
+                    parseEther("-10.307153164296021439"),
                 )
                 // this will be weirdly positive because of the nature of the average open notional pricing
                 // expect(await accountBalance.getPnlAndPendingFee(taker.address)).eq()
@@ -225,7 +231,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     referralCode: ethers.constants.HashZero,
                 })
                 const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
-                expect(pnl[0]).closeTo(parseEther("-5.025252525252525255"), 2)
+                expect(pnl[0]).closeTo(parseEther("-0.410224695938981656"), 2)
             })
         })
 
@@ -235,28 +241,27 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("30"),
+                amount: parseEther("4"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-10"))
-            // trader's actual delta = 340.91 - 3.41 = 337.5
-            // notional of original 20 ETH = 337.5 / 3 * 2 = 252.525252
-            // remain 10 ETH's notional = openNotional = 337.5 - 252.5252 = 112.5
-            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("112.5"))
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-2"))
+            expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
+                parseEther("19.807923169267707082"),
+            )
         })
     })
 
     describe("opens short then", () => {
         beforeEach(async () => {
-            // taker swap exact 25 ETH for 198 USD
+            // taker swap exact 2 ETH for 19.411 USD
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
                 isExactInput: true,
                 oppositeAmountBound: 0,
-                amount: parseEther("25"),
+                amount: parseEther("2"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
@@ -270,7 +275,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     isBaseToQuote: false,
                     isExactInput: false,
                     oppositeAmountBound: 0,
-                    amount: parseEther("12.5"),
+                    amount: parseEther("1"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
@@ -278,11 +283,11 @@ describe("ClearingHouse openPosition in xyk pool", () => {
             })
 
             it("half the posSize and openNotional", async () => {
-                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(
-                    parseEther("-12.5"),
+                expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("-1"))
+                // 19.411/2 = 9.7055
+                expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
+                    parseEther("9.705882352941176470"),
                 )
-                // 198/2 = 99
-                expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(parseEther("99"))
                 // this will be weirdly positive because of the nature of the average open notional pricing
                 // expect(await accountBalance.getPnlAndPendingFee(taker.address)).eq()
             })
@@ -299,9 +304,9 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 })
-                // should be exact -4?
+
                 const pnl = await accountBalance.getPnlAndPendingFee(taker.address)
-                expect(pnl[0]).closeTo(parseEther("-4.020202020202020203"), 2)
+                expect(pnl[0]).closeTo(parseEther("-0.394137452960982377"), 2)
             })
         })
 
@@ -311,15 +316,14 @@ describe("ClearingHouse openPosition in xyk pool", () => {
                 isBaseToQuote: false,
                 isExactInput: false,
                 oppositeAmountBound: 0,
-                amount: parseEther("40"),
+                amount: parseEther("4"),
                 sqrtPriceLimitX96: 0,
                 deadline: ethers.constants.MaxUint256,
                 referralCode: ethers.constants.HashZero,
             })
-            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("15"))
-            // 142.58823529
+            expect(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(parseEther("2"))
             expect(await accountBalance.getTotalOpenNotional(taker.address, baseToken.address)).eq(
-                parseEther("-142.602495543672014261"),
+                parseEther("-20.210104243717689096"),
             )
         })
     })

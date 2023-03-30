@@ -78,6 +78,9 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
             // alice: +20b -250q
             // pool: 100/1000 => 80/1250
             await mintAndDeposit(fixture, alice, 1000)
+
+            await mockIndexPrice(mockedPriceFeedDispatcher, "15")
+
             await q2bExactInput(fixture, alice, 250, baseToken.address)
             takerPositionBefore = await getTakerPositionSize(alice, baseToken)
             takerOpenNotionalBefore = await getTakerOpenNotional(alice, baseToken)
@@ -92,6 +95,9 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
             // bob: -40b +500q
             // pool: 160/2500 => 200/2000
             await mintAndDeposit(fixture, bob, 1000)
+
+            await mockIndexPrice(mockedPriceFeedDispatcher, "10")
+
             await b2qExactInput(fixture, bob, 40, baseToken.address)
         })
 
@@ -168,10 +174,13 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
             // bob: +20b -250q
             // pool: 100/1000 => 80/1250
             await mintAndDeposit(fixture, bob, 1000)
+
+            await mockIndexPrice(mockedPriceFeedDispatcher, "15")
             await q2bExactInput(fixture, bob, 250, baseToken.address)
 
             // alice: +17.5b -350q
             // alice: 80/1250 => 62.5/1600
+            await mockIndexPrice(mockedPriceFeedDispatcher, "30")
             await q2bExactInput(fixture, alice, 350, baseToken.address)
             takerPositionBefore = await getTakerPositionSize(alice, baseToken)
             takerOpenNotionalBefore = await getTakerOpenNotional(alice, baseToken)
@@ -251,6 +260,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
     function testClosePosition() {
         it("won't impact maker's position when closing position", async () => {
+            await mockIndexPrice(mockedPriceFeedDispatcher, "8")
             await closePosition(fixture, alice)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)

@@ -7,7 +7,7 @@ import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHou
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -82,8 +82,13 @@ describe("Vault liquidationGetter test", () => {
         // debt = 9000 (> collateralValueDust = 500), eth = 1, liquidation ratio = 0.5,
         // discount rate = 0.1, cl insurance rate = 0.03
         it("discounted collateral value less than max repay notional", async () => {
+            // mock index price to do long
+            await mockIndexPrice(mockedPriceFeedDispatcher, "200")
+
             await q2bExactInput(fixture, alice, 10000)
+
             await accountBalance.mockMarkPrice(baseToken.address, "1")
+
             // maxRepaidSettlementX10_S = 1 * 2700 = 2700
             // maxLiquidatableCollateral = min(4500 (= 9000 * 0.5, cuz collateralValueDust = 500) / 0.97 / (3000 * 0.9), 1) = 1
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, weth.address)
@@ -156,6 +161,10 @@ describe("Vault liquidationGetter test", () => {
         beforeEach(async () => {
             await deposit(alice, vault, 1000, usdc)
             await deposit(alice, vault, 1, weth)
+
+            // mock index price to do long
+            await mockIndexPrice(mockedPriceFeedDispatcher, "200")
+
             // totalMarginRequirement = 4000 * 10% = 400
             await q2bExactInput(fixture, alice, 4000)
             // position size = 24.868218

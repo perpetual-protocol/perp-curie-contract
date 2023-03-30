@@ -70,7 +70,7 @@ describe("ClearingHouse slippage in xyk pool", () => {
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: true,
-                    amount: parseEther("25"),
+                    amount: parseEther("2.5"),
                     oppositeAmountBound: parseEther("200"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
@@ -80,14 +80,14 @@ describe("ClearingHouse slippage in xyk pool", () => {
         })
 
         it("B2Q + exact output, want less input base as possible, so we set a upper bound of input base", async () => {
-            // taker swap exact 250 USD for expected 20 ETH but got less
+            // taker swap exact 25 USD for expected 2.5 ETH but got less
             await expect(
                 clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: true,
                     isExactInput: false,
-                    amount: parseEther("250"),
-                    oppositeAmountBound: parseEther("25"),
+                    amount: parseEther("25"),
+                    oppositeAmountBound: parseEther("2.5"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
@@ -96,13 +96,13 @@ describe("ClearingHouse slippage in xyk pool", () => {
         })
 
         it("Q2B + exact input, want more output base as possible, so we set a lower bound of output base", async () => {
-            // taker swap exact 250 USD for expected 20 ETH but got less
+            // taker swap exact 25 USD for expected 20 ETH but got less
             await expect(
                 clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: true,
-                    amount: parseEther("250"),
+                    amount: parseEther("25"),
                     oppositeAmountBound: parseEther("20"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
@@ -112,14 +112,14 @@ describe("ClearingHouse slippage in xyk pool", () => {
         })
 
         it("Q2B + exact output want less input quote as possible, so we set a upper bound of input quote", async () => {
-            // taker swap exact 250 USD for expected 20 ETH but got less
+            // taker swap exact 2.5 USD for expected 2 ETH but got less
             await expect(
                 clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,
                     isExactInput: false,
-                    amount: parseEther("20"),
-                    oppositeAmountBound: parseEther("250"),
+                    amount: parseEther("2"),
+                    oppositeAmountBound: parseEther("2.5"),
                     sqrtPriceLimitX96: 0,
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
@@ -130,10 +130,35 @@ describe("ClearingHouse slippage in xyk pool", () => {
 
     describe("closePosition", () => {
         it("open short then close", async () => {
-            // taker shorts 25 ETH with roughly 200 USD
+            // taker shorts 2.5 ETH with roughly 24 USD
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: true,
+                isExactInput: true,
+                amount: parseEther("2.5"),
+                oppositeAmountBound: 0,
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+
+            // taker wants to close 2.5 ETH short for 24 USD but get less bcs of the tx fee
+            await expect(
+                clearingHouse.connect(taker).closePosition({
+                    baseToken: baseToken.address,
+                    sqrtPriceLimitX96: 0,
+                    oppositeAmountBound: parseEther("24"),
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            ).to.be.revertedWith("CH_TMRL")
+        })
+
+        it("open long then close", async () => {
+            // taker longs for roughly 2.4 ETH with 25 USD
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
                 isExactInput: true,
                 amount: parseEther("25"),
                 oppositeAmountBound: 0,
@@ -142,37 +167,12 @@ describe("ClearingHouse slippage in xyk pool", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // taker wants to close 25 ETH short for 200 USD but get less bcs of the tx fee
+            // taker wants to close 2.4 ETH long for 25 USD but get less bcs of the tx fee
             await expect(
                 clearingHouse.connect(taker).closePosition({
                     baseToken: baseToken.address,
                     sqrtPriceLimitX96: 0,
-                    oppositeAmountBound: parseEther("200"),
-                    deadline: ethers.constants.MaxUint256,
-                    referralCode: ethers.constants.HashZero,
-                }),
-            ).to.be.revertedWith("CH_TMRL")
-        })
-
-        it("open long then close", async () => {
-            // taker longs for roughly 20 ETH with 250 USD
-            await clearingHouse.connect(taker).openPosition({
-                baseToken: baseToken.address,
-                isBaseToQuote: false,
-                isExactInput: true,
-                amount: parseEther("250"),
-                oppositeAmountBound: 0,
-                sqrtPriceLimitX96: 0,
-                deadline: ethers.constants.MaxUint256,
-                referralCode: ethers.constants.HashZero,
-            })
-
-            // taker wants to close 20 ETH long for 250 USD but get less bcs of the tx fee
-            await expect(
-                clearingHouse.connect(taker).closePosition({
-                    baseToken: baseToken.address,
-                    sqrtPriceLimitX96: 0,
-                    oppositeAmountBound: parseEther("250"),
+                    oppositeAmountBound: parseEther("25"),
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
