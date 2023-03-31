@@ -20,7 +20,7 @@ import { b2qExactOutput, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { encodePriceSqrt, mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
+import { encodePriceSqrt, mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition", () => {
@@ -626,7 +626,7 @@ describe("ClearingHouse openPosition", () => {
         it("reduce position and at the same side when margin ratio is smaller than imRatio and greater than mmRatio", async () => {
             await vault.connect(taker).withdraw(collateral.address, parseUnits("999.6", collateralDecimals))
 
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("133"))
+            await mockMarkPrice(accountBalance, baseToken.address, "133")
             const positionSize = await accountBalance.getTotalPositionSize(taker.address, baseToken.address)
             const freeCollateralByImRatio = await vault.getFreeCollateralByRatio(
                 taker.address,

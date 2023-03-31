@@ -1,6 +1,5 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { BigNumberish } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -19,12 +18,11 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange, priceToTick } from "../helper/number"
 import { mintAndDeposit } from "../helper/token"
 import { initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse softCircuitBreak", () => {
-    const EMPTY_ADDRESS = "0x0000000000000000000000000000000000000000"
-    const [admin, alice, bob, carol, davis] = waffle.provider.getWallets()
+    const [admin, , bob, carol, davis] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
@@ -36,15 +34,9 @@ describe("ClearingHouse softCircuitBreak", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let baseToken2: BaseToken
-    let pool2: UniswapV3Pool
     let mockedPriceFeedDispatcher: MockContract
     let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
-
-    async function mockPool1MarkPrice(price: BigNumberish) {
-        await accountBalance.mockMarkPrice(baseToken.address, parseEther(price.toString()))
-    }
 
     beforeEach(async () => {
         fixture = await loadFixture(
@@ -105,7 +97,7 @@ describe("ClearingHouse softCircuitBreak", () => {
         })
 
         it("trader has positive accountValue after liquidation", async () => {
-            await mockPool1MarkPrice(900)
+            await mockMarkPrice(accountBalance, baseToken.address, "900")
 
             // after liquidation, trader's accountValue: 29.847554
             await expect(
@@ -114,7 +106,7 @@ describe("ClearingHouse softCircuitBreak", () => {
         })
 
         it("trader has negative accountValue but insuranceFund capacity can cover that", async () => {
-            await mockPool1MarkPrice(800)
+            await mockMarkPrice(accountBalance, baseToken.address, "800")
 
             // mint usdc to insuranceFund wallet
             await collateral.mint(insuranceFund.address, parseUnits("100", 6))
@@ -132,7 +124,7 @@ describe("ClearingHouse softCircuitBreak", () => {
         })
 
         it("trader has negative accountValue but insuranceFund capacity can't cover that", async () => {
-            await mockPool1MarkPrice(800)
+            await mockMarkPrice(accountBalance, baseToken.address, "800")
 
             // mint usdc to insuranceFund wallet
             await collateral.mint(insuranceFund.address, parseUnits("30", 6))

@@ -22,7 +22,7 @@ import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { withdrawAll } from "../helper/vaultHelper"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { filterLogs, mockIndexPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { filterLogs, mockIndexPrice, mockMarkPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -206,7 +206,7 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
                 // mock mark price to make bob has profit on market1
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("1000"))
+                await mockMarkPrice(accountBalance, baseToken.address, "1000")
 
                 // accountValue: 10055.1280557316, totalCollateralValue: 10000
                 // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
@@ -245,7 +245,7 @@ describe("Clearinghouse StopMarket", async () => {
 
                 // make profit on baseToken market
                 await mockIndexPrice(mockedPriceFeedDispatcher, "200")
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+                await mockMarkPrice(accountBalance, baseToken.address, "200")
                 // For market1
                 //   openNotional: -10.0
                 //   positionValue: 13.0543976842513928
@@ -253,7 +253,7 @@ describe("Clearinghouse StopMarket", async () => {
 
                 // make loss on baseToken2 market
                 await mockIndexPrice(mockedPriceFeedDispatcher2, "50")
-                await accountBalance.mockMarkPrice(baseToken2.address, parseEther("50"))
+                await mockMarkPrice(accountBalance, baseToken2.address, "50")
                 // For market2
                 //   openNotional: -10.0
                 //   positionValue2: 3.263599421062848
@@ -574,7 +574,7 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 100, baseToken2.address)
 
                 // make profit on baseToken market
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+                await mockMarkPrice(accountBalance, baseToken.address, "200")
 
                 await pauseMarket(baseToken2)
                 await closeMarket(baseToken2, 50)
@@ -984,7 +984,7 @@ describe("Clearinghouse StopMarket", async () => {
             }
 
             // drop mark price on baseToken market
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("0.000001"))
+            await mockMarkPrice(accountBalance, baseToken.address, "0.000001")
 
             // drop index price on baseToken market
             await mockIndexPrice(mockedPriceFeedDispatcher, "50")
@@ -1025,7 +1025,7 @@ describe("Clearinghouse StopMarket", async () => {
             await closeMarket(baseToken2, 0.0001)
 
             // drop mark price on baseToken market
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("0.000001"))
+            await mockMarkPrice(accountBalance, baseToken.address, "0.000001")
 
             // drop index price on baseToken market
             await mockIndexPrice(mockedPriceFeedDispatcher, "50")

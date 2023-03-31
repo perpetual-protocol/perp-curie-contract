@@ -1,6 +1,6 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
     BaseToken,
@@ -23,7 +23,7 @@ import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
 import { CHAINLINK_AGGREGATOR_DECIMALS } from "../shared/constant"
-import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidate test (assume zero IF fee)", () => {
     const [admin, alice, bob, carol, david] = waffle.provider.getWallets()
@@ -118,7 +118,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             describe("collateral margin ratio below 6.45% (6.25% mmRatio + 0.2% mmRatioBuffer)", async () => {
                 it("trader is not liquidatable when he/she doesn't have collateral token", async () => {
                     // mock mark price for fixed debt value and position value
-                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("116"))
+                    await mockMarkPrice(accountBalance, baseToken.address, "116")
                     // account value: 1000 + (18.88437579 * 116 - 3000) = 190.58759164
                     expect(await vault.getAccountValue(alice.address)).to.be.eq(parseUnits("190.587591", usdcDecimals))
                     // margin ratio: 190.58759164 / 3000 = 0.0635292
@@ -128,7 +128,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 it("trader doesn't have usdc debt", async () => {
                     await deposit(alice, vault, 0.01, weth)
                     // mock mark price for fixed debt value and position value
-                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("110"))
+                    await mockMarkPrice(accountBalance, baseToken.address, "110")
                     // usdc value: 1000 + (18.88437579 * 110 - 3000) = 77.2813369 > 0
                     expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                         parseUnits("77.281336", usdcDecimals),
@@ -143,7 +143,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 it("trader has usdc debt", async () => {
                     await deposit(alice, vault, 0.4, weth)
                     // mock mark price for fixed debt value and position value
-                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("65"))
+                    await mockMarkPrice(accountBalance, baseToken.address, "65")
                     // usdc value: 1000 + (18.88437579 * 65 - 3000) = -772.51557365 < 0
                     expect(await vault.getSettlementTokenValue(alice.address)).to.be.eq(
                         parseUnits("-772.515574", usdcDecimals),
@@ -159,7 +159,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
             it("usdc debt is greater than the non-settlement token value multiply the debt ratio", async () => {
                 await deposit(alice, vault, 0.7, weth)
                 // mock mark price for fixed debt value and position value
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("40"))
+                await mockMarkPrice(accountBalance, baseToken.address, "40")
                 // usdc debt: 1000 + (18.88437579 * 40 - 3000) = -1244.6249684
                 // non-settlement token value: 0.7 * 3000 * 0.7 = 1470
                 // account value: 1000 + 0.7 * 3000 * 0.7 + (18.88437579 * 40 - 3000) = 225.3750316
@@ -179,7 +179,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
                 await q2bExactInput(fixture, alice, 27000)
                 // mock mark price for fixed debt value and position value
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("75"))
+                await mockMarkPrice(accountBalance, baseToken.address, "75")
 
                 // mark price: 292.357324025874445567
                 // position size: 141.180531
@@ -342,7 +342,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
         it("force error, liquidator doesn't have enough settlement token for liquidation", async () => {
             // Make position has loss and account should be liquidatable
-            await accountBalance.mockMarkPrice(baseToken.address, 1)
+            await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
 
             await expect(
                 vault
@@ -365,7 +365,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
             // david has 400 usdc debt
             // Make position has loss and account should be liquidatable
-            await accountBalance.mockMarkPrice(baseToken.address, 1)
+            await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
 
             // liquidate david's weth with maximum amount
             const maxRepaidSettlement = (
@@ -396,7 +396,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 // usdc debt: 5000.000000
                 // max liquidatable value: 2577.319587
                 // Make position has loss and account should be liquidatable
-                await accountBalance.mockMarkPrice(baseToken.address, 1)
+                await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
             })
 
             it("force error, cannot liquidate more than max liquidatable settlement amount", async () => {
@@ -654,7 +654,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
                 // usdc debt: 5000
                 // max liquidatable amount: 0.954562
                 // Make position has loss and account should be liquidatable
-                await accountBalance.mockMarkPrice(baseToken.address, 1)
+                await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
             })
 
             it("force error, cannot liquidate more than max liquidatable non-settlement amount", async () => {
@@ -914,7 +914,7 @@ describe("Vault liquidate test (assume zero IF fee)", () => {
 
                 // mock index price to do long
                 await mockIndexPrice(mockedPriceFeedDispatcher, "200")
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+                await mockMarkPrice(accountBalance, baseToken.address, "200")
 
                 // alice continue to open long position
                 await q2bExactInput(fixture, alice, 10000)

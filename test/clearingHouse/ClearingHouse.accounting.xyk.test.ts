@@ -27,7 +27,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
@@ -545,7 +545,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await b2qExactOutput(fixture, taker, 100)
 
             // mock mark price to let taker underwater
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("20"))
+            await mockMarkPrice(accountBalance, baseToken.address, "20")
 
             // liquidate taker
             while (!(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(0)) {
@@ -570,7 +570,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker open
             await q2bExactInput(fixture, taker, 90)
 
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("4"))
+            await mockMarkPrice(accountBalance, baseToken.address, "4")
+
             // set index price to let taker pay funding fee
             await mockIndexPrice(mockedPriceFeedDispatcher, "4")
 
@@ -608,7 +609,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
             // mock mark price to let taker be liquidated
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("4"))
+            await mockMarkPrice(accountBalance, baseToken.address, "4")
 
             // set index price to let taker be liquidated
             await mockIndexPrice(mockedPriceFeedDispatcher, "4")

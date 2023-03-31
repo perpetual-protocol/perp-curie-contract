@@ -17,7 +17,7 @@ import { addOrder, b2qExactOutput, closePosition, q2bExactInput } from "../helpe
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -113,7 +113,7 @@ describe("Vault test", () => {
             await q2bExactInput(fixture, alice, 100, baseToken.address)
             // simulate funding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "200")
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+            await mockMarkPrice(accountBalance, baseToken.address, "200")
             await forwardBothTimestamps(clearingHouse, 360)
 
             expect(await vault.getBalanceByToken(alice.address, usdc.address)).to.be.eq(
@@ -270,7 +270,7 @@ describe("Vault test", () => {
             await q2bExactInput(fixture, alice, 300, baseToken.address)
             // alice will get funding since index price > market price
             await mockIndexPrice(mockedPriceFeedDispatcher, "200")
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+            await mockMarkPrice(accountBalance, baseToken.address, "200")
             await forwardBothTimestamps(clearingHouse, 360)
             // pending funding payment: -0.16422554
 
@@ -297,7 +297,7 @@ describe("Vault test", () => {
 
             it("trader has negative unrealized pnl and usdc debt", async () => {
                 // mock mark price to make trader has loss
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+                await mockMarkPrice(accountBalance, baseToken.address, "100")
 
                 // mock index price to calculate funding payment
                 await mockIndexPrice(mockedPriceFeedDispatcher, "100")
@@ -313,7 +313,7 @@ describe("Vault test", () => {
 
             it("trader has negative unrealized pnl and doesn't have usdc debt", async () => {
                 // mock mark price to make trader has loss
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("150"))
+                await mockMarkPrice(accountBalance, baseToken.address, "150")
 
                 // mock index price to calculate founding payment
                 await mockIndexPrice(mockedPriceFeedDispatcher, "150")
@@ -329,7 +329,7 @@ describe("Vault test", () => {
 
             it("trader has positive unrealized pnl", async () => {
                 // mock mark price to make trader has profit
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+                await mockMarkPrice(accountBalance, baseToken.address, "180")
 
                 // mock index price to calculate founding payment
                 await mockIndexPrice(mockedPriceFeedDispatcher, "180")
@@ -352,7 +352,7 @@ describe("Vault test", () => {
                 // market price: 175.63239005
 
                 // mock mark price to make trader has profit
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+                await mockMarkPrice(accountBalance, baseToken.address, "180")
 
                 // mock index price to calculate founding payment
                 await mockIndexPrice(mockedPriceFeedDispatcher, "180")
@@ -380,7 +380,7 @@ describe("Vault test", () => {
                 await q2bExactInput(fixture, bob, 1000, baseToken.address)
 
                 // mock mark price to make trader has profit
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+                await mockMarkPrice(accountBalance, baseToken.address, "180")
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -401,7 +401,7 @@ describe("Vault test", () => {
                 await b2qExactOutput(fixture, bob, 1000, baseToken.address)
 
                 // mock mark price to make trader has loss
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+                await mockMarkPrice(accountBalance, baseToken.address, "180")
 
                 await forwardBothTimestamps(clearingHouse, 360)
 
@@ -425,7 +425,7 @@ describe("Vault test", () => {
 
             it("trader has negative unrealized pnl and usdc debt", async () => {
                 // mock mark price to make trader has loss
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+                await mockMarkPrice(accountBalance, baseToken.address, "100")
 
                 // mock index price to calculate founding payment
                 await mockIndexPrice(mockedPriceFeedDispatcher, "100")
@@ -441,7 +441,7 @@ describe("Vault test", () => {
 
             it("trader has positive unrealized pnl", async () => {
                 // mock mark price to make trader has profit
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+                await mockMarkPrice(accountBalance, baseToken.address, "180")
 
                 // mock index price to calculate founding payment
                 await mockIndexPrice(mockedPriceFeedDispatcher, "180")
@@ -461,7 +461,7 @@ describe("Vault test", () => {
                 await q2bExactInput(fixture, bob, 300, baseToken.address)
 
                 // mock mark price to make trader has profit
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+                await mockMarkPrice(accountBalance, baseToken.address, "180")
 
                 // mock index price to calculate founding payment
                 await mockIndexPrice(mockedPriceFeedDispatcher, "180")
@@ -494,7 +494,7 @@ describe("Vault test", () => {
 
         it("trader has negative unrealized pnl", async () => {
             // mock mark price to make trader has loss
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+            await mockMarkPrice(accountBalance, baseToken.address, "100")
 
             // mock index price to calculate founding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "100")
@@ -513,7 +513,7 @@ describe("Vault test", () => {
 
         it("trader has positive unrealized pnl", async () => {
             // mock mark price to make trader has profit
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            await mockMarkPrice(accountBalance, baseToken.address, "180")
 
             // mock index price to calculate founding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "180")
@@ -537,7 +537,7 @@ describe("Vault test", () => {
             // market price: 164.605506117068038532
 
             // mock mark price to make trader has profit
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("180"))
+            await mockMarkPrice(accountBalance, baseToken.address, "180")
 
             // mock index price to calculate funding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "180")
@@ -563,7 +563,7 @@ describe("Vault test", () => {
             await q2bExactInput(fixture, bob, 1000, baseToken.address)
 
             // mock mark price to make trader has profit
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("170"))
+            await mockMarkPrice(accountBalance, baseToken.address, "170")
 
             // mock index price to calculate founding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "170")
@@ -586,8 +586,8 @@ describe("Vault test", () => {
             // bob short, so alice can have negative realized PnL after closing position
             await b2qExactOutput(fixture, bob, 1000, baseToken.address)
 
-            // mock mark price to make trader has losee
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("160"))
+            // mock mark price to make trader has lose
+            await mockMarkPrice(accountBalance, baseToken.address, "160")
 
             // mock index price to calculate founding payment
             await mockIndexPrice(mockedPriceFeedDispatcher, "160")

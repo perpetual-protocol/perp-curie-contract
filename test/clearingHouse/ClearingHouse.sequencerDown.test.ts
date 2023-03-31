@@ -22,7 +22,7 @@ import { addOrder, closePosition, q2bExactInput, removeOrder } from "../helper/c
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("Sequencer Down", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -172,7 +172,7 @@ describe("Sequencer Down", () => {
         })
 
         it("liquidate with order", async () => {
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("5"))
+            await mockMarkPrice(accountBalance, baseToken.address, "5")
 
             // cannot cancel excess order on account with non-USDC collaterals
             await expect(
@@ -197,7 +197,7 @@ describe("Sequencer Down", () => {
         })
 
         it("liquidate collateral", async () => {
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("5"))
+            await mockMarkPrice(accountBalance, baseToken.address, "5")
 
             await expect(vault.connect(carol).isLiquidatable(alice.address)).to.be.revertedWith("CPF_SD")
             await expect(

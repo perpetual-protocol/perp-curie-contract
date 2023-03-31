@@ -1,13 +1,13 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestERC20, TestVault, UniswapV3Pool } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { mockIndexPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -87,7 +87,7 @@ describe("Vault liquidationGetter test", () => {
 
             await q2bExactInput(fixture, alice, 10000)
 
-            await accountBalance.mockMarkPrice(baseToken.address, "1")
+            await mockMarkPrice(accountBalance, baseToken.address, "1")
 
             // maxRepaidSettlementX10_S = 1 * 2700 = 2700
             // maxLiquidatableCollateral = min(4500 (= 9000 * 0.5, cuz collateralValueDust = 500) / 0.97 / (3000 * 0.9), 1) = 1
@@ -100,7 +100,7 @@ describe("Vault liquidationGetter test", () => {
         // discount rate = 0.1, cl insurance rate = 0.03
         it("discounted collateral value greater than max repay notional", async () => {
             await q2bExactInput(fixture, alice, 1500)
-            await accountBalance.mockMarkPrice(baseToken.address, "1")
+            await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
             // maxRepaidSettlementX10_S = 500  / 0.97 = 515.463917
             // maxLiquidatableCollateral = min(515.463917 / 2700, 1) = 0.1909125619
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, weth.address)
@@ -113,7 +113,7 @@ describe("Vault liquidationGetter test", () => {
         it("return decimals should be same as the collateral token", async () => {
             await deposit(alice, vault, 1, wbtc)
             await q2bExactInput(fixture, alice, 1500)
-            await accountBalance.mockMarkPrice(baseToken.address, "1")
+            await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
             // maxRepaidSettlementX10_S = 500 / 0.97 = 515.463917
             // maxLiquidatableCollateral = min(515.463917 / 36000, 1) = 0.01431844
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, wbtc.address)
@@ -192,7 +192,7 @@ describe("Vault liquidationGetter test", () => {
         describe("settlementTokenValue less than 0", async () => {
             it("settlementTokenDebt greater than total margin requirement, max debt greater than collateral value dust", async () => {
                 // settlementTokenValue = 1000 - 4000 = -3000
-                await accountBalance.mockMarkPrice(baseToken.address, "1")
+                await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
                 // 1500 / 0.97 = 1546.39175258
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
                     parseEther("1546.391752577319587616"),
@@ -201,7 +201,7 @@ describe("Vault liquidationGetter test", () => {
 
             it("settlementTokenDebt less than total margin requirement, max debt less than collateral value dust", async () => {
                 // settlementTokenValue = 1000 - (4000 - 24.868218 * 110) = -264.49602
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("110"))
+                await mockMarkPrice(accountBalance, baseToken.address, "110")
                 // 400 / 0.97 = 412.371134
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
                     parseEther("412.371134020618556701"),

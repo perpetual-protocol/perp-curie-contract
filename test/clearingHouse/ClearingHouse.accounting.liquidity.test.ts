@@ -2,13 +2,13 @@ import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { ContractTransaction } from "ethers"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
 import { addOrder, findLiquidityChangedEvents, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse accounting (liquidity)", () => {
@@ -108,7 +108,7 @@ describe("ClearingHouse accounting (liquidity)", () => {
         )
 
         // raise mark price a lot so the maker orders are under-collateralized
-        await accountBalance.mockMarkPrice(baseToken.address, parseEther("10000"))
+        await mockMarkPrice(accountBalance, baseToken.address, "10000")
 
         liquidityBalance = liquidityBalance.add(
             await extractLiquidityDelta(

@@ -16,7 +16,7 @@ import { closePosition, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { mockIndexPrice } from "../shared/utilities"
+import { mockIndexPrice, mockMarkPrice } from "../shared/utilities"
 
 describe("Vault getFreeCollateral", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -115,7 +115,7 @@ describe("Vault getFreeCollateral", () => {
                 })
 
                 // mock mark price for fixed position value
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("150"))
+                await mockMarkPrice(accountBalance, baseToken.address, "150")
 
                 // openNotional = -10
                 // positionValue = 0.065379992856491801 * 150 = 9.8069989285
@@ -152,7 +152,7 @@ describe("Vault getFreeCollateral", () => {
                 await q2bExactInput(fixture, alice, 100)
 
                 // mock mark price for fixed debt value and position value
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("80"))
+                await mockMarkPrice(accountBalance, baseToken.address, "80")
 
                 // bob debt value: 16000 (baseDebt) + 28004.62178853 (quoteDebt) = 44004.62178853
                 // as bob has a profit, using totalCollateralValue for free collateral
@@ -168,7 +168,7 @@ describe("Vault getFreeCollateral", () => {
                 await q2bExactInput(fixture, alice, 100)
 
                 // mock mark price for fixed debt value and position value
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+                await mockMarkPrice(accountBalance, baseToken.address, "200")
 
                 // bob debt value: 40000 (baseDebt) + 28004.62178853 (quoteDebt) = 68004.62178853
                 // bob unrealizedPnl: -15.9536614113
@@ -209,7 +209,7 @@ describe("Vault getFreeCollateral", () => {
 
                 // alice has negative pnl
                 // mock mark price for fixed debt value and position value
-                await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+                await mockMarkPrice(accountBalance, baseToken.address, "100")
             })
 
             // when settlement token value < 0, free collaterals of all collaterals are always 0
@@ -230,7 +230,7 @@ describe("Vault getFreeCollateral", () => {
                 beforeEach(async () => {
                     // alice has positive unrealized pnl
                     // mock mark price for fixed debt value and position value
-                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+                    await mockMarkPrice(accountBalance, baseToken.address, "200")
                 })
 
                 it("deposit only weth, free collateral of weth greater than 0", async () => {
@@ -295,7 +295,7 @@ describe("Vault getFreeCollateral", () => {
                     await clearingHouse.connect(alice).settleAllFunding(alice.address)
 
                     // alice has positive unrealized pnl
-                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("200"))
+                    await mockMarkPrice(accountBalance, baseToken.address, "200")
 
                     // though settlement token balance < 0, as long as settlement token value > 0, can withdraw other collaterals
                     expect(await vault.getFreeCollateralByToken(alice.address, weth.address)).to.be.eq(parseEther("10"))
@@ -309,7 +309,7 @@ describe("Vault getFreeCollateral", () => {
             describe("trader has negative unrealized pnl", async () => {
                 beforeEach(async () => {
                     // alice has negative unrealized pnl
-                    await accountBalance.mockMarkPrice(baseToken.address, parseEther("100"))
+                    await mockMarkPrice(accountBalance, baseToken.address, "100")
                 })
 
                 it("deposit weth & usdc, free collateral of weth greater than 0", async () => {

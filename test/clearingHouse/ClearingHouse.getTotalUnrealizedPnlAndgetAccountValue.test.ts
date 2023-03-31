@@ -6,7 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken, TestAccountBalance, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { mockIndexPrice } from "../shared/utilities"
+import { mockIndexPrice, mockMarkPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
@@ -83,7 +83,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("101.855079"))
+            await mockMarkPrice(accountBalance, baseToken.address, "101.855079")
 
             // price after swap: 101.855079
             // position size = 0.980943170969551031
@@ -118,7 +118,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("103.727208"))
+            await mockMarkPrice(accountBalance, baseToken.address, "103.727208")
 
             // price after swap: 103.727208
             // taker1
@@ -153,7 +153,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("101.855079"))
+            await mockMarkPrice(accountBalance, baseToken.address, "101.855079")
 
             // price after swap: 101.855079
             // position size = 0.980943170969551031
@@ -185,7 +185,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             // B2QFee: CH actually shorts 198 / 0.99 = 200
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.125012"))
+            await mockMarkPrice(accountBalance, baseToken.address, "98.125012")
 
             // price after swap: 98.125012
             // taker1
@@ -217,7 +217,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.143490"))
+            await mockMarkPrice(accountBalance, baseToken.address, "98.143490")
 
             // price after swap: 98.143490
             // position size = -1.009413830572328542
@@ -248,7 +248,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("99.981348"))
+            await mockMarkPrice(accountBalance, baseToken.address, "99.981348")
 
             // price after swap: 99.981348
             // taker1
@@ -280,7 +280,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.143490"))
+            await mockMarkPrice(accountBalance, baseToken.address, "98.143490")
 
             // price after swap: 98.143490
             // position size = -1.009413830572328542
@@ -312,7 +312,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             // B2QFee: CH actually shorts 198 / 0.99 = 200
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("94.446032"))
+            await mockMarkPrice(accountBalance, baseToken.address, "94.446032")
 
             // price after swap: 94.446032
             // taker1
@@ -345,7 +345,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             })
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("101.855079"))
+            await mockMarkPrice(accountBalance, baseToken.address, "101.855079")
 
             // price after swap: 101.855079
             // taker
@@ -385,7 +385,7 @@ describe("ClearingHouse getTotalUnrealizedPnl & getAccountValue", () => {
             // B2QFee: CH actually shorts 99 / 0.99 = 100
 
             // mock mark price to make calculation simpler
-            await accountBalance.mockMarkPrice(baseToken.address, parseEther("98.143490"))
+            await mockMarkPrice(accountBalance, baseToken.address, "98.143490")
 
             // price after swap: 98.143490
             // taker
