@@ -69,6 +69,10 @@ export async function mockIndexPrice(mockedPriceFeedDispatcher: MockContract, pr
     mockedPriceFeedDispatcher.smocked.getDispatchedPrice.will.return.with(parseEther(price))
 }
 
+export async function mockMarkPrice(accountBalance: TestAccountBalance, baseToken: string, price: string) {
+    await accountBalance.mockMarkPrice(baseToken, parseEther(price))
+}
+
 export async function syncIndexToMarketPrice(mockedPriceFeedDispatcher: MockContract, pool: UniswapV3Pool) {
     const slot0 = await pool.slot0()
     const sqrtPrice = slot0.sqrtPriceX96
