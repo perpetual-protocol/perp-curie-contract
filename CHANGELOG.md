@@ -6,13 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
-- Added a new field, maxPriceSpreadRatio, to the `IMarketRegistry.MarketInfo` struct. The `MarketRegistry.getMarketInfo` function will now return the maxPriceSpreadRatio value for a market.
-
-## [2.4.5] - 2023-03-28
-- Ensure that the market price should be within a price band (defaulting to the index price +/- 10%, but adaptable to market conditions) before performing any swaps, including opening, reducing, or closing positions.
-
-## [2.4.4] - 2023-03-20
-- Fix margin requirement check for reducing positions when leverage exceeds 10x.
 
 ## [2.6.0] - TBD
 ### Changed
@@ -31,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 - BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
 - `Exchange.getSqrtMarkTwapX96(address baseToken, uint32 twapInterval)` will be deprecated at later releases. Suggest to use `Exchange.getSqrtMarketTwapX96()` instead.
+
+## [2.4.6] - TBD
+- Added a new field, maxPriceSpreadRatio, to the `IMarketRegistry.MarketInfo` struct. The `MarketRegistry.getMarketInfo` function will now return the maxPriceSpreadRatio value for a market.
+
+## [2.4.5] - 2023-03-28
+- Ensure that the market price should be within a price band (defaulting to the index price +/- 10%, but adaptable to market conditions) before performing any swaps, including opening, reducing, or closing positions.
+
+## [2.4.4] - 2023-03-20
+- Fix margin requirement check for reducing positions when leverage exceeds 10x.
 
 ## [2.4.3] - 2023-02-07
 - Update the price limit check on last tick of markets per 15 (Exchange._PRICE_LIMIT_INTERVAL) seconds.
