@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [unreleased]
+
+## [2.4.6] - TBD
 - Added a new field, maxPriceSpreadRatio, to the `IMarketRegistry.MarketInfo` struct. The `MarketRegistry.getMarketInfo` function will now return the maxPriceSpreadRatio value for a market.
 
 ## [2.4.5] - 2023-03-28
