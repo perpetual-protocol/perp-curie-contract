@@ -851,9 +851,9 @@ describe("Clearinghouse StopMarket", async () => {
                 // check: IF account value should be 0
                 expect(await vault.getAccountValue(insuranceFund.address)).eq("0")
                 // call quitMarket
-                expect(await clearingHouse.quitMarket(bob.address, baseToken.address))
+                await expect(clearingHouse.quitMarket(bob.address, baseToken.address))
                     .to.emit(vault, "BadDebtSettled")
-                    .withArgs(bob.address, "5236674")
+                    .withArgs(bob.address, "5236672")
                 // check: bob account value should 0
                 expect(await vault.getAccountValue(bob.address)).eq("0")
                 // check: IF account value should be negative
