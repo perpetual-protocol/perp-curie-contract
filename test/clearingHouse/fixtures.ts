@@ -117,16 +117,12 @@ export function createClearingHouseFixture(
         const wethChainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
             mockedAggregator.address,
             40 * 60, // 40 mins
-            1e5, // 10%
-            10, // 10s
-            0,
+            CACHED_TWAP_INTERVAL,
         )) as ChainlinkPriceFeedV3
         const wbtcChainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
             mockedAggregator.address,
             40 * 60, // 40 mins
-            1e5, // 10%
-            10, // 10s
-            0,
+            CACHED_TWAP_INTERVAL,
         )) as ChainlinkPriceFeedV3
 
         const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
@@ -139,7 +135,6 @@ export function createClearingHouseFixture(
 
         const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
         const wethPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
-            ethers.constants.AddressZero,
             wethChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWethPriceFeedDispatcher = await smockit(wethPriceFeedDispatcher)
@@ -148,7 +143,6 @@ export function createClearingHouseFixture(
         })
 
         const wbtcPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
-            ethers.constants.AddressZero,
             wbtcChainlinkPriceFeedV3.address,
         )) as PriceFeedDispatcher
         const mockedWbtcPriceFeedDispatcher = await smockit(wbtcPriceFeedDispatcher)
@@ -383,13 +377,10 @@ async function mockedBaseTokenToken(longerThan: boolean, targetAddr: string): Pr
         const chainlinkPriceFeed = (await chainlinkPriceFeedV3Factory.deploy(
             mockedAggregator.address,
             40 * 60, // 40 mins
-            1e5, // 10%
-            10, // 10s
             CACHED_TWAP_INTERVAL,
         )) as ChainlinkPriceFeedV3
         const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
         const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
-            ethers.constants.AddressZero,
             chainlinkPriceFeed.address,
         )) as PriceFeedDispatcher
 

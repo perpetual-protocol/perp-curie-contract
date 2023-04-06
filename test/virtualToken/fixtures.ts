@@ -24,14 +24,11 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
     const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
         mockedAggregator.address,
         40 * 60, // 40 mins
-        1e5, // 10%
-        10, // 10s
         CACHED_TWAP_INTERVAL,
     )) as ChainlinkPriceFeedV3
 
     const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
     const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
-        ethers.constants.AddressZero,
         chainlinkPriceFeedV3.address,
     )) as PriceFeedDispatcher
 
