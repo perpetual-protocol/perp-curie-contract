@@ -7,12 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-## [2.6.0] - TBD
+## [2.6.0] - 2023-04-10
 ### Changed
 - Switch `IPriceFeedV2` to `IPriceFeedDispatcher` in `BaseToken`.
 - Update `ClearingHouseConfig.setTwapInterval()` to support 0 interval.
 
-## [2.5.0] - TBD
+## [2.5.0] - 2023-04-10
 ### Added
 - Add `AccountBalance.getMarkPrice()` to return the mark price of given market.
 - Add `ClearingHouseConfig.getMarkPriceConfig()` to return marketTwapInterval and premiumInterval used for mark price calculations.
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BackstopLiquidityProvider from ClearingHouseConfig & IClearingHouseConfig and comments added to ClearingHouseConfigStorage
 - `Exchange.getSqrtMarkTwapX96(address baseToken, uint32 twapInterval)` will be deprecated at later releases. Suggest to use `Exchange.getSqrtMarketTwapX96()` instead.
 
-## [2.4.6] - TBD
+## [2.4.6] - 2023-04-10
 - Added a new field, maxPriceSpreadRatio, to the `IMarketRegistry.MarketInfo` struct. The `MarketRegistry.getMarketInfo` function will now return the maxPriceSpreadRatio value for a market.
 
 ## [2.4.5] - 2023-03-28
