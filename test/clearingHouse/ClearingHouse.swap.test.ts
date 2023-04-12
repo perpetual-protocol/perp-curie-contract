@@ -5,6 +5,7 @@ import { ethers, waffle } from "hardhat"
 import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.swap", () => {
@@ -16,7 +17,7 @@ describe("ClearingHouse.swap", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
@@ -28,14 +29,12 @@ describe("ClearingHouse.swap", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -99,9 +98,7 @@ describe("ClearingHouse.swap", () => {
         describe("reduce 25% position (exactInput), profit", () => {
             beforeEach(async () => {
                 // mock index price to do short
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("8", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "8")
 
                 // another trader carol sell base, price down
                 await collateral.mint(carol.address, parseUnits("100", collateralDecimals))
@@ -183,9 +180,7 @@ describe("ClearingHouse.swap", () => {
             await deposit(bob, vault, 25, collateral)
 
             // mock index price to do long
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("20", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "20")
             await clearingHouse.connect(bob).swap({
                 // buy base
                 baseToken: baseToken.address,
@@ -222,9 +217,7 @@ describe("ClearingHouse.swap", () => {
         describe("reduce 75% position (exactOutput), loss", () => {
             beforeEach(async () => {
                 // mock index price to do short
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("10", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "10")
 
                 // another trader carol sell base, price down
                 await collateral.mint(carol.address, parseUnits("10000", collateralDecimals))
@@ -266,9 +259,7 @@ describe("ClearingHouse.swap", () => {
         describe("swap reverse and larger amount, only fee loss", () => {
             beforeEach(async () => {
                 // mock index price to do short
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("5", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "5")
 
                 // bob opens a larger reverse position (short)
                 await collateral.mint(bob.address, parseUnits("1000", collateralDecimals))

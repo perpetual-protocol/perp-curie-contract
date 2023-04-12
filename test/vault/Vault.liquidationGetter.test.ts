@@ -1,12 +1,13 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { formatEther, parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
-import { BaseToken, TestERC20, TestVault, UniswapV3Pool } from "../../typechain"
+import { BaseToken, TestAccountBalance, TestERC20, TestVault, UniswapV3Pool } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import { addOrder, q2bExactInput, syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
+import { addOrder, q2bExactInput } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault liquidationGetter test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -15,12 +16,15 @@ describe("Vault liquidationGetter test", () => {
     let usdc: TestERC20
     let weth: TestERC20
     let wbtc: TestERC20
-    let wethPriceFeed: MockContract
-    let wbtcPriceFeed: MockContract
+    let mockedWethPriceFeed: MockContract
+    let mockedWbtcPriceFeed: MockContract
+    let wethPriceFeedDispatcher: MockContract
+    let wbtcPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
+    let accountBalance: TestAccountBalance
     let fixture: ClearingHouseFixture
 
     beforeEach(async () => {
@@ -29,26 +33,30 @@ describe("Vault liquidationGetter test", () => {
         usdc = _fixture.USDC
         weth = _fixture.WETH
         wbtc = _fixture.WBTC
-        wethPriceFeed = _fixture.mockedWethPriceFeed
-        wbtcPriceFeed = _fixture.mockedWbtcPriceFeed
+        mockedWethPriceFeed = _fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = _fixture.mockedWbtcPriceFeed
+        wethPriceFeedDispatcher = _fixture.mockedWethPriceFeedDispatcher
+        wbtcPriceFeedDispatcher = _fixture.mockedWbtcPriceFeedDispatcher
         pool = _fixture.pool
         baseToken = _fixture.baseToken
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
+        accountBalance = _fixture.accountBalance as TestAccountBalance
         fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         // mint and add liquidity
         const amount = parseUnits("1000", usdcDecimals)
         await usdc.mint(alice.address, amount)
         await usdc.connect(alice).approve(vault.address, amount)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("3000", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
         await weth.mint(alice.address, parseEther("1"))
         await weth.connect(alice).approve(vault.address, ethers.constants.MaxUint256)
         await wbtc.mint(alice.address, parseUnits("1", await wbtc.decimals()))
@@ -75,16 +83,12 @@ describe("Vault liquidationGetter test", () => {
         // discount rate = 0.1, cl insurance rate = 0.03
         it("discounted collateral value less than max repay notional", async () => {
             // mock index price to do long
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("200", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "200")
 
             await q2bExactInput(fixture, alice, 10000)
 
-            // mock index price to make bad debt
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("50", 6), 0, 0, 0]
-            })
+            await mockMarkPrice(accountBalance, baseToken.address, "1")
+
             // maxRepaidSettlementX10_S = 1 * 2700 = 2700
             // maxLiquidatableCollateral = min(4500 (= 9000 * 0.5, cuz collateralValueDust = 500) / 0.97 / (3000 * 0.9), 1) = 1
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, weth.address)
@@ -96,9 +100,7 @@ describe("Vault liquidationGetter test", () => {
         // discount rate = 0.1, cl insurance rate = 0.03
         it("discounted collateral value greater than max repay notional", async () => {
             await q2bExactInput(fixture, alice, 1500)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0", 6), 0, 0, 0]
-            })
+            await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
             // maxRepaidSettlementX10_S = 500  / 0.97 = 515.463917
             // maxLiquidatableCollateral = min(515.463917 / 2700, 1) = 0.1909125619
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, weth.address)
@@ -111,9 +113,7 @@ describe("Vault liquidationGetter test", () => {
         it("return decimals should be same as the collateral token", async () => {
             await deposit(alice, vault, 1, wbtc)
             await q2bExactInput(fixture, alice, 1500)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0", 6), 0, 0, 0]
-            })
+            await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
             // maxRepaidSettlementX10_S = 500 / 0.97 = 515.463917
             // maxLiquidatableCollateral = min(515.463917 / 36000, 1) = 0.01431844
             const result = await vault.getMaxRepaidSettlementAndLiquidatableCollateral(alice.address, wbtc.address)
@@ -163,9 +163,7 @@ describe("Vault liquidationGetter test", () => {
             await deposit(alice, vault, 1, weth)
 
             // mock index price to do long
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("200", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "200")
 
             // totalMarginRequirement = 4000 * 10% = 400
             await q2bExactInput(fixture, alice, 4000)
@@ -194,20 +192,16 @@ describe("Vault liquidationGetter test", () => {
         describe("settlementTokenValue less than 0", async () => {
             it("settlementTokenDebt greater than total margin requirement, max debt greater than collateral value dust", async () => {
                 // settlementTokenValue = 1000 - 4000 = -3000
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("0", 6), 0, 0, 0]
-                })
+                await mockMarkPrice(accountBalance, baseToken.address, formatEther("1"))
                 // 1500 / 0.97 = 1546.39175258
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
-                    parseEther("1546.391752577319587628"),
+                    parseEther("1546.391752577319587616"),
                 )
             })
 
             it("settlementTokenDebt less than total margin requirement, max debt less than collateral value dust", async () => {
                 // settlementTokenValue = 1000 - (4000 - 24.868218 * 110) = -264.49602
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("110", 6), 0, 0, 0]
-                })
+                await mockMarkPrice(accountBalance, baseToken.address, "110")
                 // 400 / 0.97 = 412.371134
                 expect(await vault.testGetMaxRepaidSettlement(alice.address)).to.be.eq(
                     parseEther("412.371134020618556701"),

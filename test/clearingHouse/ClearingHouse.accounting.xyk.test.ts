@@ -5,11 +5,11 @@ import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { it } from "mocha"
 import {
-    AccountBalance,
     BaseToken,
     InsuranceFund,
     OrderBook,
     QuoteToken,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     TestExchange,
@@ -27,7 +27,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1341567235
@@ -37,14 +37,14 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
     let clearingHouse: TestClearingHouse
     let exchange: TestExchange
     let orderBook: OrderBook
-    let accountBalance: AccountBalance
+    let accountBalance: TestAccountBalance
     let vault: Vault
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
@@ -61,21 +61,19 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         clearingHouse = fixture.clearingHouse as TestClearingHouse
         orderBook = fixture.orderBook
         exchange = fixture.exchange as TestExchange
-        accountBalance = fixture.accountBalance
+        accountBalance = fixture.accountBalance as TestAccountBalance
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         insuranceFund = fixture.insuranceFund
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, exFeeRatio)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -129,11 +127,12 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         await collateral.mint(taker3.address, takerCollateral)
         await deposit(taker3, vault, 100, collateral)
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     function takerLongExactInput(amount): Promise<ContractTransaction> {
@@ -377,7 +376,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, maker, 100, 1000, lowerTick + 6000, upperTick - 6000)
 
             // taker close
@@ -406,7 +405,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, maker, 100, 1000, lowerTick + 2000, upperTick - 2000)
 
             // taker, taker2, taker3 close
@@ -427,7 +426,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             await b2qExactInput(fixture, taker3, 0.987)
 
             // maker2, maker3 add liquidity
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, maker2, 100, 1000, lowerTick, upperTick)
             await addOrder(fixture, maker3, 100, 1000, lowerTick, upperTick)
 
@@ -477,7 +476,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // maker move
             await removeAllOrders(fixture, maker)
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, maker, 100, 1000, lowerTick + 2000, upperTick - 2000)
 
             // taker reduce position
@@ -525,9 +524,7 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // index price change and funding rate reversed
             // market price: 10.042470530144136
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("11", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "11")
 
             // taker open reverse
             await b2qExactOutput(fixture, taker, 3)
@@ -547,10 +544,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // taker open short
             await b2qExactOutput(fixture, taker, 100)
 
-            // set index price to let taker underwater
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("20", 6), 0, 0, 0]
-            })
+            // mock mark price to let taker underwater
+            await mockMarkPrice(accountBalance, baseToken.address, "20")
 
             // liquidate taker
             while (!(await accountBalance.getTotalPositionSize(taker.address, baseToken.address)).eq(0)) {
@@ -572,19 +567,21 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
         it("funding-induced liquidation", async () => {
             // maker add liquidity
             await addOrder(fixture, maker, 100, 10000, lowerTick, upperTick)
-
             // taker open
             await q2bExactInput(fixture, taker, 90)
 
+            await mockMarkPrice(accountBalance, baseToken.address, "4")
+
             // set index price to let taker pay funding fee
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("4", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "4")
 
-            // taker pays funding
+            // taker is not liquidatable yet, even he has loss
+            const marginRequirement = await accountBalance.getMarginRequirementForLiquidation(taker.address)
+            expect(await clearingHouse.getAccountValue(taker.address)).to.be.gt(marginRequirement)
+
+            // taker pays funding until bankrupt
             while ((await clearingHouse.getAccountValue(taker.address)).gt(0)) {
-                await forwardBothTimestamps(clearingHouse, 30000)
-
+                await forwardBothTimestamps(clearingHouse, 8 * 60 * 60)
                 await clearingHouse.connect(taker).settleAllFunding(taker.address)
             }
 
@@ -602,20 +599,20 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
 
             // taker open, quote input: 300, base output: 26.06426925
             // set index price higher, let taker can open long position
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("15", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "15")
+
             await q2bExactInput(fixture, taker, 300)
 
             // maker move liquidity
             await removeAllOrders(fixture, maker)
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, maker, 30, 10000, lowerTick, upperTick)
 
+            // mock mark price to let taker be liquidated
+            await mockMarkPrice(accountBalance, baseToken.address, "4")
+
             // set index price to let taker be liquidated
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("4", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "4")
 
             // taker cannot close position (quote output: 184.21649272), but can be liquidated
             await expect(closePosition(fixture, taker)).to.be.revertedWith("CH_NEFCM")
@@ -650,14 +647,13 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             // maker add liquidity, current tick 23027
             await addOrder(fixture, maker, 10, 100, 22000, 24000)
 
+            // set index price to let taker pay funding fee
+            await mockIndexPrice(mockedPriceFeedDispatcher, "11")
             // prepare collateral
             await mintAndDeposit(fixture, taker, 1000)
 
             // there is only around 1000 USD in the pool
             // taker swap all liquidity, current tick in pool is over 24000 (the upper tick of order)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("11", 6), 0, 0, 0]
-            })
             await clearingHouse.connect(taker).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -691,9 +687,8 @@ describe("ClearingHouse accounting verification in xyk pool", () => {
             expect(fee).to.be.gt("0")
 
             // Can only open opposite positions
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "10")
+
             await closePosition(fixture, taker, 0, baseToken.address)
 
             // taker2 can keep on swapping

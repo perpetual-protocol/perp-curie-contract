@@ -14,6 +14,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
@@ -27,7 +28,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
@@ -41,15 +42,13 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "100"
         const { maxTick, minTick } = await initMarket(fixture, initPrice)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick

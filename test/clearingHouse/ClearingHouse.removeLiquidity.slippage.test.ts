@@ -6,6 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { BaseToken, OrderBook, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse removeLiquidity slippage", () => {
@@ -17,7 +18,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
 
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
@@ -26,7 +27,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         // mint
         collateral.mint(admin.address, parseEther("10000"))
@@ -42,9 +43,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226651"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,
@@ -100,9 +99,7 @@ describe("ClearingHouse removeLiquidity slippage", () => {
         beforeEach(async () => {
             const initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             await clearingHouse.connect(alice).addLiquidity({
                 baseToken: baseToken.address,

@@ -14,7 +14,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse customized fee", () => {
@@ -28,7 +28,7 @@ describe("ClearingHouse customized fee", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     const lowerTick: number = 0
     const upperTick: number = 100000
@@ -42,14 +42,12 @@ describe("ClearingHouse customized fee", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)
@@ -994,9 +992,7 @@ describe("ClearingHouse customized fee", () => {
             const totalFee = parseEther("20").add(2) // fee = 1000 * 0.01 + 2wei (rounding up)
 
             // mock index price higher, let taker open a large long position
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("198.687932", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "198.687932")
 
             // taker open a large position, crossed 2 ranges
             // making the price becomes ~= 198.2516818352, tick ~= 52898.018163
@@ -1078,9 +1074,7 @@ describe("ClearingHouse customized fee", () => {
             const totalFee = parseEther("20.202020202020202022") // fee = 2000 / 0.99 * 0.01
 
             // mock index price lower, let taker open a large short position
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("109.710327", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "109.710327")
 
             // taker open a large position, crossed 2 ranges
             await expect(

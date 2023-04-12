@@ -229,11 +229,16 @@ contract Exchange is
         // EX_BTNE: base token does not exists
         require(IMarketRegistry(_marketRegistry).hasPool(baseToken), "EX_BTNE");
 
-        // if updating TWAP fails, this call will be reverted and thus using try-catch
-        try IBaseToken(baseToken).cacheTwap(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval()) {} catch {}
-        uint256 markTwap;
+        // The purpose of caching index twap here is to save the gas consumption of calculating mark price,
+        // if updating TWAP fails, this call will be reverted and thus using try-catch.
+        // NOTE: the cached index twap is used for AccountBalance.MarkPrice calculation,
+        // not for funding rate calculation.
+        (, uint32 premiumInterval) = IClearingHouseConfig(_clearingHouseConfig).getMarkPriceConfig();
+        try IBaseToken(baseToken).cacheTwap(premiumInterval) {} catch {}
+
+        uint256 marketTwap;
         uint256 indexTwap;
-        (fundingGrowthGlobal, markTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
+        (fundingGrowthGlobal, marketTwap, indexTwap) = _getFundingGrowthGlobalAndTwaps(baseToken);
 
         fundingPayment = _updateFundingGrowth(
             trader,
@@ -257,7 +262,7 @@ contract Exchange is
                 lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96
             ) = (timestamp, fundingGrowthGlobal.twPremiumX96, fundingGrowthGlobal.twPremiumDivBySqrtPriceX96);
 
-            emit FundingUpdated(baseToken, markTwap, indexTwap);
+            emit FundingUpdated(baseToken, marketTwap, indexTwap);
         }
 
         // update tick & timestamp for price limit check
@@ -338,6 +343,17 @@ contract Exchange is
             _MAX_PRICE_SPREAD_RATIO;
     }
 
+    /// @inheritdoc IExchange
+    // Deprecated function, will be removed in the next release
+    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view override returns (uint160) {
+        return _getSqrtMarketTwapX96(baseToken, twapInterval);
+    }
+
+    /// @inheritdoc IExchange
+    function getSqrtMarketTwapX96(address baseToken, uint32 twapInterval) external view override returns (uint160) {
+        return _getSqrtMarketTwapX96(baseToken, twapInterval);
+    }
+
     //
     // PUBLIC VIEW
     //
@@ -356,11 +372,6 @@ contract Exchange is
                 fundingGrowthGlobal,
                 liquidityCoefficientInFundingPayment
             );
-    }
-
-    /// @inheritdoc IExchange
-    function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) public view override returns (uint160) {
-        return UniswapV3Broker.getSqrtMarkTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }
 
     //
@@ -478,8 +489,7 @@ contract Exchange is
         {
             // check price band after swap
             int256 priceSpreadRatioAfterSwap = _getPriceSpreadRatio(params.baseToken, 0);
-            int256 maxPriceSpreadRatio =
-                IMarketRegistry(_marketRegistry).getMarketMaxPriceSpreadRatio(params.baseToken).toInt256();
+            int256 maxPriceSpreadRatio = marketInfo.maxPriceSpreadRatio.toInt256();
             require(
                 PerpMath.min(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio.neg256()) <= priceSpreadRatioAfterSwap &&
                     priceSpreadRatioAfterSwap <= PerpMath.max(priceSpreadRatioBeforeSwap, maxPriceSpreadRatio),
@@ -571,6 +581,10 @@ contract Exchange is
     // INTERNAL VIEW
     //
 
+    function _getSqrtMarketTwapX96(address baseToken, uint32 twapInterval) internal view returns (uint160) {
+        return UniswapV3Broker.getSqrtMarketTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
+    }
+
     function _isOverPriceLimitWithTick(address baseToken, int24 tick) internal view returns (bool) {
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
@@ -587,14 +601,14 @@ contract Exchange is
 
     /// @dev this function calculates the up-to-date globalFundingGrowth and twaps and pass them out
     /// @return fundingGrowthGlobal the up-to-date globalFundingGrowth
-    /// @return markTwap only for settleFunding()
+    /// @return marketTwap only for settleFunding()
     /// @return indexTwap only for settleFunding()
     function _getFundingGrowthGlobalAndTwaps(address baseToken)
         internal
         view
         returns (
             Funding.Growth memory fundingGrowthGlobal,
-            uint256 markTwap,
+            uint256 marketTwap,
             uint256 indexTwap
         )
     {
@@ -611,9 +625,9 @@ contract Exchange is
             twapInterval = twapInterval > deltaTimestamp ? deltaTimestamp : twapInterval;
         }
 
-        uint256 markTwapX96;
+        uint256 marketTwapX96;
         if (marketOpen) {
-            markTwapX96 = getSqrtMarkTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
+            marketTwapX96 = _getSqrtMarketTwapX96(baseToken, twapInterval).formatSqrtPriceX96ToPriceX96();
             indexTwap = IIndexPrice(baseToken).getIndexPrice(twapInterval);
         } else {
             // if a market is paused/closed, we use the last known index price which is getPausedIndexPrice
@@ -623,12 +637,12 @@ contract Exchange is
 
             // timestamp is pausedTime when the market is not open
             uint32 secondsAgo = _blockTimestamp().sub(timestamp).toUint32();
-            markTwapX96 = UniswapV3Broker
-                .getSqrtMarkTwapX96From(IMarketRegistry(_marketRegistry).getPool(baseToken), secondsAgo, twapInterval)
+            marketTwapX96 = UniswapV3Broker
+                .getSqrtMarketTwapX96From(IMarketRegistry(_marketRegistry).getPool(baseToken), secondsAgo, twapInterval)
                 .formatSqrtPriceX96ToPriceX96();
             indexTwap = IBaseToken(baseToken).getPausedIndexPrice();
         }
-        markTwap = markTwapX96.formatX96ToX10_18();
+        marketTwap = marketTwapX96.formatX96ToX10_18();
 
         uint256 lastSettledTimestamp = _lastSettledTimestampMap[baseToken];
         Funding.Growth storage lastFundingGrowthGlobal = _globalFundingGrowthX96Map[baseToken];
@@ -636,9 +650,9 @@ contract Exchange is
             // if this is the latest updated timestamp, values in _globalFundingGrowthX96Map are up-to-date already
             fundingGrowthGlobal = lastFundingGrowthGlobal;
         } else {
-            // deltaTwPremium = (markTwap - indexTwap) * (now - lastSettledTimestamp)
+            // deltaTwPremium = (marketTwap - indexTwap) * (now - lastSettledTimestamp)
             int256 deltaTwPremiumX96 =
-                _getDeltaTwapX96(markTwapX96, indexTwap.formatX10_18ToX96()).mul(
+                _getDeltaTwapX96(marketTwapX96, indexTwap.formatX10_18ToX96()).mul(
                     timestamp.sub(lastSettledTimestamp).toInt256()
                 );
             fundingGrowthGlobal.twPremiumX96 = lastFundingGrowthGlobal.twPremiumX96.add(deltaTwPremiumX96);
@@ -646,13 +660,13 @@ contract Exchange is
             // overflow inspection:
             // assuming premium = 1 billion (1e9), time diff = 1 year (3600 * 24 * 365)
             // log(1e9 * 2^96 * (3600 * 24 * 365) * 2^96) / log(2) = 246.8078491997 < 255
-            // twPremiumDivBySqrtPrice += deltaTwPremium / getSqrtMarkTwap(baseToken)
+            // twPremiumDivBySqrtPrice += deltaTwPremium / getSqrtMarketTwap(baseToken)
             fundingGrowthGlobal.twPremiumDivBySqrtPriceX96 = lastFundingGrowthGlobal.twPremiumDivBySqrtPriceX96.add(
-                PerpMath.mulDiv(deltaTwPremiumX96, PerpFixedPoint96._IQ96, getSqrtMarkTwapX96(baseToken, 0))
+                PerpMath.mulDiv(deltaTwPremiumX96, PerpFixedPoint96._IQ96, _getSqrtMarketTwapX96(baseToken, 0))
             );
         }
 
-        return (fundingGrowthGlobal, markTwap, indexTwap);
+        return (fundingGrowthGlobal, marketTwap, indexTwap);
     }
 
     /// @dev get a price limit for replaySwap s.t. it can stop when reaching the limit to save gas
@@ -671,22 +685,22 @@ contract Exchange is
         return TickMath.getSqrtRatioAtTick(tickBoundary);
     }
 
-    function _getDeltaTwapX96(uint256 markTwapX96, uint256 indexTwapX96) internal view returns (int256 deltaTwapX96) {
+    function _getDeltaTwapX96(uint256 marketTwapX96, uint256 indexTwapX96) internal view returns (int256 deltaTwapX96) {
         uint24 maxFundingRate = IClearingHouseConfig(_clearingHouseConfig).getMaxFundingRate();
         uint256 maxDeltaTwapX96 = indexTwapX96.mulRatio(maxFundingRate);
         uint256 absDeltaTwapX96;
-        if (markTwapX96 > indexTwapX96) {
-            absDeltaTwapX96 = markTwapX96.sub(indexTwapX96);
+        if (marketTwapX96 > indexTwapX96) {
+            absDeltaTwapX96 = marketTwapX96.sub(indexTwapX96);
             deltaTwapX96 = absDeltaTwapX96 > maxDeltaTwapX96 ? maxDeltaTwapX96.toInt256() : absDeltaTwapX96.toInt256();
         } else {
-            absDeltaTwapX96 = indexTwapX96.sub(markTwapX96);
+            absDeltaTwapX96 = indexTwapX96.sub(marketTwapX96);
             deltaTwapX96 = absDeltaTwapX96 > maxDeltaTwapX96 ? maxDeltaTwapX96.neg256() : absDeltaTwapX96.neg256();
         }
     }
 
     /// @dev ratio will return in int256
     function _getPriceSpreadRatio(address baseToken, uint32 twapInterval) internal view returns (int256) {
-        uint256 marketPrice = getSqrtMarkTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
+        uint256 marketPrice = _getSqrtMarketTwapX96(baseToken, 0).formatSqrtPriceX96ToPriceX96().formatX96ToX10_18();
         uint256 indexPrice = IIndexPrice(baseToken).getIndexPrice(twapInterval);
         int256 spread =
             marketPrice > indexPrice ? marketPrice.sub(indexPrice).toInt256() : indexPrice.sub(marketPrice).neg256();

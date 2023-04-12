@@ -10,8 +10,13 @@ import { TestClearingHouse } from "../../typechain"
 // default increase amount by 10 as we cannot set a timestamp <= than the current one
 // if there are txs before forwarding, the real timestamp can be ahead several seconds
 export async function forwardBothTimestamps(clearingHouse: TestClearingHouse, forward: number = 10) {
-    const now = await getMockTimestamp(clearingHouse)
-    await setBothTimestamps(clearingHouse, now + forward)
+    const next = (await getMockTimestamp(clearingHouse)) + forward
+    const realTimestamp = await getRealTimestamp()
+    if (next > realTimestamp) {
+        await setBothTimestamps(clearingHouse, next)
+    } else {
+        await clearingHouse.setBlockTimestamp(next)
+    }
 }
 
 async function getMockTimestamp(clearingHouse: TestClearingHouse) {

@@ -16,7 +16,7 @@ import { addOrder, closePosition, q2bExactInput, q2bExactOutput } from "../helpe
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { encodePriceSqrt } from "../shared/utilities"
+import { encodePriceSqrt, mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse closePosition", () => {
@@ -30,7 +30,7 @@ describe("ClearingHouse closePosition", () => {
     let collateral: TestERC20
     let vault: Vault
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let lowerTick = "50000" // 148.3760629231
     let upperTick = "50200" // 151.3733068587
     let pool: UniswapV3Pool
@@ -44,8 +44,7 @@ describe("ClearingHouse closePosition", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        pool = fixture.pool
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         const collateralDecimals = await collateral.decimals()
         // mint
@@ -72,9 +71,7 @@ describe("ClearingHouse closePosition", () => {
         beforeEach(async () => {
             let initPrice = "151.373306858723226652"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -262,9 +259,7 @@ describe("ClearingHouse closePosition", () => {
         beforeEach(async () => {
             let initPrice = "148.3760629"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("148", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "148")
         })
 
         it("ranges of makers are the same; alice receives 3/4 of fee, while carol receives only 1/4", async () => {
@@ -638,9 +633,7 @@ describe("ClearingHouse closePosition", () => {
         it("a trader swaps base to quote and then closes; one maker", async () => {
             let initPrice = "151.3733069"
             await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             // alice add liquidity
             const addLiquidityParams = {
@@ -693,9 +686,7 @@ describe("ClearingHouse closePosition", () => {
         beforeEach(async () => {
             let initPrice = "151.3733069"
             const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
             lowerTick = minTick
             upperTick = maxTick
@@ -754,9 +745,7 @@ describe("ClearingHouse closePosition", () => {
             await addOrder(fixture, alice, 10, 1510, lowerTick, upperTick)
 
             // mock index price higher, so that taker can push more market price
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("165", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "165")
 
             // bob swap let alice has maker position
             // after bob swap, market price: 153.36, index price: 165, spread: -7.7%

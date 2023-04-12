@@ -1,7 +1,7 @@
 import { MockContract } from "@eth-optimism/smock"
 import bn from "bignumber.js"
 import { expect } from "chai"
-import { BigNumberish, Wallet } from "ethers"
+import { Wallet } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -24,7 +24,15 @@ import { findEvent } from "../helper/events"
 import { initMarket } from "../helper/marketHelper"
 import { priceToTick } from "../helper/number"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { calculateLiquidatePositionSize, getMarginRatio, syncIndexToMarketPrice } from "../shared/utilities"
+import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import {
+    calculateLiquidatePositionSize,
+    getMarginRatio,
+    mockIndexPrice,
+    mockMarkPrice,
+    syncIndexToMarketPrice,
+    syncMarkPriceToMarketPrice,
+} from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse takeOver (liquidate)", () => {
@@ -41,22 +49,8 @@ describe("ClearingHouse takeOver (liquidate)", () => {
     let pool: UniswapV3Pool
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
-    const oracleDecimals = 6
-    const blockTimeStamp = 1
-
-    function setPool1IndexPrice(price: BigNumberish) {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price.toString(), oracleDecimals), 0, 0, 0]
-        })
-    }
-
-    function setPool2IndexPrice(price: BigNumberish) {
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price.toString(), oracleDecimals), 0, 0, 0]
-        })
-    }
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
 
     async function _getMarginRatio(trader: Wallet) {
         const accountValue = await clearingHouse.getAccountValue(trader.address)
@@ -93,17 +87,21 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         pool = fixture.pool
         baseToken2 = fixture.baseToken2
         pool2 = fixture.pool2
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
 
         let initPrice = "1000"
         await initMarket(fixture, initPrice)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
+        // mock mark price to make account value calculation easier
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
 
         initPrice = "10000"
         // initialize BTC pool
         await initMarket(fixture, initPrice, undefined, undefined, undefined, baseToken2.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
+        // mock mark price to make account value calculation easier
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
 
         // mint collateral
         await mintAndDeposit(fixture, bob, 150)
@@ -136,11 +134,12 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             deadline: ethers.constants.MaxUint256,
         })
 
-        // set blockTimestamp
-        await clearingHouse.setBlockTimestamp(blockTimeStamp)
-
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     it("force error, trader has no position", async () => {
@@ -171,7 +170,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await q2bExactInput(fixture, bob, 1000, baseToken.address)
 
             // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+            await forwardBothTimestamps(clearingHouse, 100)
         })
 
         it("force error, market is paused", async () => {})
@@ -211,7 +210,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         })
 
         it("force error, liquidatePositionSize is not the same direction as taker position size", async () => {
-            setPool1IndexPrice(900)
+            await mockMarkPrice(accountBalance, baseToken.address, "900")
             await mintAndDeposit(fixture, davis, 10000)
 
             // bob has long position, but we set liquidatePositionSize as short position
@@ -223,7 +222,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
         })
 
         it("force error, liquidator's collateral is not enough", async () => {
-            setPool1IndexPrice(900)
+            await mockMarkPrice(accountBalance, baseToken.address, "900")
 
             const liquidatePositionSize = await _calculateLiquidatePositionSize(bob, baseToken)
             await expect(
@@ -239,7 +238,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("margin ratio between 3.125% and 6.25% -> partial liquidation", async () => {
-                setPool1IndexPrice(900)
+                await mockMarkPrice(accountBalance, baseToken.address, "900")
 
                 // liquidate when
                 // marginRatio 0.03125
@@ -271,7 +270,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("margin ratio < 3.125% -> total liquidation", async () => {
-                setPool1IndexPrice(880)
+                await mockMarkPrice(accountBalance, baseToken.address, "880")
 
                 // liquidate when
                 // marginRatio 0.024
@@ -306,7 +305,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         describe("davis liquidates bob's long position at margin ratio between 3.125% and 6.25% -> partial liquidation", () => {
             beforeEach(async () => {
-                setPool1IndexPrice(900)
+                await mockMarkPrice(accountBalance, baseToken.address, "900")
                 await mintAndDeposit(fixture, davis, 1000)
             })
 
@@ -463,7 +462,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
             it("davis has long position and liquidates bob's long position, no pnl realized", async () => {
                 // mock index price to do long
-                setPool1IndexPrice(1000)
+                await mockIndexPrice(mockedPriceFeedDispatcher, "1000")
 
                 // davis long ETH before liquidate bob's ETH long position
                 // quote: -1010.149094153067713775
@@ -472,7 +471,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
                 // market price: 1000.06357828794760671
 
                 // mock index price to make bob's margin ratio is within 3.125% and 6.25%
-                setPool1IndexPrice(900)
+                await mockIndexPrice(mockedPriceFeedDispatcher, "900")
 
                 // liquidate when
                 // marginRatio 0.045
@@ -567,7 +566,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         describe("davis liquidates bob's long position at margin ratio < 3.125% -> total liquidation", () => {
             beforeEach(async () => {
-                setPool1IndexPrice(880)
+                await mockMarkPrice(accountBalance, baseToken.address, "880")
 
                 // deposit enough collateral for liquidator
                 await mintAndDeposit(fixture, davis, 1000)
@@ -644,7 +643,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
             it("davis has long position and liquidates bob's long position, no pnl realized", async () => {
                 // mock index price to do long
-                setPool1IndexPrice(1000)
+                await mockIndexPrice(mockedPriceFeedDispatcher, "1000")
 
                 // davis long ETH before liquidate bob's ETH long position
                 // quote: -1010.149094153067713775
@@ -652,7 +651,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
                 await q2bExactOutput(fixture, davis, 1, baseToken.address)
 
                 // mock index price to make bob's margin ratio is below 3.125%
-                setPool1IndexPrice(880)
+                await mockIndexPrice(mockedPriceFeedDispatcher, "880")
 
                 // liquidate when
                 // marginRatio 0.024
@@ -737,7 +736,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         describe("davis liquidates bob's long position with bad debt", () => {
             it("liquidator gets 100% liquidation penalty", async () => {
-                setPool1IndexPrice(100)
+                await mockMarkPrice(accountBalance, baseToken.address, "100")
 
                 // deposit enough collateral for liquidator
                 await mintAndDeposit(fixture, davis, 1000)
@@ -784,7 +783,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await b2qExactOutput(fixture, bob, 1000, baseToken.address)
 
             // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+            await forwardBothTimestamps(clearingHouse, 100)
         })
 
         describe("take over too much position size", async () => {
@@ -793,7 +792,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("margin ratio between 3.125% and 6.25% -> partial liquidation", async () => {
-                setPool1IndexPrice(1090)
+                await mockMarkPrice(accountBalance, baseToken.address, "1090")
 
                 // liquidate when
                 // marginRatio 0.044
@@ -825,7 +824,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             })
 
             it("margin ratio < 3.125% -> total liquidation", async () => {
-                setPool1IndexPrice(1120)
+                await mockMarkPrice(accountBalance, baseToken.address, "1120")
 
                 // liquidate when
                 // marginRatio 0.044
@@ -860,7 +859,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         describe("davis liquidates bob's short position at margin ratio between 3.125% and 6.25% -> partial liquidation", () => {
             beforeEach(async () => {
-                setPool1IndexPrice(1090)
+                await mockMarkPrice(accountBalance, baseToken.address, "1090")
                 await mintAndDeposit(fixture, davis, 1000)
             })
             it("davis has no position before liquidation", async () => {
@@ -1041,7 +1040,7 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         describe("davis liquidates bob's short position at margin ratio < 3.125% -> total liquidation", () => {
             beforeEach(async () => {
-                setPool1IndexPrice(1120)
+                await mockMarkPrice(accountBalance, baseToken.address, "1120")
                 await mintAndDeposit(fixture, davis, 1000)
             })
             it("davis has no position before liquidation", async () => {
@@ -1127,9 +1126,9 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await q2bExactInput(fixture, bob, 100, baseToken.address)
 
             // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+            await forwardBothTimestamps(clearingHouse, 100)
 
-            setPool1IndexPrice(900)
+            await mockMarkPrice(accountBalance, baseToken.address, "900")
             await mintAndDeposit(fixture, davis, 1000)
         })
 
@@ -1210,9 +1209,9 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await b2qExactOutput(fixture, bob, 90, baseToken.address)
 
             // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+            await forwardBothTimestamps(clearingHouse, 100)
 
-            setPool1IndexPrice(1050)
+            await mockMarkPrice(accountBalance, baseToken.address, "1050")
             await mintAndDeposit(fixture, davis, 1000)
         })
 
@@ -1297,13 +1296,13 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await b2qExactOutput(fixture, bob, 100, baseToken2.address)
 
             // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+            await forwardBothTimestamps(clearingHouse, 100)
         })
 
         describe("davis liquidates bob at margin ratio between 3.125% and 6.25% -> partial liquidation", () => {
             beforeEach(async () => {
-                setPool1IndexPrice(910) // ETH (has loss)
-                setPool2IndexPrice(9900) // BTC (has profit)
+                await mockMarkPrice(accountBalance, baseToken.address, "910") // ETH (has loss)
+                await mockMarkPrice(accountBalance, baseToken2.address, "9900") // BTC (has profit)
             })
 
             it("davis has no position before liquidating bob's long position on ETH market", async () => {
@@ -1459,8 +1458,8 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
         describe("davis liquidates bob's long position at margin ratio < 3.125% -> total liquidation", () => {
             beforeEach(async () => {
-                setPool1IndexPrice(880) // ETH (has loss)
-                setPool2IndexPrice(9900) // BTC (has profit)
+                await mockMarkPrice(accountBalance, baseToken.address, "880") // ETH (has loss)
+                await mockMarkPrice(accountBalance, baseToken2.address, "9900") // BTC (has profit)
             })
 
             it("davis has no position before liquidating bob's long position on ETH market", async () => {
@@ -1628,10 +1627,10 @@ describe("ClearingHouse takeOver (liquidate)", () => {
 
             // Wait for ETH has loss, but not liquidated yet.
             // margin ratio = 0.0675930318386502438218536063133746101549
-            await setPool1IndexPrice(500)
+            await mockMarkPrice(accountBalance, baseToken.address, "550")
 
             // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+            await forwardBothTimestamps(clearingHouse, 100)
         })
 
         it("force error, bob didn't have enough margin after closing position", async () => {
@@ -1690,13 +1689,13 @@ describe("ClearingHouse takeOver (liquidate)", () => {
             await b2qExactOutput(fixture, bob, 90, baseToken2.address)
 
             // increase blockTimestamp
-            await clearingHouse.setBlockTimestamp(blockTimeStamp + 1)
+            await forwardBothTimestamps(clearingHouse, 100)
         })
 
         describe("davis liquidates bob at margin ratio between 3.125% and 6.25%", () => {
             beforeEach(async () => {
-                setPool1IndexPrice(850) // ETH (has loss)
-                setPool2IndexPrice(9990) // BTC (has profit)
+                await mockMarkPrice(accountBalance, baseToken.address, "850") // ETH (has loss)
+                await mockMarkPrice(accountBalance, baseToken2.address, "9990") // BTC (has profit)
             })
 
             it("davis has no position before liquidating bob's long position on ETH market -> fully liquidation", async () => {

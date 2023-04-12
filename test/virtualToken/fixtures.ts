@@ -1,18 +1,17 @@
 import { MockContract, smockit } from "@eth-optimism/smock"
 import { ethers } from "hardhat"
 import { BaseToken } from "../../typechain"
-import { BandPriceFeed, ChainlinkPriceFeedV2 } from "../../typechain/perp-oracle"
+import { ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
+import { CACHED_TWAP_INTERVAL } from "../shared/constant"
 
 interface BaseTokenFixture {
     baseToken: BaseToken
-    chainlinkPriceFeed: ChainlinkPriceFeedV2
+    chainlinkPriceFeedV3: ChainlinkPriceFeedV3
+    priceFeedDispatcher: PriceFeedDispatcher
     mockedAggregator: MockContract
-    bandPriceFeed: BandPriceFeed
-    mockedStdReference: MockContract
 }
 
 export async function baseTokenFixture(): Promise<BaseTokenFixture> {
-    // ChainlinkPriceFeedV2
     const aggregatorFactory = await ethers.getContractFactory("TestAggregatorV3")
     const aggregator = await aggregatorFactory.deploy()
     const mockedAggregator = await smockit(aggregator)
@@ -21,30 +20,21 @@ export async function baseTokenFixture(): Promise<BaseTokenFixture> {
         return 6
     })
 
-    const cacheTwapInterval = 15 * 60
-
-    const chainlinkPriceFeedFactory = await ethers.getContractFactory("ChainlinkPriceFeedV2")
-    const chainlinkPriceFeed = (await chainlinkPriceFeedFactory.deploy(
+    const chainlinkPriceFeedV3Factory = await ethers.getContractFactory("ChainlinkPriceFeedV3")
+    const chainlinkPriceFeedV3 = (await chainlinkPriceFeedV3Factory.deploy(
         mockedAggregator.address,
-        cacheTwapInterval,
-    )) as ChainlinkPriceFeedV2
+        40 * 60, // 40 mins
+        CACHED_TWAP_INTERVAL,
+    )) as ChainlinkPriceFeedV3
 
-    // BandPriceFeed
-    const stdReferenceFactory = await ethers.getContractFactory("TestStdReference")
-    const stdReference = await stdReferenceFactory.deploy()
-    const mockedStdReference = await smockit(stdReference)
-
-    const baseAsset = "ETH"
-    const bandPriceFeedFactory = await ethers.getContractFactory("BandPriceFeed")
-    const bandPriceFeed = (await bandPriceFeedFactory.deploy(
-        mockedStdReference.address,
-        baseAsset,
-        cacheTwapInterval,
-    )) as BandPriceFeed
+    const priceFeedDispatcherFactory = await ethers.getContractFactory("PriceFeedDispatcher")
+    const priceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
+        chainlinkPriceFeedV3.address,
+    )) as PriceFeedDispatcher
 
     const baseTokenFactory = await ethers.getContractFactory("BaseToken")
     const baseToken = (await baseTokenFactory.deploy()) as BaseToken
-    await baseToken.initialize("RandomTestToken0", "RandomTestToken0", chainlinkPriceFeed.address)
+    await baseToken.initialize("RandomToken0", "RT0", priceFeedDispatcher.address)
 
-    return { baseToken, chainlinkPriceFeed, mockedAggregator, bandPriceFeed, mockedStdReference }
+    return { baseToken, chainlinkPriceFeedV3, priceFeedDispatcher, mockedAggregator }
 }

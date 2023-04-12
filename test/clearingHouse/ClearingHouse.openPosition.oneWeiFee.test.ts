@@ -17,6 +17,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition oneWeiFee", () => {
@@ -34,7 +35,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
     let baseToken: BaseToken
     let quoteToken: QuoteToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -52,7 +53,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
@@ -60,9 +61,7 @@ describe("ClearingHouse openPosition oneWeiFee", () => {
         const marketTicks = await initMarket(fixture, initPrice, exFeeRatio, 0)
         const lowerTick = marketTicks.minTick
         const upperTick = marketTicks.maxTick
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         // prepare collateral for maker
         const makerCollateralAmount = parseUnits("1000000", collateralDecimals)

@@ -6,17 +6,17 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
+import { BlockContext } from "./base/BlockContext.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
-import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
-import { PerpMath } from "./lib/PerpMath.sol";
-import { IExchange } from "./interface/IExchange.sol";
+import { IAccountBalance } from "./interface/IAccountBalance.sol";
 import { IBaseToken } from "./interface/IBaseToken.sol";
+import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { IExchange } from "./interface/IExchange.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { IOrderBook } from "./interface/IOrderBook.sol";
-import { IClearingHouseConfig } from "./interface/IClearingHouseConfig.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
+import { PerpMath } from "./lib/PerpMath.sol";
 import { AccountBalanceStorageV1, AccountMarket } from "./storage/AccountBalanceStorage.sol";
-import { BlockContext } from "./base/BlockContext.sol";
-import { IAccountBalance } from "./interface/IAccountBalance.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
 contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, AccountBalanceStorageV1 {
@@ -332,6 +332,11 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return positionSize.mulRatio(maxLiquidateRatio);
     }
 
+    /// @inheritdoc IAccountBalance
+    function getMarkPrice(address baseToken) external view override returns (uint256) {
+        return _getMarkPrice(baseToken);
+    }
+
     //
     // PUBLIC VIEW
     //
@@ -474,18 +479,15 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function _getPositionValue(address baseToken, int256 positionSize) internal view returns (int256) {
         if (positionSize == 0) return 0;
 
-        uint256 indexTwap = _getReferencePrice(baseToken);
-        // both positionSize & indexTwap are in 10^18 already
+        uint256 price = _getReferencePrice(baseToken);
+        // both positionSize & price are in 10^18 already
         // overflow inspection:
         // only overflow when position value in USD(18 decimals) > 2^255 / 10^18
-        return positionSize.mulDiv(indexTwap.toInt256(), 1e18);
+        return positionSize.mulDiv(price.toInt256(), 1e18);
     }
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
-        return
-            IBaseToken(baseToken).isClosed()
-                ? IBaseToken(baseToken).getClosedPrice()
-                : IIndexPrice(baseToken).getIndexPrice(IClearingHouseConfig(_clearingHouseConfig).getTwapInterval());
+        return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : _getMarkPrice(baseToken);
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
@@ -512,6 +514,43 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         return (netQuoteBalance, pendingFee);
     }
 
+    function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
+        IClearingHouseConfig clearingHouseConfig = IClearingHouseConfig(_clearingHouseConfig);
+        (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
+
+        // Use index twap:
+        //   1. For backward compatibility, returns index twap when not switched to mark price yet.
+        //   2. For paused market, returns index twap as mark price.
+        if (!_isMarkPriceEnabled(marketTwapInterval, premiumInterval) || !IBaseToken(baseToken).isOpen()) {
+            return _getIndexPrice(baseToken, clearingHouseConfig.getTwapInterval());
+        }
+
+        uint256 marketPrice = _getMarketPrice(baseToken, 0);
+        uint256 marketTwap = _getMarketPrice(baseToken, marketTwapInterval);
+        int256 premium =
+            _getMarketPrice(baseToken, premiumInterval).toInt256().sub(
+                _getIndexPrice(baseToken, premiumInterval).toInt256()
+            );
+        uint256 indexWithPremium = _getIndexPrice(baseToken, 0).toInt256().add(premium).toUint256();
+        return PerpMath.findMedianOfThree(marketPrice, marketTwap, indexWithPremium);
+    }
+
+    function _getMarketPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        return
+            IExchange(IOrderBook(_orderBook).getExchange())
+                .getSqrtMarketTwapX96(baseToken, twapInterval)
+                .formatSqrtPriceX96ToPriceX96()
+                .formatX96ToX10_18();
+    }
+
+    function _getIndexPrice(address baseToken, uint32 twapInterval) internal view returns (uint256) {
+        return IIndexPrice(baseToken).getIndexPrice(twapInterval);
+    }
+
+    //
+    // INTERNAL PURE
+    //
+
     function _hasBaseToken(address[] memory baseTokens, address baseToken) internal pure returns (bool) {
         for (uint256 i = 0; i < baseTokens.length; i++) {
             if (baseTokens[i] == baseToken) {
@@ -519,5 +558,10 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             }
         }
         return false;
+    }
+
+    function _isMarkPriceEnabled(uint32 marketTwapInterval, uint32 premiumInterval) internal pure returns (bool) {
+        // sanity check params for mark price
+        return marketTwapInterval != 0 && premiumInterval != 0;
     }
 }

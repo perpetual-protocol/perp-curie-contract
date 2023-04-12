@@ -1,8 +1,8 @@
 pragma solidity 0.7.6;
 
-import "forge-std/Test.sol";
 import "../../../contracts/base/SafeOwnable.sol";
 import "../interface/ISafeOwnableEvent.sol";
+import "../helper/Constant.sol";
 
 contract SafeOwnableImplAbstract is SafeOwnable {
     function initialize() external initializer {
@@ -10,16 +10,14 @@ contract SafeOwnableImplAbstract is SafeOwnable {
     }
 }
 
-contract SafeOwnableTest is ISafeOwnableEvent, Test {
+contract SafeOwnableTest is ISafeOwnableEvent, Constant {
     address private constant _ZERO_ADDRESS = address(0);
 
-    address public nonOwnerAddress;
     SafeOwnableImplAbstract public safeOwnable;
 
     function setUp() public {
         safeOwnable = new SafeOwnableImplAbstract();
         safeOwnable.initialize();
-        nonOwnerAddress = makeAddr("nonOwnerAddress");
     }
 
     function test_revert_onlyOwner() public {

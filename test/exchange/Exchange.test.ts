@@ -15,7 +15,7 @@ describe("Exchange complicated test", () => {
     let vault: Vault
     let usdc: TestERC20
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -24,13 +24,13 @@ describe("Exchange complicated test", () => {
         vault = fixture.vault
         usdc = fixture.USDC
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // taker mint
         await usdc.mint(taker.address, parseUnits("10000000", usdcDecimals))

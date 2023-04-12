@@ -13,11 +13,11 @@ import "../../../contracts/QuoteToken.sol";
 import "../../../contracts/BaseToken.sol";
 import "../../../contracts/VirtualToken.sol";
 import "../../../contracts/test/TestERC20.sol";
-import "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3PoolDeployer.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { IUniswapV3PoolDeployer } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3PoolDeployer.sol";
+import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "./DeployConfig.sol";
 import "../interface/ITestExchange.sol";
 

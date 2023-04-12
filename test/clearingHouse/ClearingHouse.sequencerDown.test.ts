@@ -18,16 +18,11 @@ import {
     UniswapV3Pool,
 } from "../../typechain"
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
-import {
-    addOrder,
-    closePosition,
-    q2bExactInput,
-    removeOrder,
-    syncIndexToMarketPrice,
-} from "../helper/clearingHouseHelper"
+import { addOrder, closePosition, q2bExactInput, removeOrder } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { getMaxTickRange } from "../helper/number"
 import { deposit } from "../helper/token"
+import { mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 
 describe("Sequencer Down", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
@@ -46,7 +41,7 @@ describe("Sequencer Down", () => {
     let pool: UniswapV3Pool
     let baseToken: BaseToken
     let marketRegistry: MarketRegistry
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -64,7 +59,7 @@ describe("Sequencer Down", () => {
         pool = _fixture.pool
         baseToken = _fixture.baseToken
         marketRegistry = _fixture.marketRegistry
-        mockedBaseAggregator = _fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = _fixture.mockedPriceFeedDispatcher
         fixture = _fixture
 
         usdcDecimals = await usdc.decimals()
@@ -88,7 +83,7 @@ describe("Sequencer Down", () => {
 
         // init market and increase price limit
         await initMarket(fixture, "151.373306858723226652", 10000, 0, getMaxTickRange(), baseToken.address)
-        await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
         // alice deposits both USDC and non-USDC collaterals
         const amount = parseUnits("2000", usdcDecimals)
@@ -177,9 +172,7 @@ describe("Sequencer Down", () => {
         })
 
         it("liquidate with order", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("5", 6), 0, 0, 0]
-            })
+            await mockMarkPrice(accountBalance, baseToken.address, "5")
 
             // cannot cancel excess order on account with non-USDC collaterals
             await expect(
@@ -204,9 +197,7 @@ describe("Sequencer Down", () => {
         })
 
         it("liquidate collateral", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("5", 6), 0, 0, 0]
-            })
+            await mockMarkPrice(accountBalance, baseToken.address, "5")
 
             await expect(vault.connect(carol).isLiquidatable(alice.address)).to.be.revertedWith("CPF_SD")
             await expect(

@@ -3,8 +3,8 @@ pragma abicoder v2;
 
 import "forge-std/Test.sol";
 import "../helper/Setup.sol";
-import "../../../contracts/interface/IClearingHouse.sol";
-import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
+import { IClearingHouse } from "../../../contracts/interface/IClearingHouse.sol";
+import { IPriceFeedDispatcher } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol";
 
 contract ClearingHousePriceBandTest is Setup {
     address trader = makeAddr("Trader");
@@ -23,10 +23,13 @@ contract ClearingHousePriceBandTest is Setup {
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 100000);
         exchange.setMaxTickCrossedWithinBlock(address(baseToken), 250);
 
+        // wait for 30 mins after market is deployed
+        skip(1800);
+
         // mock priceFeed oracle
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(100 * 1e8)
         );
         usdcDecimals = usdc.decimals();
@@ -122,7 +125,11 @@ contract ClearingHousePriceBandTest is Setup {
     // example: before: 5%, after -12% (reverse spread)
     function test_revert_reverse_positive_spread_when_before_in_range_but_after_our_of_range() public {
         // mock index price to 95
-        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(95 * 1e8));
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
+            abi.encode(95 * 1e8)
+        );
 
         // reverse positive spread
         // before swap: spread is 5.2631%
@@ -149,7 +156,11 @@ contract ClearingHousePriceBandTest is Setup {
         public
     {
         // mock index price to 90
-        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(90 * 1e8));
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
+            abi.encode(90 * 1e8)
+        );
 
         // expect revert if user still open long position (enlarge price spread)
         // before swap: spread is 11.11%
@@ -174,7 +185,11 @@ contract ClearingHousePriceBandTest is Setup {
     // example: before: 12%, after -11% (reverse positive spread)
     function test_revert_reverse_positive_spread_when_both_before_and_after_out_of_range() public {
         // mock index price to 85
-        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(85 * 1e8));
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
+            abi.encode(85 * 1e8)
+        );
 
         // expect revert if user reverse positive spread(out of range) to negative spread(out of range)
         // before swap: spread is 17.6470%
@@ -199,7 +214,11 @@ contract ClearingHousePriceBandTest is Setup {
     // example: before: 12%, after 11%  (reduce positive spread)
     function test_reduce_positive_spread_when_both_before_after_out_of_range() public {
         // mock index price to 90
-        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(90 * 1e8));
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
+            abi.encode(90 * 1e8)
+        );
 
         // before swap: spread is 11.11%
         // after swap: spread is 10.5506%
@@ -222,7 +241,11 @@ contract ClearingHousePriceBandTest is Setup {
     // example: before: 11%, after 9% (reduce positive spread)
     function test_reduce_positive_spread_when_before_out_of_range_and_after_in_range() public {
         // mock index price to 90
-        vm.mockCall(_BASE_TOKEN_PRICE_FEED, abi.encodeWithSelector(IPriceFeed.getPrice.selector), abi.encode(90 * 1e8));
+        vm.mockCall(
+            _BASE_TOKEN_PRICE_FEED,
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
+            abi.encode(90 * 1e8)
+        );
 
         // before swap: spread is 11.11%
         // after swap: spread is 8.8777%
@@ -242,8 +265,8 @@ contract ClearingHousePriceBandTest is Setup {
     }
 
     // before in range, after in range
-    // example: before: before: -5%, after -7% (increase negative spread)
-    function test_open_increase_negative_spread_when_before_and_after_is_in_range() public {
+    // example: before: -5%, after -7% (increase negative spread)
+    function test_increase_negative_spread_when_before_and_after_is_in_range() public {
         // open short position => market price < index price
         // before:
         //  - market price: 99.9999999998
@@ -298,7 +321,7 @@ contract ClearingHousePriceBandTest is Setup {
         // mock index price to 105
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(105 * 1e8)
         );
 
@@ -329,7 +352,7 @@ contract ClearingHousePriceBandTest is Setup {
         // mock index price to 115
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(115 * 1e8)
         );
 
@@ -358,7 +381,7 @@ contract ClearingHousePriceBandTest is Setup {
         // mock index price to 115
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(115 * 1e8)
         );
 
@@ -387,7 +410,7 @@ contract ClearingHousePriceBandTest is Setup {
         // mock index price to 115
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(115 * 1e8)
         );
 
@@ -414,7 +437,7 @@ contract ClearingHousePriceBandTest is Setup {
         // mock index price to 112
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(112 * 1e8)
         );
 

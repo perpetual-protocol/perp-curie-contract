@@ -159,13 +159,20 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     }
 
     /// @inheritdoc IMarketRegistry
+    /// @dev if we didn't set the max spread ratio for the market, we will use the default value
+    function getMarketMaxPriceSpreadRatio(address baseToken) external view override returns (uint24) {
+        return _getMarketMaxPriceSpreadRatio(baseToken);
+    }
+
+    /// @inheritdoc IMarketRegistry
     function getMarketInfo(address baseToken) external view override checkPool(baseToken) returns (MarketInfo memory) {
         return
             MarketInfo({
                 pool: _poolMap[baseToken],
                 exchangeFeeRatio: _exchangeFeeRatioMap[baseToken],
                 uniswapFeeRatio: _uniswapFeeRatioMap[baseToken],
-                insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken]
+                insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken],
+                maxPriceSpreadRatio: _getMarketMaxPriceSpreadRatio(baseToken)
             });
     }
 
@@ -174,9 +181,11 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         return _poolMap[baseToken] != address(0);
     }
 
-    /// @inheritdoc IMarketRegistry
-    /// @dev if we didn't set the max spread ratio for the market, we will use the default value
-    function getMarketMaxPriceSpreadRatio(address baseToken) external view override returns (uint24) {
+    //
+    // INTERNAL VIEW
+    //
+
+    function _getMarketMaxPriceSpreadRatio(address baseToken) internal view returns (uint24) {
         uint24 maxSpreadRatio =
             _marketMaxPriceSpreadRatioMap[baseToken] > 0
                 ? _marketMaxPriceSpreadRatioMap[baseToken]

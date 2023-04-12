@@ -6,6 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { AccountBalance, BaseToken, OrderBook, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse maker close position", () => {
@@ -18,9 +19,9 @@ describe("ClearingHouse maker close position", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let baseToken2: BaseToken
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let lowerTick: number
     let upperTick: number
     let collateralDecimals: number
@@ -33,16 +34,14 @@ describe("ClearingHouse maker close position", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         baseToken2 = fixture.baseToken2
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -246,9 +245,7 @@ describe("ClearingHouse maker close position", () => {
             // init BTC pool
             const initPrice = "10"
             await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-            mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits(initPrice, 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher2, initPrice)
 
             // alice add liquidity to BTC
             await collateral.mint(alice.address, parseUnits("1000", collateralDecimals))

@@ -5,6 +5,7 @@ pragma abicoder v2;
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 import { PerpSafeCast } from "./PerpSafeCast.sol";
+import { MathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/MathUpgradeable.sol";
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
 import { SignedSafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SignedSafeMathUpgradeable.sol";
 
@@ -97,5 +98,13 @@ library PerpMath {
         result = negative ? neg256(unsignedResult) : PerpSafeCast.toInt256(unsignedResult);
 
         return result;
+    }
+
+    function findMedianOfThree(
+        uint256 v1,
+        uint256 v2,
+        uint256 v3
+    ) internal pure returns (uint256) {
+        return MathUpgradeable.max(MathUpgradeable.min(v1, v2), MathUpgradeable.min(MathUpgradeable.max(v1, v2), v3));
     }
 }

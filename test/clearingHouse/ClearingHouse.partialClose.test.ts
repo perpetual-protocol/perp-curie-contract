@@ -15,6 +15,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse partial close in xyk pool", () => {
@@ -29,7 +30,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
@@ -44,14 +45,12 @@ describe("ClearingHouse partial close in xyk pool", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -89,6 +88,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
 
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
     })
 

@@ -22,7 +22,7 @@ import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { withdrawAll } from "../helper/vaultHelper"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { filterLogs } from "../shared/utilities"
+import { filterLogs, mockIndexPrice, mockMarkPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("Clearinghouse StopMarket", async () => {
@@ -42,8 +42,8 @@ describe("Clearinghouse StopMarket", async () => {
     let baseToken2: BaseToken
     let pool: UniswapV3Pool
     let pool2: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let collateralDecimals: number
 
     let lowerTick: number, upperTick: number
@@ -61,22 +61,18 @@ describe("Clearinghouse StopMarket", async () => {
         collateral = fixture.USDC
         baseToken = fixture.baseToken
         baseToken2 = fixture.baseToken2
-        mockedBaseAggregator = fixture.mockedBaseAggregator
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool = fixture.pool
         pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "151.3733069"
         await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
 
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-        mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher2, "151")
 
         lowerTick = minTick
         upperTick = maxTick
@@ -97,11 +93,12 @@ describe("Clearinghouse StopMarket", async () => {
         await addOrder(fixture, alice, 50, 5000, lowerTick, upperTick, false, baseToken.address)
         await addOrder(fixture, alice, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
-
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     async function pauseMarket(baseToken: BaseToken) {
@@ -120,9 +117,7 @@ describe("Clearinghouse StopMarket", async () => {
             // bob open a long position
             await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("100", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "100")
         })
 
         it("force error, can not operate in paused market", async () => {
@@ -155,9 +150,7 @@ describe("Clearinghouse StopMarket", async () => {
         describe("funding payment", async () => {
             beforeEach(async () => {
                 // mock index price to do long
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("150", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "150")
 
                 // bob open long position
                 for (let i = 0; i < 3; i++) {
@@ -201,49 +194,90 @@ describe("Clearinghouse StopMarket", async () => {
         })
 
         describe("check free collateral", async () => {
-            it("bob as a taker and has profit", async () => {
+            it("bob as a taker and has profit, free collateral should be equal with before paused market", async () => {
+                // Test scenario:
+                //   1. bob has long positions both on market1 and market2
+                //   2. Make bob has profit on market1
+                //   3. Pause market1
+                // Expected:
+                //   1. freeCollateral should not changed expect founding payment after pause market1.
+
                 // take a long position on baseToken2 with 10 quoteToken
                 await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("1000", 6), 0, 0, 0]
-                })
-                await pauseMarket(baseToken)
+                // mock mark price to make bob has profit on market1
+                await mockMarkPrice(accountBalance, baseToken.address, "1000")
 
                 // accountValue: 10055.1280557316, totalCollateralValue: 10000
                 // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
-                const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralBefore).to.be.closeTo(
-                    parseUnits("9998", collateralDecimals).sub(pendingFundingPayment.div(1e12)),
+                const pendingFundingPaymentBefore = await exchange.getAllPendingFundingPayment(bob.address)
+                expect(freeCollateralBefore).to.be.eq(
+                    parseUnits("9998", collateralDecimals).sub(pendingFundingPaymentBefore.div(1e12)),
+                )
+
+                // mock index price for pausing market
+                await mockIndexPrice(mockedPriceFeedDispatcher, "1000")
+                await pauseMarket(baseToken)
+
+                const pendingFundingPaymentAfter = await exchange.getPendingFundingPayment(
+                    bob.address,
+                    baseToken.address,
+                )
+                const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
+                expect(freeCollateralAfter).to.be.closeTo(
+                    freeCollateralBefore.sub(pendingFundingPaymentAfter.div(1e12)),
                     parseUnits("0.001", collateralDecimals).toNumber(), // there is some imprecision
                 )
             })
 
-            it("bob as a taker and has loss", async () => {
-                // bob takes a long position on baseToken2 with 100 quoteToken
-                await q2bExactInput(fixture, bob, 100, baseToken2.address)
+            it("bob as a taker and has loss, free collateral should be equal with before paused market", async () => {
+                // Test scenario:
+                //   1. bob has long positions both on market1 and market2
+                //   2. Make bob has profit on market1
+                //   3. Make bob has larger loss on market2
+                //   3. Pause market2
+                // Expected:
+                //   1. freeCollateral should not changed expect founding payment after pause market2.
+
+                // bob takes a long position on baseToken2 with 10 quoteToken
+                await q2bExactInput(fixture, bob, 10, baseToken2.address)
 
                 // make profit on baseToken market
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("200", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "200")
+                await mockMarkPrice(accountBalance, baseToken.address, "200")
+                // For market1
+                //   openNotional: -10.0
+                //   positionValue: 13.0543976842513928
+                //   unrealizedPnl: 3.0543976842513928
 
-                // set a lower price to have loss on baseToken2 market
-                mockedBaseAggregator2.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("50", 6), 0, 0, 0]
-                })
+                // make loss on baseToken2 market
+                await mockIndexPrice(mockedPriceFeedDispatcher2, "50")
+                await mockMarkPrice(accountBalance, baseToken2.address, "50")
+                // For market2
+                //   openNotional: -10.0
+                //   positionValue2: 3.263599421062848
+                //   unrealizedPnl: -6.7364005789371518
 
-                await forwardBothTimestamps(clearingHouse, 100)
+                // accountValue(no funding): 10000 + 3.0543976842513928 - 6.7364005789371518 = 9996.3179971053
+                // totalCollateralValue: 10000
+                // freeCollateral = 9996.3179971053 - 20(quote debt) * 0.1 = 9994.3179971053
+                const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
+                const pendingFundingPaymentBefore = await exchange.getAllPendingFundingPayment(bob.address)
+                expect(freeCollateralBefore).to.be.eq(
+                    parseUnits("9994.317997", collateralDecimals).sub(pendingFundingPaymentBefore.div(1e12)),
+                )
 
                 await pauseMarket(baseToken2)
 
-                // accountValue: 9935.119361, totalCollateralValue: 10000
-                // freeCollateral = 9935.119361 - 110(quote debt) * 0.1 = 9924.119361
-                const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
-                expect(freeCollateralBefore).to.be.closeTo(
-                    parseUnits("9924.119361", collateralDecimals),
-                    parseUnits("0.15", collateralDecimals).toNumber(), // there is some imprecision
+                const pendingFundingPaymentAfter = await exchange.getPendingFundingPayment(
+                    bob.address,
+                    baseToken.address,
+                )
+                const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
+                expect(freeCollateralAfter).to.be.closeTo(
+                    freeCollateralBefore.sub(pendingFundingPaymentAfter.div(1e12)),
+                    parseUnits("0.001", collateralDecimals).toNumber(), // there is some imprecision
                 )
             })
         })
@@ -252,18 +286,13 @@ describe("Clearinghouse StopMarket", async () => {
             let pausedIndexPrice = "50"
             beforeEach(async () => {
                 // mock index price to do long
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("150", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "150")
 
                 // open position on two market
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
                 // market price: 152.57455726629748304
 
-                // mock index price as pause price
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits(pausedIndexPrice, 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, pausedIndexPrice)
 
                 await pauseMarket(baseToken)
             })
@@ -510,7 +539,10 @@ describe("Clearinghouse StopMarket", async () => {
                 await pauseMarket(baseToken)
                 await closeMarket(baseToken, 1000)
 
-                // accountValue: 10055.1280557316, totalCollateralValue: 10000
+                // mock mark price on market 2 to make freeCollateral calculation won't be changed by market twap
+                await syncMarkPriceToMarketPrice(accountBalance, baseToken2.address, pool2)
+
+                // accountValue: 10055.191509, totalCollateralValue: 10000
                 // freeCollateral = 10000 - 20(quote debt) * 0.1 = 9998
                 const pendingFundingPayment = await exchange.getPendingFundingPayment(bob.address, baseToken.address)
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
@@ -523,11 +555,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await clearingHouse.quitMarket(bob.address, baseToken.address)
 
                 // closedMarketPositionSize: 0.065271988421256964, closedMarketQuoteBalance: -10
-                // accountValue: 10055.128040, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271969
-                // freeCollateral = 10055.128040 - 1 = 10054.128040
+                // accountValue: 10055.191508, totalCollateralValue: 10000 + closedMarketPositionSize.mul("1000").add(closedMarketQuoteBalance) = 10055.271969
+                // freeCollateral = 10055.191508 - 1 = 10054.191508
                 const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralAfter).to.be.closeTo(
-                    parseUnits("10054.128040", collateralDecimals),
+                    parseUnits("10054.191508", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
 
@@ -542,18 +574,16 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactInput(fixture, bob, 100, baseToken2.address)
 
                 // make profit on baseToken market
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("200", 6), 0, 0, 0]
-                })
+                await mockMarkPrice(accountBalance, baseToken.address, "200")
 
                 await pauseMarket(baseToken2)
                 await closeMarket(baseToken2, 50)
 
-                // accountValue: 9935.120694, totalCollateralValue: 10000
-                // freeCollateral = 9935.120694 - 11 = 9924.120694
+                // accountValue: 9935.119792, totalCollateralValue: 10000
+                // freeCollateral = 9935.119792 - 11 = 9924.119792
                 const freeCollateralBefore = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralBefore).to.be.closeTo(
-                    parseUnits("9924.120694", collateralDecimals),
+                    parseUnits("9924.119792", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
 
@@ -561,11 +591,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await clearingHouse.quitMarket(bob.address, baseToken2.address)
 
                 // closedMarketPositionSize: 0.6413142475, closedMarketQuoteBalance: -100
-                // accountValue: 9935.066296, totalCollateralValue: 10000 + closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance) = 9932.066296
-                // freeCollateral = 9932.066296 - 1 = 9931.066296
+                // accountValue: 9935.119792, totalCollateralValue: 10000 + closedMarketPositionSize.mul("50").add(closedMarketQuoteBalance) = 9932.065712
+                // freeCollateral = 9932.065712 - 1 = 9931.065712
                 const freeCollateralAfter = await vault.getFreeCollateral(bob.address)
                 expect(freeCollateralAfter).to.be.closeTo(
-                    parseUnits("9931.066296", collateralDecimals),
+                    parseUnits("9931.065712", collateralDecimals),
                     parseUnits("0.02", collateralDecimals).toNumber(), // there is some imprecision
                 )
                 await vault.connect(bob).withdrawAll(collateral.address)
@@ -578,9 +608,7 @@ describe("Clearinghouse StopMarket", async () => {
                 // open position on two market
                 await q2bExactInput(fixture, bob, 10, baseToken.address)
 
-                mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                    return [0, parseUnits("100", 6), 0, 0, 0]
-                })
+                await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
                 await pauseMarket(baseToken)
                 await closeMarket(baseToken, 50)
@@ -795,19 +823,20 @@ describe("Clearinghouse StopMarket", async () => {
             it("quitMarket should settleBadDebt", async () => {
                 // check: bob account value should be negative
                 // positionNotional = 0.1
+                // pendingFundingPayment: 0.00000748866404135
                 // collateral + positionNotional + openNotional
-                // 10 + 0.1 + (-15.336664251894505922) = -5.23666425
-                expect(await vault.getAccountValue(bob.address)).eq("-5236674")
+                // 10 - 0.00000748866404135 + 0.1 + (-15.336664251894505922) = -5.236672
+                expect(await vault.getAccountValue(bob.address)).eq("-5236672")
                 // check: IF account value should be 0
                 expect(await vault.getAccountValue(insuranceFund.address)).eq("0")
                 // call quitMarket
-                expect(await clearingHouse.quitMarket(bob.address, baseToken.address))
+                await expect(clearingHouse.quitMarket(bob.address, baseToken.address))
                     .to.emit(vault, "BadDebtSettled")
-                    .withArgs(bob.address, "5236674")
+                    .withArgs(bob.address, "5236672")
                 // check: bob account value should 0
                 expect(await vault.getAccountValue(bob.address)).eq("0")
                 // check: IF account value should be negative
-                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236674")
+                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236672")
             })
         })
 
@@ -915,9 +944,7 @@ describe("Clearinghouse StopMarket", async () => {
             await addOrder(fixture, alice, 300, 30000, lowerTick, upperTick, false, baseToken.address)
 
             // mock index price to do long
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("250", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "250")
 
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
@@ -928,9 +955,7 @@ describe("Clearinghouse StopMarket", async () => {
             await pauseMarket(baseToken)
 
             // drop price on baseToken market
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "0.000001")
             await expect(
                 clearingHouse["liquidate(address,address,int256)"](bob.address, baseToken.address, 0),
             ).to.be.revertedWith("CH_MNO")
@@ -950,9 +975,7 @@ describe("Clearinghouse StopMarket", async () => {
             await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
             // mock index price to do long
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("250", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "250")
 
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
@@ -960,10 +983,11 @@ describe("Clearinghouse StopMarket", async () => {
                 await forwardBothTimestamps(clearingHouse, 100)
             }
 
-            // drop price on baseToken market
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("50", 6), 0, 0, 0]
-            })
+            // drop mark price on baseToken market
+            await mockMarkPrice(accountBalance, baseToken.address, "0.000001")
+
+            // drop index price on baseToken market
+            await mockIndexPrice(mockedPriceFeedDispatcher, "50")
 
             // make bob to pay funding payment to make him to be liquidated
             await forwardBothTimestamps(clearingHouse, 86400)
@@ -989,9 +1013,7 @@ describe("Clearinghouse StopMarket", async () => {
             await addOrder(fixture, bob, 50, 5000, lowerTick, upperTick, false, baseToken2.address)
 
             // mock index price to do long
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("250", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "250")
 
             // Bob swaps on baseToken market, use for loop due to MaxTickCrossedWithinBlock limit
             for (let i = 0; i < 10; i++) {
@@ -1002,10 +1024,11 @@ describe("Clearinghouse StopMarket", async () => {
             await pauseMarket(baseToken2)
             await closeMarket(baseToken2, 0.0001)
 
-            // drop price on baseToken market
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("50", 6), 0, 0, 0]
-            })
+            // drop mark price on baseToken market
+            await mockMarkPrice(accountBalance, baseToken.address, "0.000001")
+
+            // drop index price on baseToken market
+            await mockIndexPrice(mockedPriceFeedDispatcher, "50")
 
             // make bob to pay funding payment to make him to be liquidated
             await forwardBothTimestamps(clearingHouse, 86400)

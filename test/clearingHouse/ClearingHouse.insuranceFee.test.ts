@@ -13,6 +13,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse insurance fee in v3 pool", () => {
@@ -26,7 +27,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -38,14 +39,12 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
         insuranceFund = fixture.insuranceFund
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "100"
         await initMarket(fixture, initPrice, undefined, 400000)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         // prepare collateral for maker1
         await collateral.mint(maker1.address, parseUnits("1000", collateralDecimals))
@@ -87,9 +86,8 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     // https://docs.google.com/spreadsheets/d/1H8Sn0YHwbnEjhhA03QOVfOFPPFZUX5Uasg14UY9Gszc/edit#gid=523274954
     describe("swap within the same range", () => {
         beforeEach(async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
+
             await clearingHouse.connect(taker1).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false,
@@ -196,9 +194,7 @@ describe("ClearingHouse insurance fee in v3 pool", () => {
     })
 
     it("take swaps three times crossing multiple ticks; one after insuranceFundFeeRatio is decreased", async () => {
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "151")
         await clearingHouse.connect(taker1).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false,

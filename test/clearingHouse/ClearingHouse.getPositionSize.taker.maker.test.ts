@@ -2,7 +2,7 @@ import { MockContract } from "@eth-optimism/smock"
 import { BigNumber } from "@ethersproject/bignumber"
 import { expect } from "chai"
 import { BigNumberish, Wallet } from "ethers"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { parseEther } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import { AccountBalance, BaseToken, OrderBook, UniswapV3Pool } from "../../typechain"
 import {
@@ -16,7 +16,7 @@ import {
 } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { mintAndDeposit } from "../helper/token"
-import { syncIndexToMarketPrice } from "../shared/utilities"
+import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 //docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=1507179977
@@ -29,7 +29,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
     let accountBalance: AccountBalance
     let orderBook: OrderBook
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let pool: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
@@ -58,15 +58,13 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
         accountBalance = fixture.accountBalance
         orderBook = fixture.orderBook
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
 
         const initPrice = "10"
         // prepare market
         const { minTick, maxTick } = await initMarket(fixture, initPrice, 0, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -81,16 +79,15 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
             // pool: 100/1000 => 80/1250
             await mintAndDeposit(fixture, alice, 1000)
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("15", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "15")
+
             await q2bExactInput(fixture, alice, 250, baseToken.address)
             takerPositionBefore = await getTakerPositionSize(alice, baseToken)
             takerOpenNotionalBefore = await getTakerOpenNotional(alice, baseToken)
 
             // alice double the liquidity
             // pool: 80/1250 => 160/2500
-            await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
             await addOrder(fixture, alice, 80, 1250, lowerTick, upperTick)
             orderIdsBefore = await getOrderIds(fixture, alice)
             orderBefore = await orderBook.getOpenOrderById(orderIdsBefore[0])
@@ -99,9 +96,8 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
             // pool: 160/2500 => 200/2000
             await mintAndDeposit(fixture, bob, 1000)
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("10", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "10")
+
             await b2qExactInput(fixture, bob, 40, baseToken.address)
         })
 
@@ -152,7 +148,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
         describe("has 2 order", () => {
             beforeEach(async () => {
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
                 const orderIds = await getOrderIds(fixture, alice)
                 expect(orderIds.length).gt(1)
@@ -179,16 +175,12 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
             // pool: 100/1000 => 80/1250
             await mintAndDeposit(fixture, bob, 1000)
 
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("15", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "15")
             await q2bExactInput(fixture, bob, 250, baseToken.address)
 
             // alice: +17.5b -350q
             // alice: 80/1250 => 62.5/1600
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("30", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "30")
             await q2bExactInput(fixture, alice, 350, baseToken.address)
             takerPositionBefore = await getTakerPositionSize(alice, baseToken)
             takerOpenNotionalBefore = await getTakerOpenNotional(alice, baseToken)
@@ -254,7 +246,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
         describe("has 2 order", () => {
             beforeEach(async () => {
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await addOrder(fixture, alice, 80, 1250, lowerTick + 1000, upperTick - 1000)
                 const orderIds = await getOrderIds(fixture, alice)
                 expect(orderIds.length).gt(1)
@@ -268,9 +260,7 @@ describe("ClearingHouse getPositionSize for taker + maker in xyk pool", () => {
 
     function testClosePosition() {
         it("won't impact maker's position when closing position", async () => {
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("8", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "8")
             await closePosition(fixture, alice)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)
             expect(await getTakerPositionSize(alice, baseToken)).eq(0)

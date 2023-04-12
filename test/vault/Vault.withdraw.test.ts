@@ -4,7 +4,7 @@ import { BigNumber, Wallet } from "ethers"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
-    AccountBalance,
+    BaseToken,
     ClearingHouse,
     CollateralManager,
     TestAccountBalance,
@@ -16,8 +16,9 @@ import {
 import { ClearingHouseFixture, createClearingHouseFixture } from "../clearingHouse/fixtures"
 import { addOrder, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
-import { IGNORABLE_DUST } from "../helper/number"
 import { deposit } from "../helper/token"
+import { IGNORABLE_DUST } from "../shared/constant"
+import { syncIndexToMarketPrice, syncMarkPriceToMarketPrice } from "../shared/utilities"
 
 describe("Vault withdraw test", () => {
     const [admin, alice, bob] = waffle.provider.getWallets()
@@ -26,13 +27,14 @@ describe("Vault withdraw test", () => {
     let usdc: TestERC20
     let wbtc: TestERC20
     let weth: TestERC20
-    let wbtcPriceFeed: MockContract
-    let wethPriceFeed: MockContract
+    let mockedWbtcPriceFeed: MockContract
+    let mockedWethPriceFeed: MockContract
     let clearingHouse: ClearingHouse
-    let accountBalance: AccountBalance | TestAccountBalance
+    let accountBalance: TestAccountBalance
     let collateralManager: CollateralManager
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let baseToken: BaseToken
+    let mockedPriceFeedDispatcher: MockContract
     let usdcDecimals: number
     let fixture: ClearingHouseFixture
 
@@ -61,24 +63,24 @@ describe("Vault withdraw test", () => {
         usdc = fixture.USDC
         weth = fixture.WETH
         wbtc = fixture.WBTC
-        wethPriceFeed = fixture.mockedWethPriceFeed
-        wbtcPriceFeed = fixture.mockedWbtcPriceFeed
+        mockedWethPriceFeed = fixture.mockedWethPriceFeed
+        mockedWbtcPriceFeed = fixture.mockedWbtcPriceFeed
         clearingHouse = fixture.clearingHouse
-        accountBalance = fixture.accountBalance
+        accountBalance = fixture.accountBalance as TestAccountBalance
         collateralManager = fixture.collateralManager
         pool = fixture.pool
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        baseToken = fixture.baseToken
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         usdcDecimals = await usdc.decimals()
 
         const initPrice = "151.373306858723226652"
         await initMarket(fixture, initPrice)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("151.373306", 6), 0, 0, 0]
-        })
+        await syncMarkPriceToMarketPrice(accountBalance, baseToken.address, pool)
+        await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
 
-        wethPriceFeed.smocked.getPrice.will.return.with(parseEther("2500"))
-        wbtcPriceFeed.smocked.getPrice.will.return.with(parseEther("40000"))
+        mockedWethPriceFeed.smocked.getPrice.will.return.with(parseUnits("2500", 8))
+        mockedWbtcPriceFeed.smocked.getPrice.will.return.with(parseUnits("40000", 8))
 
         // alice mint collateral tokens
         await usdc.mint(alice.address, parseUnits("100000", usdcDecimals))
@@ -269,7 +271,7 @@ describe("Vault withdraw test", () => {
             weth9 = (await weth9Factory.deploy()) as TestWETH9
 
             await collateralManager.addCollateral(weth9.address, {
-                priceFeed: wethPriceFeed.address,
+                priceFeed: mockedWethPriceFeed.address,
                 collateralRatio: (0.7e6).toString(),
                 discountRatio: (0.1e6).toString(),
                 depositCap: parseEther("1000"),

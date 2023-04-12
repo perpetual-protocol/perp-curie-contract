@@ -6,6 +6,7 @@ import { ethers, waffle } from "hardhat"
 import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, Vault } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse.getTotalPositionSize", () => {
@@ -17,7 +18,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     beforeEach(async () => {
@@ -27,7 +28,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         // alice
@@ -49,9 +50,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
         beforeEach(async () => {
             const initPrice = "151.3733069"
             await initMarket(fixture, initPrice)
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("151", 6), 0, 0, 0]
-            })
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
         })
 
         it("size = 0, if no swap", async () => {
@@ -173,9 +172,7 @@ describe("ClearingHouse.getTotalPositionSize", () => {
     it("bob swaps 2 time, while the second time is out of carol's range", async () => {
         const initPrice = "148.3760629"
         await initMarket(fixture, initPrice)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("148", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "148")
 
         const lowerTick = "50000"
         const middleTick = "50200"

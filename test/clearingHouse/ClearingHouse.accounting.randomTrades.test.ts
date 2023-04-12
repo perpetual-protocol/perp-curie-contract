@@ -19,7 +19,7 @@ import {
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
 import { forwardBothTimestamps } from "../shared/time"
-import { filterLogs } from "../shared/utilities"
+import { filterLogs, mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
@@ -36,7 +36,7 @@ describe.skip("ClearingHouse accounting", () => {
     let insuranceFund: InsuranceFund
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
 
     let maxTick: number, minTick: number
@@ -63,7 +63,7 @@ describe.skip("ClearingHouse accounting", () => {
         marketRegistry = fixture.marketRegistry
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         collateralDecimals = await collateral.decimals()
 
         getTakerRealizedPnlAndFees = (receipt: ContractReceipt): [BigNumber, BigNumber] => {
@@ -95,9 +95,7 @@ describe.skip("ClearingHouse accounting", () => {
             return fundingPayment
         }
 
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits("100", 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, "100")
 
         const initPrice = "100"
         // add pool with 0.3% fee

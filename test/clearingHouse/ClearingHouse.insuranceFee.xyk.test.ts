@@ -14,6 +14,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse insurance fee in xyk pool", () => {
@@ -28,7 +29,7 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
     let collateral: TestERC20
     let baseToken: BaseToken
     let pool: UniswapV3Pool
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
@@ -42,15 +43,13 @@ describe("ClearingHouse insurance fee in xyk pool", () => {
         insuranceFund = fixture.insuranceFund
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 400000)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick

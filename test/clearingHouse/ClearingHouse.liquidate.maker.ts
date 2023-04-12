@@ -1,7 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { parseEther } from "@ethersproject/units"
 import { expect } from "chai"
-import { BigNumberish } from "ethers"
 import { parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import {
@@ -12,6 +11,7 @@ import {
     MarketRegistry,
     OrderBook,
     QuoteToken,
+    TestAccountBalance,
     TestClearingHouse,
     TestERC20,
     UniswapV3Pool,
@@ -19,7 +19,7 @@ import {
 } from "../../typechain"
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { filterLogs, syncIndexToMarketPrice } from "../shared/utilities"
+import { filterLogs, mockIndexPrice, mockMarkPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse liquidate maker", () => {
@@ -27,6 +27,7 @@ describe("ClearingHouse liquidate maker", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
     let clearingHouse: TestClearingHouse
+    let accountBalance: TestAccountBalance
     let marketRegistry: MarketRegistry
     let exchange: Exchange
     let orderBook: OrderBook
@@ -36,29 +37,18 @@ describe("ClearingHouse liquidate maker", () => {
     let collateral: TestERC20
     let quoteToken: QuoteToken
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator2: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher2: MockContract
     let baseToken2: BaseToken
     let pool2: UniswapV3Pool
     let lowerTick: number
     let upperTick: number
     let collateralDecimals: number
 
-    enum Pool {
-        Pool1,
-        Pool2,
-    }
-
-    function setPoolIndexPrice(price: BigNumberish, pool: Pool) {
-        const aggregator: MockContract = pool == Pool.Pool1 ? mockedBaseAggregator : mockedBaseAggregator2
-        aggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(price.toString(), 6), 0, 0, 0]
-        })
-    }
-
     beforeEach(async () => {
         fixture = await loadFixture(createClearingHouseFixture())
         clearingHouse = fixture.clearingHouse as TestClearingHouse
+        accountBalance = fixture.accountBalance as TestAccountBalance
         orderBook = fixture.orderBook
         exchange = fixture.exchange
         marketRegistry = fixture.marketRegistry
@@ -68,17 +58,15 @@ describe("ClearingHouse liquidate maker", () => {
         collateral = fixture.USDC
         quoteToken = fixture.quoteToken
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         baseToken2 = fixture.baseToken2
-        mockedBaseAggregator2 = fixture.mockedBaseAggregator2
+        mockedPriceFeedDispatcher2 = fixture.mockedPriceFeedDispatcher2
         pool2 = fixture.pool2
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -124,7 +112,7 @@ describe("ClearingHouse liquidate maker", () => {
         await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
         await deposit(bob, vault, 10000000, collateral)
 
-        setPoolIndexPrice(40, Pool.Pool1)
+        await mockIndexPrice(mockedPriceFeedDispatcher, "40")
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -136,7 +124,7 @@ describe("ClearingHouse liquidate maker", () => {
             referralCode: ethers.constants.HashZero,
         })
 
-        setPoolIndexPrice(100000, Pool.Pool1)
+        await mockMarkPrice(accountBalance, baseToken.address, "100000")
 
         await expect(
             clearingHouse.connect(davis)["liquidate(address,address,int256)"](alice.address, baseToken.address, 0),
@@ -149,7 +137,7 @@ describe("ClearingHouse liquidate maker", () => {
         await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
         await deposit(bob, vault, 10000000, collateral)
 
-        setPoolIndexPrice(40, Pool.Pool1)
+        await mockIndexPrice(mockedPriceFeedDispatcher, "40")
         await clearingHouse.connect(bob).openPosition({
             baseToken: baseToken.address,
             isBaseToQuote: false, // quote to base
@@ -162,7 +150,7 @@ describe("ClearingHouse liquidate maker", () => {
         })
         // price after swap: 39.601
 
-        setPoolIndexPrice(115, Pool.Pool1)
+        await mockMarkPrice(accountBalance, baseToken.address, "115")
 
         // alice's liquidity = 31.622776601683793320
         // removed/remaining base = 31.622776601683793320 * (1/sqrt(39.601) - 1/sqrt(1.0001^887200)) = 5.0251256281
@@ -234,7 +222,7 @@ describe("ClearingHouse liquidate maker", () => {
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
 
-            setPoolIndexPrice(40, Pool.Pool1)
+            await mockIndexPrice(mockedPriceFeedDispatcher, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -247,7 +235,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
             // price after swap: 39.601
 
-            setPoolIndexPrice(115, Pool.Pool1)
+            await mockMarkPrice(accountBalance, baseToken.address, "115")
 
             const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, "50000", upperTick)
@@ -345,7 +333,7 @@ describe("ClearingHouse liquidate maker", () => {
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
 
-            setPoolIndexPrice(40, Pool.Pool1)
+            await mockIndexPrice(mockedPriceFeedDispatcher, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -358,7 +346,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
             // price after swap: 39.601
 
-            setPoolIndexPrice(115, Pool.Pool1)
+            await mockMarkPrice(accountBalance, baseToken.address, "115")
 
             const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
             const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, "50000", upperTick)
@@ -429,7 +417,7 @@ describe("ClearingHouse liquidate maker", () => {
             beforeEach(async () => {
                 const initPrice = "10"
                 await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-                await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
                 // alice add v2 style liquidity in pool2
                 await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
@@ -467,7 +455,7 @@ describe("ClearingHouse liquidate maker", () => {
                 await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
                 await deposit(bob, vault, 10000000, collateral)
 
-                setPoolIndexPrice(40, Pool.Pool1)
+                await mockIndexPrice(mockedPriceFeedDispatcher, "40")
                 await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false, // quote to base
@@ -480,7 +468,7 @@ describe("ClearingHouse liquidate maker", () => {
                 })
 
                 // bob long in pool2
-                setPoolIndexPrice(40, Pool.Pool2)
+                await mockIndexPrice(mockedPriceFeedDispatcher2, "40")
                 await clearingHouse.connect(bob).openPosition({
                     baseToken: baseToken2.address,
                     isBaseToQuote: false, // quote to base
@@ -492,9 +480,9 @@ describe("ClearingHouse liquidate maker", () => {
                     referralCode: ethers.constants.HashZero,
                 })
 
-                // index prices of both pool1 and pool2 go up so that alice can be liquidated in both pools
-                setPoolIndexPrice(115, Pool.Pool1)
-                setPoolIndexPrice(115, Pool.Pool2)
+                // mark prices of both pool1 and pool2 go up so that alice can be liquidated in both pools
+                await mockMarkPrice(accountBalance, baseToken.address, "115")
+                await mockMarkPrice(accountBalance, baseToken2.address, "115")
 
                 const order = await orderBook.getOpenOrder(alice.address, baseToken2.address, lowerTick, upperTick)
                 // cancel maker's order on all markets
@@ -566,7 +554,7 @@ describe("ClearingHouse liquidate maker", () => {
                     })
 
                     // bob long in pool1
-                    setPoolIndexPrice(40, Pool.Pool1)
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "40")
                     await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false, // quote to base
@@ -578,8 +566,7 @@ describe("ClearingHouse liquidate maker", () => {
                         referralCode: ethers.constants.HashZero,
                     })
                     // price after swap: 38.805748602
-
-                    setPoolIndexPrice(83, Pool.Pool1)
+                    await mockMarkPrice(accountBalance, baseToken.address, "83")
 
                     const order1 = await orderBook.getOpenOrder(alice.address, baseToken.address, lowerTick, upperTick)
                     const order2 = await orderBook.getOpenOrder(alice.address, baseToken.address, 25000, 35000)
@@ -659,7 +646,7 @@ describe("ClearingHouse liquidate maker", () => {
 
                 it("one order in each market; liquidation in pool2 doesn't help margin ratio, thus also liquidating the position in pool1", async () => {
                     // bob long in pool1
-                    setPoolIndexPrice(40, Pool.Pool1)
+                    await mockIndexPrice(mockedPriceFeedDispatcher, "40")
                     await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken.address,
                         isBaseToQuote: false, // quote to base
@@ -672,7 +659,7 @@ describe("ClearingHouse liquidate maker", () => {
                     })
 
                     // bob long in pool2
-                    setPoolIndexPrice(40, Pool.Pool2)
+                    await mockIndexPrice(mockedPriceFeedDispatcher2, "40")
                     await clearingHouse.connect(bob).openPosition({
                         baseToken: baseToken2.address,
                         isBaseToQuote: false, // quote to base
@@ -684,8 +671,8 @@ describe("ClearingHouse liquidate maker", () => {
                         referralCode: ethers.constants.HashZero,
                     })
 
-                    // only pool1 index price goes up
-                    setPoolIndexPrice(100000, Pool.Pool1)
+                    // only pool1 mark price goes up
+                    await mockMarkPrice(accountBalance, baseToken.address, "100000")
 
                     // cancel maker's order on all markets
                     await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
@@ -693,7 +680,6 @@ describe("ClearingHouse liquidate maker", () => {
 
                     // notice that in this case, liquidation happens in pool2 first, which is different from the above case
                     // since the loss is incurred in pool1, liquidating position in pool2 doesn't help margin ratio much
-                    await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
                     await expect(
                         clearingHouse
                             .connect(davis)
@@ -715,7 +701,7 @@ describe("ClearingHouse liquidate maker", () => {
         beforeEach(async () => {
             const initPrice = "10"
             await initMarket(fixture, initPrice, undefined, 0, undefined, baseToken2.address)
-            await syncIndexToMarketPrice(mockedBaseAggregator2, pool2)
+            await syncIndexToMarketPrice(mockedPriceFeedDispatcher2, pool2)
 
             // alice add v2 style liquidity on pool2
             await collateral.mint(alice.address, parseUnits("200", collateralDecimals))
@@ -753,7 +739,7 @@ describe("ClearingHouse liquidate maker", () => {
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
 
-            setPoolIndexPrice(40, Pool.Pool1)
+            await mockIndexPrice(mockedPriceFeedDispatcher, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -766,7 +752,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
 
             // bob long on pool2, and alice and carol get shorts
-            setPoolIndexPrice(40, Pool.Pool2)
+            await mockIndexPrice(mockedPriceFeedDispatcher2, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: false, // quote to base
@@ -778,16 +764,15 @@ describe("ClearingHouse liquidate maker", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // pool1 and pool2 index price goes up so that alice can be liquidated
-            setPoolIndexPrice(100000, Pool.Pool1)
-            setPoolIndexPrice(100000, Pool.Pool2)
+            // pool1 and pool2 mark price goes up so that alice can be liquidated
+            await mockMarkPrice(accountBalance, baseToken.address, "100000")
+            await mockMarkPrice(accountBalance, baseToken2.address, "100000")
 
             // cancel maker's order on all markets
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
             // liquidate maker's position on pool2 (with bad debt)
-            await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
             await expect(
                 clearingHouse
                     .connect(davis)
@@ -806,7 +791,7 @@ describe("ClearingHouse liquidate maker", () => {
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
 
-            setPoolIndexPrice(40, Pool.Pool1)
+            await mockIndexPrice(mockedPriceFeedDispatcher, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -819,7 +804,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
 
             // bob long on pool2
-            setPoolIndexPrice(40, Pool.Pool2)
+            await mockIndexPrice(mockedPriceFeedDispatcher2, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: false, // quote to base
@@ -831,9 +816,8 @@ describe("ClearingHouse liquidate maker", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // only pool1 index price goes up
-            setPoolIndexPrice(105, Pool.Pool1)
-            setPoolIndexPrice(10, Pool.Pool2)
+            // only pool1 mark price goes up
+            await mockMarkPrice(accountBalance, baseToken.address, "105")
 
             // cancel maker's order on all markets
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
@@ -861,7 +845,7 @@ describe("ClearingHouse liquidate maker", () => {
             await collateral.mint(bob.address, parseUnits("10000000", collateralDecimals))
             await deposit(bob, vault, 10000000, collateral)
 
-            setPoolIndexPrice(40, Pool.Pool1)
+            await mockIndexPrice(mockedPriceFeedDispatcher, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken.address,
                 isBaseToQuote: false, // quote to base
@@ -874,7 +858,7 @@ describe("ClearingHouse liquidate maker", () => {
             })
 
             // bob long on pool2
-            setPoolIndexPrice(40, Pool.Pool2)
+            await mockIndexPrice(mockedPriceFeedDispatcher2, "40")
             await clearingHouse.connect(bob).openPosition({
                 baseToken: baseToken2.address,
                 isBaseToQuote: false, // quote to base
@@ -886,15 +870,14 @@ describe("ClearingHouse liquidate maker", () => {
                 referralCode: ethers.constants.HashZero,
             })
 
-            // only pool1 index price goes up
-            setPoolIndexPrice(100000, Pool.Pool1)
+            // only pool1 mark price goes up
+            await mockMarkPrice(accountBalance, baseToken.address, "100000")
 
             // cancel maker's order on all markets
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken.address)
             await clearingHouse.connect(davis).cancelAllExcessOrders(alice.address, baseToken2.address)
 
             // liquidate maker's position on pool2, but the margin ratio is still too low, maker will be liquidated on pool1
-            await clearingHouseConfig.setBackstopLiquidityProvider(davis.address, true)
             await expect(
                 clearingHouse
                     .connect(davis)

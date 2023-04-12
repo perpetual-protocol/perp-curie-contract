@@ -3,9 +3,9 @@ import { expect } from "chai"
 import { parseEther, parseUnits } from "ethers/lib/utils"
 import { ethers, waffle } from "hardhat"
 import { AccountBalance, BaseToken, TestClearingHouse, TestERC20, UniswapV3Pool, Vault } from "../../typechain"
-import { syncIndexToMarketPrice } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit } from "../helper/token"
+import { mockIndexPrice, syncIndexToMarketPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse openPosition in xyk pool", () => {
@@ -17,7 +17,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
     let vault: Vault
     let collateral: TestERC20
     let baseToken: BaseToken
-    let mockedBaseAggregator: MockContract
+    let mockedPriceFeedDispatcher: MockContract
     let collateralDecimals: number
     let lowerTick: number
     let upperTick: number
@@ -30,15 +30,13 @@ describe("ClearingHouse openPosition in xyk pool", () => {
         vault = fixture.vault
         collateral = fixture.USDC
         baseToken = fixture.baseToken
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
         pool = fixture.pool
         collateralDecimals = await collateral.decimals()
 
         const initPrice = "10"
         const { maxTick, minTick } = await initMarket(fixture, initPrice, undefined, 0)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice, 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
@@ -171,7 +169,7 @@ describe("ClearingHouse openPosition in xyk pool", () => {
 
         describe("open another long", () => {
             beforeEach(async () => {
-                await syncIndexToMarketPrice(mockedBaseAggregator, pool)
+                await syncIndexToMarketPrice(mockedPriceFeedDispatcher, pool)
                 await clearingHouse.connect(taker).openPosition({
                     baseToken: baseToken.address,
                     isBaseToQuote: false,

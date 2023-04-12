@@ -1,6 +1,6 @@
 import { MockContract } from "@eth-optimism/smock"
 import { expect } from "chai"
-import { parseEther, parseUnits } from "ethers/lib/utils"
+import { parseUnits } from "ethers/lib/utils"
 import { waffle } from "hardhat"
 import {
     BaseToken,
@@ -15,9 +15,10 @@ import {
 import { addOrder, b2qExactOutput, closePosition, q2bExactInput, removeAllOrders } from "../helper/clearingHouseHelper"
 import { initMarket } from "../helper/marketHelper"
 import { deposit, mintAndDeposit } from "../helper/token"
-import { emergencyPriceFeedFixture, token0Fixture } from "../shared/fixtures"
+import { withdrawAll } from "../helper/vaultHelper"
+import { token0Fixture } from "../shared/fixtures"
 import { forwardBothTimestamps, initiateBothTimestamps } from "../shared/time"
-import { getMarketTwap } from "../shared/utilities"
+import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 describe("ClearingHouse new market listing", () => {
@@ -33,8 +34,8 @@ describe("ClearingHouse new market listing", () => {
     let quoteToken: QuoteToken
     let baseToken: BaseToken
     let baseToken3: BaseToken
-    let mockedBaseAggregator: MockContract
-    let mockedBaseAggregator3: MockContract
+    let mockedPriceFeedDispatcher: MockContract
+    let mockedPriceFeedDispatcher3: MockContract
     let pool3Addr: string
 
     let lowerTick: number
@@ -52,11 +53,11 @@ describe("ClearingHouse new market listing", () => {
         baseToken = fixture.baseToken
         quoteToken = fixture.quoteToken
         collateralDecimals = await collateral.decimals()
-        mockedBaseAggregator = fixture.mockedBaseAggregator
+        mockedPriceFeedDispatcher = fixture.mockedPriceFeedDispatcher
 
         const _token0Fixture = await token0Fixture(quoteToken.address)
         baseToken3 = _token0Fixture.baseToken
-        mockedBaseAggregator3 = _token0Fixture.mockedAggregator
+        mockedPriceFeedDispatcher3 = _token0Fixture.mockedPriceFeedDispatcher
 
         const uniAndExFeeTier = 10000
         const ifFeeRatio = 100000
@@ -72,9 +73,7 @@ describe("ClearingHouse new market listing", () => {
         const initPrice = "148"
         // initial baseToken market
         await initMarket(fixture, initPrice, uniAndExFeeTier, ifFeeRatio, 1000, baseToken.address)
-        mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher, initPrice)
 
         // initial baseToken3 market
         const { minTick, maxTick } = await initMarket(
@@ -85,15 +84,10 @@ describe("ClearingHouse new market listing", () => {
             0,
             baseToken3.address,
         )
-        mockedBaseAggregator3.smocked.latestRoundData.will.return.with(async () => {
-            return [0, parseUnits(initPrice.toString(), 6), 0, 0, 0]
-        })
+        await mockIndexPrice(mockedPriceFeedDispatcher3, initPrice)
 
         lowerTick = minTick
         upperTick = maxTick
-
-        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
-        await initiateBothTimestamps(clearingHouse)
 
         // mint
         collateral.mint(admin.address, parseUnits("100000", collateralDecimals))
@@ -109,6 +103,10 @@ describe("ClearingHouse new market listing", () => {
 
         // increase insuranceFund capacity
         await collateral.mint(insuranceFund.address, parseUnits("1000000", 6))
+
+        // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
+        // NOTE: Should be the last step in beforeEach
+        await initiateBothTimestamps(clearingHouse)
     })
 
     describe("list new market but not enable to trade", () => {
@@ -144,7 +142,7 @@ describe("ClearingHouse new market listing", () => {
             await q2bExactInput(fixture, bob, 4, baseToken3.address)
             await b2qExactOutput(fixture, davis, 2, baseToken3.address)
 
-            // pause market
+            // pause market temporary
             await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "0")
         })
 
@@ -187,48 +185,29 @@ describe("ClearingHouse new market listing", () => {
             expect(bobPendingFundingAfter.abs()).to.be.gt(bobPendingFundingBefore.abs())
             expect(davisPendingFundingAfter.abs()).to.be.gt(davisPendingFundingBefore.abs())
         })
-
-        it("Stop to cumulate funding after change to emergency oracle", async () => {
-            await forwardBothTimestamps(clearingHouse, 100)
-            // Random to update global funding
-            await clearingHouse.connect(bob).settleAllFunding(bob.address)
-
-            // Bob's funding has been settled
-            const bobBefore = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
-            expect(bobBefore).to.be.eq(0)
-
-            // Davis's funding still cumulate
-            const davisBefore = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
-            expect(davisBefore.abs()).to.be.gt(0)
-
-            const emergencyPriceFeed = await emergencyPriceFeedFixture(pool3Addr, baseToken3)
-            const priceFeed = await baseToken3.getPriceFeed()
-            expect(priceFeed).to.be.eq(emergencyPriceFeed.address)
-
-            // Ensure index twap should be equal market twap
-            // There's rounding difference when converting sqrtPriceX96 to price
-            const interval = 60
-            const indexTwap = await baseToken3.getIndexPrice(interval)
-            const markTwap = parseEther(await getMarketTwap(exchange, baseToken, interval))
-            expect(indexTwap).to.be.closeTo(markTwap, 1)
-
-            // Should not cumulate funding after forwarding timestamp
-            await forwardBothTimestamps(clearingHouse, 100)
-            const bobAfter100 = await exchange.getPendingFundingPayment(bob.address, baseToken3.address)
-            expect(bobAfter100).to.be.eq(0)
-            const davisAfter100 = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
-            expect(davisAfter100).to.be.eq(davisBefore)
-
-            // Davis should get zero pending funding after funding settlement
-            await clearingHouse.connect(davis).settleAllFunding(davis.address)
-            await forwardBothTimestamps(clearingHouse, 100)
-            const davisAfterSettle = await exchange.getPendingFundingPayment(davis.address, baseToken3.address)
-            expect(davisAfterSettle).to.be.eq(0)
-        })
     })
 
-    describe("liquidate when trader has order in paused market", () => {
+    describe("liquidate when trader has order in temporary paused market", () => {
         beforeEach(async () => {
+            await withdrawAll(fixture, bob)
+            // prepare collateral for trader bob
+            await mintAndDeposit(fixture, bob, 200)
+            // prepare collateral for liquidator davis
+            await mintAndDeposit(fixture, davis, 1000)
+        })
+
+        it("Can cancel order and liquidate successfully", async () => {
+            // Test scenario:
+            // Pre-work:
+            // 1. alice adds large liquidities on market1 and market3
+            // 2. bob adds small liquidities on market1 and market3
+            // 3. bob opens long positions on market1 and market3
+            // 4. pause market3 temporary
+            // 5. drop market1's mark price to make bob to be liquidatable
+            // Expected:
+            // 1. Can cancel bob's all excess orders
+            // 2. Can liquidate bob's positions on market1 and market3.
+
             // alice add liquidity to baseToken, baseToken3 market
             await addOrder(fixture, alice, 1000, 10000, 48000, 52000, false, baseToken3.address)
             await addOrder(fixture, alice, 1000, 10000, 48000, 52000, false, baseToken.address)
@@ -238,30 +217,31 @@ describe("ClearingHouse new market listing", () => {
             await addOrder(fixture, bob, 1, 10, lowerTick, upperTick, false, baseToken3.address)
 
             // open market
-            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "1000")
-            await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "1000")
+            await exchange.setMaxTickCrossedWithinBlock(baseToken.address, "100000")
+            await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "100000")
 
             // bob open position in baseToken, baseToken3 market
             await q2bExactInput(fixture, bob, 800, baseToken.address)
             await q2bExactInput(fixture, bob, 800, baseToken3.address)
-
-            // pause baseToken3 market
+            // pause any swap in baseToken3 market, not delist
             await exchange.setMaxTickCrossedWithinBlock(baseToken3.address, "0")
 
-            // drop baseToken market price
-            mockedBaseAggregator.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
-            })
+            // drop index price to let alice open short position
+            await mockIndexPrice(mockedPriceFeedDispatcher, "123")
 
-            // drop baseToken3 market price
-            mockedBaseAggregator3.smocked.latestRoundData.will.return.with(async () => {
-                return [0, parseUnits("0.000001", 6), 0, 0, 0]
-            })
+            // drop baseToken mark price to make bob to be liquidatable
+            await b2qExactOutput(fixture, alice, 10000, baseToken.address)
+            await forwardBothTimestamps(clearingHouse, 1800)
 
-            await mintAndDeposit(fixture, davis, 10000)
-        })
+            // pump index price to let alice close short position
+            await mockIndexPrice(mockedPriceFeedDispatcher, "151")
+            await closePosition(fixture, alice, 0, baseToken.address)
+            // For market 1:
+            //   indexPrice: 148.0
+            //   marketPrice: 150.211872311820248604
+            //   markPrice: 123.526929021317272912
+            //
 
-        it("liquidate process", async () => {
             // can cancelAllExcessOrders from baseToken, baseToken3 market
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken.address)
             await clearingHouse.cancelAllExcessOrders(bob.address, baseToken3.address)

@@ -8,6 +8,7 @@ interface IMarketRegistry {
         uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
         uint24 insuranceFundFeeRatio;
+        uint24 maxPriceSpreadRatio;
     }
 
     /// @notice Emitted when a new market is created.

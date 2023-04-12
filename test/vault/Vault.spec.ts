@@ -10,18 +10,12 @@ describe("Vault spec", () => {
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let vault: Vault
     let usdc: TestERC20
-    let insuranceFund: MockContract
-    let accountBalance: MockContract
-    let clearingHouseConfig: MockContract
     let collateralManager: MockContract
 
     beforeEach(async () => {
         const _fixture = await loadFixture(mockedVaultFixture)
         vault = _fixture.vault
         usdc = _fixture.USDC
-        insuranceFund = _fixture.mockedInsuranceFund
-        accountBalance = _fixture.mockedAccountBalance
-        clearingHouseConfig = _fixture.mockedClearingHouseConfig
         collateralManager = _fixture.mockedCollateralManager
 
         collateralManager.smocked.getMaxCollateralTokensPerAccount.will.return.with(100)

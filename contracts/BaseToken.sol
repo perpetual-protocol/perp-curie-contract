@@ -2,7 +2,7 @@
 pragma solidity 0.7.6;
 
 import { SafeMathUpgradeable } from "@openzeppelin/contracts-upgradeable/math/SafeMathUpgradeable.sol";
-import { IPriceFeedV2 } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeedV2.sol";
+import { IPriceFeedDispatcher } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol";
 import { IIndexPrice } from "./interface/IIndexPrice.sol";
 import { VirtualToken } from "./VirtualToken.sol";
 import { BaseTokenStorageV2 } from "./storage/BaseTokenStorage.sol";
@@ -32,7 +32,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     ) external initializer {
         __VirtualToken_init(nameArg, symbolArg);
 
-        uint8 priceFeedDecimals = IPriceFeedV2(priceFeedArg).decimals();
+        uint8 priceFeedDecimals = IPriceFeedDispatcher(priceFeedArg).decimals();
 
         // invalid price feed decimals
         require(priceFeedDecimals <= decimals(), "BT_IPFD");
@@ -64,10 +64,10 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         _close(_pausedIndexPrice);
     }
 
+    /// @dev priceFeed is now priceFeedDispatcher, which dispatches either Chainlink or UniswapV3 price
     function setPriceFeed(address priceFeedArg) external onlyOwner {
-        // ChainlinkPriceFeed uses 8 decimals
-        // BandPriceFeed uses 18 decimals
-        uint8 priceFeedDecimals = IPriceFeedV2(priceFeedArg).decimals();
+        // For all USD pairs, ChainlinkPriceFeed uses 8 decimals
+        uint8 priceFeedDecimals = IPriceFeedDispatcher(priceFeedArg).decimals();
         // BT_IPFD: Invalid price feed decimals
         require(priceFeedDecimals <= decimals(), "BT_IPFD");
 
@@ -78,17 +78,7 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
     }
 
     function cacheTwap(uint256 interval) external override {
-        IPriceFeedV2(_priceFeed).cacheTwap(interval);
-    }
-
-    //
-    // INTERNAL NON-VIEW
-    //
-
-    function _close(uint256 closedPrice) internal {
-        _status = IBaseToken.Status.Closed;
-        _closedPrice = closedPrice;
-        emit StatusUpdated(_status);
+        IPriceFeedDispatcher(_priceFeed).dispatchPrice(interval);
     }
 
     //
@@ -127,27 +117,32 @@ contract BaseToken is IBaseToken, IIndexPrice, VirtualToken, BlockContext, BaseT
         return _closedPrice;
     }
 
-    //
-    // PUBLIC VIEW
-    //
-
     /// @inheritdoc IIndexPrice
     /// @dev we overwrite the index price in BaseToken depending on the status
     ///      1. Open: the price is from the price feed
     ///      2. Paused or Closed: the price is twap when the token was paused
     function getIndexPrice(uint256 interval) public view override returns (uint256) {
         if (_status == IBaseToken.Status.Open) {
-            return _formatDecimals(IPriceFeedV2(_priceFeed).getPrice(interval));
+            return _formatDecimals(IPriceFeedDispatcher(_priceFeed).getDispatchedPrice(interval));
         }
 
         return _pausedIndexPrice;
     }
 
     //
-    // INTERNAL VIEW
+    // INTERNAL
     //
 
+    function _close(uint256 closedPrice) internal {
+        _status = IBaseToken.Status.Closed;
+        _closedPrice = closedPrice;
+        emit StatusUpdated(_status);
+    }
+
     function _formatDecimals(uint256 _price) internal view returns (uint256) {
+        if (_priceFeedDecimals == decimals()) {
+            return _price;
+        }
         return _price.mul(10**(decimals().sub(_priceFeedDecimals)));
     }
 }

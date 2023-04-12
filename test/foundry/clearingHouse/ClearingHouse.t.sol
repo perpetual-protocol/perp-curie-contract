@@ -3,8 +3,9 @@ pragma abicoder v2;
 
 import "forge-std/Test.sol";
 import "../helper/Setup.sol";
-import "../../../contracts/interface/IClearingHouse.sol";
-import { IPriceFeed } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeed.sol";
+import { IClearingHouse } from "../../../contracts/interface/IClearingHouse.sol";
+import { BaseToken } from "../../../contracts/BaseToken.sol";
+import { IPriceFeedDispatcher } from "@perp/perp-oracle-contract/contracts/interface/IPriceFeedDispatcher.sol";
 
 contract ClearingHouseTest is Setup {
     address trader = makeAddr("Trader");
@@ -23,10 +24,13 @@ contract ClearingHouseTest is Setup {
         marketRegistry.setInsuranceFundFeeRatio(address(baseToken), 100000);
         exchange.setMaxTickCrossedWithinBlock(address(baseToken), 250);
 
+        // wait for 30 mins after market is deployed
+        skip(1800);
+
         // mock priceFeed oracle
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
-            abi.encodeWithSelector(IPriceFeed.getPrice.selector),
+            abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
             abi.encode(100 * 1e8)
         );
         usdcDecimals = usdc.decimals();
