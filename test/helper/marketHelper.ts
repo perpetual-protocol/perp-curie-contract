@@ -1,5 +1,6 @@
 import { getMaxTick, getMaxTickRange, getMinTick } from "./number"
 
+import assert from "assert"
 import { BigNumberish } from "ethers"
 import { ethers } from "hardhat"
 import { ClearingHouseFixture } from "../clearingHouse/fixtures"
@@ -16,8 +17,10 @@ export async function initMarket(
     ifFeeRatio: BigNumberish = 100000, // 10%
     maxTickCrossedWithinBlock: number = getMaxTickRange(),
     baseToken: string = fixture.baseToken.address,
+    uniFeeTier = fixture.uniFeeTier,
 ): Promise<{ minTick: number; maxTick: number }> {
-    const poolAddr = await fixture.uniV3Factory.getPool(baseToken, fixture.quoteToken.address, fixture.uniFeeTier)
+    const poolAddr = await fixture.uniV3Factory.getPool(baseToken, fixture.quoteToken.address, uniFeeTier)
+    assert(poolAddr != ethers.constants.AddressZero, "Uniswap pool not found")
 
     const uniPoolFactory = await ethers.getContractFactory("UniswapV3Pool")
     const uniPool = uniPoolFactory.attach(poolAddr)
