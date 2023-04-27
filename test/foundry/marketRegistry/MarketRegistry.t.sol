@@ -272,11 +272,15 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
             marketRegistry.getMarketInfoByTrader(bob, address(baseToken));
 
         // 10% off
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
+        emit FeeDiscountRatioChanged(bob, 0.1e6);
         marketRegistry.setFeeDiscountRatio(bob, 0.1e6);
 
         IMarketRegistry.MarketInfo memory marketInfoAfter =
             marketRegistry.getMarketInfoByTrader(bob, address(baseToken));
 
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
+        emit FeeDiscountRatioChanged(bob, 0);
         marketRegistry.setFeeDiscountRatio(bob, 0);
 
         IMarketRegistry.MarketInfo memory marketInfoFinal =
