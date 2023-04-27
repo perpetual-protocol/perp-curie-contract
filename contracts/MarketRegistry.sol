@@ -6,18 +6,24 @@ import { AddressUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/Ad
 import { IERC20Metadata } from "./interface/IERC20Metadata.sol";
 import { ClearingHouseCallee } from "./base/ClearingHouseCallee.sol";
 import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
+import { PerpMath } from "./lib/PerpMath.sol";
+import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
-import { MarketRegistryStorageV2 } from "./storage/MarketRegistryStorage.sol";
+import { MarketRegistryStorageV3 } from "./storage/MarketRegistryStorage.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryStorageV2 {
+contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryStorageV3 {
     using AddressUpgradeable for address;
+    using PerpSafeCast for uint256;
+    using PerpMath for uint24;
+    using PerpMath for uint256;
 
     //
     // CONSTANT
     //
     uint24 internal constant _DEFAULT_MAX_MARKET_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
+    uint24 private constant _ONE_HUNDRED_PERCENT_RATIO = 1e6;
 
     //
     // MODIFIER
@@ -124,6 +130,11 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         emit MarketMaxPriceSpreadRatioChanged(baseToken, ratio);
     }
 
+    function setFeeDiscountRatio(address trader, uint24 discountRatio) external checkRatio(discountRatio) onlyOwner {
+        _feeDiscountRatioMap[trader] = discountRatio;
+        emit FeeDiscountRatioChanged(trader, discountRatio);
+    }
+
     //
     // EXTERNAL VIEW
     //
@@ -170,6 +181,28 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
             MarketInfo({
                 pool: _poolMap[baseToken],
                 exchangeFeeRatio: _exchangeFeeRatioMap[baseToken],
+                uniswapFeeRatio: _uniswapFeeRatioMap[baseToken],
+                insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken],
+                maxPriceSpreadRatio: _getMarketMaxPriceSpreadRatio(baseToken)
+            });
+    }
+
+    function getMarketInfoByTrader(address trader, address baseToken)
+        external
+        view
+        override
+        checkPool(baseToken)
+        returns (MarketInfo memory)
+    {
+        uint24 exchangeFeeRatio =
+            uint256(_exchangeFeeRatioMap[baseToken])
+                .mulRatio(_ONE_HUNDRED_PERCENT_RATIO.subRatio(_feeDiscountRatioMap[trader]))
+                .toUint24();
+
+        return
+            MarketInfo({
+                pool: _poolMap[baseToken],
+                exchangeFeeRatio: exchangeFeeRatio,
                 uniswapFeeRatio: _uniswapFeeRatioMap[baseToken],
                 insuranceFundFeeRatio: _insuranceFundFeeRatioMap[baseToken],
                 maxPriceSpreadRatio: _getMarketMaxPriceSpreadRatio(baseToken)
