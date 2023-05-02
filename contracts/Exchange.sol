@@ -425,6 +425,7 @@ contract Exchange is
             IOrderBook(_orderBook).replaySwap(
                 IOrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
+                    pool: marketInfo.pool,
                     isBaseToQuote: params.isBaseToQuote,
                     amount: signedScaledAmountForReplaySwap,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
@@ -458,6 +459,7 @@ contract Exchange is
             IOrderBook(_orderBook).replaySwap(
                 IOrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
+                    pool: marketInfo.pool,
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
                     amount: signedScaledAmountForReplaySwap,

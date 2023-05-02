@@ -41,6 +41,7 @@ interface IOrderBook {
 
     struct ReplaySwapParams {
         address baseToken;
+        address pool;
         int256 amount;
         bool isBaseToQuote;
         bool shouldUpdateState;
