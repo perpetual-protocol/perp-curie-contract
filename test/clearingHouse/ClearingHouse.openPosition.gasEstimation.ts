@@ -18,7 +18,7 @@ import { mockIndexPrice } from "../shared/utilities"
 import { ClearingHouseFixture, createClearingHouseFixture } from "./fixtures"
 
 // WARNING: this test is outdated and will need to catch up with many upgrades if we'd like to run it
-describe.skip("ClearingHouse.openPosition gasEstimation", () => {
+describe("ClearingHouse.openPosition gasEstimation", () => {
     const [admin, alice, bob, carol] = waffle.provider.getWallets()
     const loadFixture: ReturnType<typeof waffle.createFixtureLoader> = waffle.createFixtureLoader([admin])
     let fixture: ClearingHouseFixture
@@ -84,7 +84,7 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         })
     })
 
-    it("gas cost for taker", async () => {
+    it.only("gas cost for taker", async () => {
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
         await deposit(carol, vault, 1000, collateral)
         const receipt = await (

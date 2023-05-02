@@ -260,13 +260,12 @@ contract OrderBook is
     function replaySwap(ReplaySwapParams memory params) external override returns (ReplaySwapResponse memory) {
         _requireOnlyExchange();
 
-        address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
         uint256 fee;
         uint256 insuranceFundFee; // insuranceFundFee = fee * insuranceFundFeeRatio
 
         UniswapV3Broker.SwapState memory swapState =
-            UniswapV3Broker.getSwapState(pool, params.amount, _feeGrowthGlobalX128Map[params.baseToken]);
+            UniswapV3Broker.getSwapState(params.pool, params.amount, _feeGrowthGlobalX128Map[params.baseToken]);
 
         params.sqrtPriceLimitX96 = params.sqrtPriceLimitX96 == 0
             ? (params.isBaseToQuote ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1)
@@ -274,7 +273,7 @@ contract OrderBook is
 
         // if there is residue in amountSpecifiedRemaining, makers can get a tiny little bit less than expected,
         // which is safer for the system
-        int24 tickSpacing = UniswapV3Broker.getTickSpacing(pool);
+        int24 tickSpacing = UniswapV3Broker.getTickSpacing(params.pool);
 
         while (swapState.amountSpecifiedRemaining != 0 && swapState.sqrtPriceX96 != params.sqrtPriceLimitX96) {
             InternalSwapStep memory step;
@@ -283,7 +282,7 @@ contract OrderBook is
             // find next tick
             // note the search is bounded in one word
             (step.nextTick, step.isNextTickInitialized) = UniswapV3Broker.getNextInitializedTickWithinOneWord(
-                pool,
+                params.pool,
                 swapState.tick,
                 tickSpacing,
                 params.isBaseToQuote
@@ -361,7 +360,7 @@ contract OrderBook is
                         );
                     }
 
-                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(pool, step.nextTick);
+                    int128 liquidityNet = UniswapV3Broker.getTickLiquidityNet(params.pool, step.nextTick);
                     if (params.isBaseToQuote) liquidityNet = liquidityNet.neg128();
                     swapState.liquidity = LiquidityMath.addDelta(swapState.liquidity, liquidityNet);
                 }
