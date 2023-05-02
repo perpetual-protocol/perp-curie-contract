@@ -84,6 +84,24 @@ describe.skip("ClearingHouse.openPosition gasEstimation", () => {
         })
     })
 
+    it("gas cost for taker", async () => {
+        await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))
+        await deposit(carol, vault, 1000, collateral)
+        const receipt = await (
+            await clearingHouse.connect(carol).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("0.1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+        ).wait()
+        console.log("gas used: ", receipt.gasUsed.toString())
+    })
+
     it("gas cost for maker", async () => {
         // carol long
         await collateral.mint(carol.address, parseUnits("1000", collateralDecimals))

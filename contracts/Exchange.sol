@@ -53,6 +53,7 @@ contract Exchange is
     //
 
     struct InternalReplaySwapParams {
+        address trader;
         address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
@@ -166,6 +167,7 @@ contract Exchange is
             // simulate the tx to see if it's over the price limit; if true, can only partially close the position
             if (
                 _isOverPriceLimitBySimulatingClosingPosition(
+                    params.trader,
                     params.baseToken,
                     takerPositionSize < 0, // it's a short position
                     params.amount // it's the same as takerPositionSize but in uint256
@@ -381,6 +383,7 @@ contract Exchange is
     /// @dev this function is used only when closePosition()
     ///      inspect whether a tx will go over price limit by simulating closing position before swapping
     function _isOverPriceLimitBySimulatingClosingPosition(
+        address trader,
         address baseToken,
         bool isOldPositionShort,
         uint256 positionSize
@@ -391,6 +394,7 @@ contract Exchange is
                 baseToken,
                 _replaySwap(
                     InternalReplaySwapParams({
+                        trader: trader,
                         baseToken: baseToken,
                         isBaseToQuote: !isOldPositionShort,
                         isExactInput: !isOldPositionShort,
@@ -403,7 +407,8 @@ contract Exchange is
 
     /// @return tick the resulting tick (derived from price) after replaying the swap
     function _replaySwap(InternalReplaySwapParams memory params) internal returns (int24 tick) {
-        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
+        IMarketRegistry.MarketInfo memory marketInfo =
+            IMarketRegistry(_marketRegistry).getMarketInfoByTrader(params.trader, params.baseToken);
         uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
         uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
         (, int256 signedScaledAmountForReplaySwap) =
@@ -426,6 +431,7 @@ contract Exchange is
                     exchangeFeeRatio: exchangeFeeRatio,
                     uniswapFeeRatio: uniswapFeeRatio,
                     shouldUpdateState: false,
+                    insuranceFundFeeRatio: marketInfo.insuranceFundFeeRatio,
                     globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
                 })
             );
@@ -434,7 +440,8 @@ contract Exchange is
 
     /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     function _swap(SwapParams memory params) internal returns (InternalSwapResponse memory) {
-        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
+        IMarketRegistry.MarketInfo memory marketInfo =
+            IMarketRegistry(_marketRegistry).getMarketInfoByTrader(params.trader, params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
             SwapMath.calcScaledAmountForSwaps(
@@ -457,6 +464,7 @@ contract Exchange is
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: marketInfo.exchangeFeeRatio,
                     uniswapFeeRatio: marketInfo.uniswapFeeRatio,
+                    insuranceFundFeeRatio: marketInfo.insuranceFundFeeRatio,
                     globalFundingGrowth: fundingGrowthGlobal
                 })
             );
