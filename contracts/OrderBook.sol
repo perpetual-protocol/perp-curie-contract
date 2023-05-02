@@ -262,8 +262,6 @@ contract OrderBook is
 
         address pool = IMarketRegistry(_marketRegistry).getPool(params.baseToken);
         bool isExactInput = params.amount > 0;
-        uint24 insuranceFundFeeRatio =
-            IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken).insuranceFundFeeRatio;
         uint256 fee;
         uint256 insuranceFundFee; // insuranceFundFee = fee * insuranceFundFeeRatio
 
@@ -339,7 +337,7 @@ contract OrderBook is
                 }
 
                 fee += step.fee;
-                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.fee, insuranceFundFeeRatio, 1e6);
+                uint256 stepInsuranceFundFee = FullMath.mulDivRoundingUp(step.fee, params.insuranceFundFeeRatio, 1e6);
                 insuranceFundFee += stepInsuranceFundFee;
                 uint256 stepMakerFee = step.fee.sub(stepInsuranceFundFee);
                 swapState.feeGrowthGlobalX128 += FullMath.mulDiv(stepMakerFee, FixedPoint128.Q128, swapState.liquidity);
