@@ -344,7 +344,7 @@ contract Exchange is
     }
 
     /// @inheritdoc IExchange
-    // Deprecated function, will be removed in the next release
+    // **Deprecated function, will be removed in the next release, use `getSqrtMarketTwapX96()` instead**
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view override returns (uint160) {
         return _getSqrtMarketTwapX96(baseToken, twapInterval);
     }
