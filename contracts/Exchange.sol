@@ -657,11 +657,13 @@ contract Exchange is
         // price limit = max tick or min tick , depending on which direction
         int24 tickBoundary = isLong ? lastUpdatedTick + int24(maxDeltaTick) : lastUpdatedTick - int24(maxDeltaTick);
 
-        // tickBoundary should be in [MIN_TICK, MAX_TICK]
-        tickBoundary = tickBoundary > TickMath.MAX_TICK ? TickMath.MAX_TICK : tickBoundary;
-        tickBoundary = tickBoundary < TickMath.MIN_TICK ? TickMath.MIN_TICK : tickBoundary;
+        // tickBoundary should be in (MIN_TICK, MAX_TICK)
+        // ref: https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol#L608
+        tickBoundary = tickBoundary > TickMath.MAX_TICK ? TickMath.MAX_TICK - 1 : tickBoundary;
+        tickBoundary = tickBoundary < TickMath.MIN_TICK ? TickMath.MIN_TICK + 1 : tickBoundary;
 
         uint160 targetSqrtPriceLimitX96 = TickMath.getSqrtRatioAtTick(tickBoundary);
+
         if (inputSqrtPriceLimitX96 == 0) {
             return targetSqrtPriceLimitX96;
         }
