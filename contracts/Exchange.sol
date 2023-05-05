@@ -53,12 +53,12 @@ contract Exchange is
     //
 
     struct InternalReplaySwapParams {
-        address trader;
         address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
         uint256 amount;
         uint160 sqrtPriceLimitX96;
+        address trader;
     }
 
     struct InternalSwapResponse {
