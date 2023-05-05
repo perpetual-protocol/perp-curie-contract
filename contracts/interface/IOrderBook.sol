@@ -41,15 +41,15 @@ interface IOrderBook {
 
     struct ReplaySwapParams {
         address baseToken;
-        address pool;
-        int256 amount;
         bool isBaseToQuote;
         bool shouldUpdateState;
+        int256 amount;
         uint160 sqrtPriceLimitX96;
         uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
-        uint24 insuranceFundFeeRatio;
         Funding.Growth globalFundingGrowth;
+        address pool;
+        uint24 insuranceFundFeeRatio;
     }
 
     /// @param insuranceFundFee = fee * insuranceFundFeeRatio
