@@ -738,7 +738,7 @@ describe("ClearingHouse customized fee", () => {
 
     describe("change taker's fee discount ratio", async () => {
         beforeEach(async () => {
-            // set fee ratio to 0.5%
+            // set fee ratio to 2%
             await marketRegistry.setFeeRatio(baseToken.address, 20000)
             await deposit(taker, vault, 1000, collateral)
 
