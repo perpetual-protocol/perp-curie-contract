@@ -103,7 +103,7 @@ interface IExchange {
         view
         returns (int256 pendingFundingPayment);
 
-    /// @notice (Deprecated function, will be removed in the next release)
+    /// @notice **Deprecated function, will be removed in the next release, use `getSqrtMarketTwapX96()` instead**
     /// Get the square root of the market twap price with the given time interval
     /// @dev The return value is a X96 number
     /// @param baseToken Address of the base token

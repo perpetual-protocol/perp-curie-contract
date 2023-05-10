@@ -487,7 +487,14 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     }
 
     function _getReferencePrice(address baseToken) internal view returns (uint256) {
-        return IBaseToken(baseToken).isClosed() ? IBaseToken(baseToken).getClosedPrice() : _getMarkPrice(baseToken);
+        if (IBaseToken(baseToken).isOpen()) {
+            return _getMarkPrice(baseToken);
+        }
+
+        return
+            IBaseToken(baseToken).isClosed()
+                ? IBaseToken(baseToken).getClosedPrice()
+                : IBaseToken(baseToken).getPausedIndexPrice();
     }
 
     /// @return netQuoteBalance = quote.balance + totalQuoteInPools
@@ -517,13 +524,6 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
     function _getMarkPrice(address baseToken) internal view virtual returns (uint256) {
         IClearingHouseConfig clearingHouseConfig = IClearingHouseConfig(_clearingHouseConfig);
         (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
-
-        // Use index twap:
-        //   1. For backward compatibility, returns index twap when not switched to mark price yet.
-        //   2. For paused market, returns index twap as mark price.
-        if (!_isMarkPriceEnabled(marketTwapInterval, premiumInterval) || !IBaseToken(baseToken).isOpen()) {
-            return _getIndexPrice(baseToken, clearingHouseConfig.getTwapInterval());
-        }
 
         uint256 marketPrice = _getMarketPrice(baseToken, 0);
         uint256 marketTwap = _getMarketPrice(baseToken, marketTwapInterval);
@@ -558,10 +558,5 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
             }
         }
         return false;
-    }
-
-    function _isMarkPriceEnabled(uint32 marketTwapInterval, uint32 premiumInterval) internal pure returns (bool) {
-        // sanity check params for mark price
-        return marketTwapInterval != 0 && premiumInterval != 0;
     }
 }

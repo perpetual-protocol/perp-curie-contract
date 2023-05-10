@@ -263,4 +263,36 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         assertEq(uint256(legacyMarketInfo.uniswapFeeRatio), _DEFAULT_POOL_FEE);
         assertEq(uint256(legacyMarketInfo.insuranceFundFeeRatio), 0);
     }
+
+    function test_getMarketInfoByTrader_and_setFeeDiscountRatio() public {
+        address bob = makeAddr("Bob");
+        address alice = makeAddr("Alice");
+
+        IMarketRegistry.MarketInfo memory marketInfoBefore =
+            marketRegistry.getMarketInfoByTrader(bob, address(baseToken));
+
+        // 10% off
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
+        emit FeeDiscountRatioChanged(bob, 0.1e6);
+        marketRegistry.setFeeDiscountRatio(bob, 0.1e6);
+
+        IMarketRegistry.MarketInfo memory marketInfoAfter =
+            marketRegistry.getMarketInfoByTrader(bob, address(baseToken));
+
+        vm.expectEmit(true, true, true, true, address(marketRegistry));
+        emit FeeDiscountRatioChanged(bob, 0);
+        marketRegistry.setFeeDiscountRatio(bob, 0);
+
+        IMarketRegistry.MarketInfo memory marketInfoFinal =
+            marketRegistry.getMarketInfoByTrader(bob, address(baseToken));
+
+        assertEq(uint256(marketInfoBefore.exchangeFeeRatio), _DEFAULT_POOL_FEE);
+        assertEq(uint256(marketInfoAfter.exchangeFeeRatio), (uint256(_DEFAULT_POOL_FEE) * 0.9e6) / 1e6);
+        assertEq(uint256(marketInfoFinal.exchangeFeeRatio), _DEFAULT_POOL_FEE);
+
+        IMarketRegistry.MarketInfo memory aliceMarketInfo =
+            marketRegistry.getMarketInfoByTrader(alice, address(baseToken));
+
+        assertEq(uint256(aliceMarketInfo.exchangeFeeRatio), _DEFAULT_POOL_FEE);
+    }
 }

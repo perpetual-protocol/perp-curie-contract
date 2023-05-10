@@ -28,43 +28,6 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
         skip(1800);
     }
 
-    function test_getMarkPrice_should_return_index_twap_if_market_twap_interval_is_zero() public {
-        // mock market twap interval is zero
-        _mockMarkPriceMarketTwapInterval(0);
-
-        // mock index twap
-        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
-        uint256 indexTwap = 100;
-        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
-
-        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
-    }
-
-    function test_getMarkPrice_should_return_index_twap_if_premium_interval_is_zero() public {
-        // mock premium interval is zero
-        _mockMarkPricePremiumInterval(0);
-
-        // mock index twap
-        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
-        uint256 indexTwap = 100;
-        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
-
-        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
-    }
-
-    function test_getMarkPrice_should_return_index_twap_if_market_is_not_open() public {
-        // mock baseToken is not open
-        vm.mockCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector), abi.encode(false));
-
-        // mock baseToken index twap
-        uint32 indexTwapInterval = clearingHouseConfig.getTwapInterval();
-        uint256 indexTwap = 100;
-        _mockIndexTwap(address(baseToken), indexTwapInterval, indexTwap);
-
-        vm.expectCall(address(baseToken), abi.encodeWithSelector(IBaseToken.isOpen.selector));
-        assertEq(accountBalance.getMarkPrice(address(baseToken)), indexTwap);
-    }
-
     function test_getMarkPrice_should_return_index_price_with_premium_if_mark_price_enabled() public {
         (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
@@ -89,25 +52,6 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
         uint256 result = accountBalance.getMarkPrice(address(baseToken));
         // median[100, 95, 97] = 97
         assertApproxEqAbs(result, 97 * (10**18), 10**15); // result should be 97 +/- 0.001, due to tick math
-    }
-
-    function _mockMarkPriceMarketTwapInterval(uint32 interval) internal {
-        (, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
-
-        vm.mockCall(
-            address(clearingHouseConfig),
-            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfig.selector),
-            abi.encode(interval, premiumInterval)
-        );
-    }
-
-    function _mockMarkPricePremiumInterval(uint32 interval) internal {
-        (uint32 marketTwapInterval, ) = clearingHouseConfig.getMarkPriceConfig();
-        vm.mockCall(
-            address(clearingHouseConfig),
-            abi.encodeWithSelector(IClearingHouseConfig.getMarkPriceConfig.selector),
-            abi.encode(marketTwapInterval, interval)
-        );
     }
 
     function _mockIndexTwap(

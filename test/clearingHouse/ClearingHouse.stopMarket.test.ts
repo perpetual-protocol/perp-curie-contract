@@ -816,6 +816,9 @@ describe("Clearinghouse StopMarket", async () => {
                 await q2bExactOutput(fixture, bob, "0.1", baseToken.address)
                 // bob open notional: -15.336664251894505922
 
+                // Fix funding payment to prevent flaky test
+                await forwardBothTimestamps(clearingHouse)
+
                 await pauseMarket(baseToken)
                 await closeMarket(baseToken, 1)
             })
@@ -823,20 +826,20 @@ describe("Clearinghouse StopMarket", async () => {
             it("quitMarket should settleBadDebt", async () => {
                 // check: bob account value should be negative
                 // positionNotional = 0.1
-                // pendingFundingPayment: 0.00000748866404135
+                // pendingFundingPayment: 0.00001208969841
                 // collateral + positionNotional + openNotional
-                // 10 - 0.00000748866404135 + 0.1 + (-15.336664251894505922) = -5.236672
-                expect(await vault.getAccountValue(bob.address)).eq("-5236672")
+                // 10 - 0.00001208969841 + 0.1 + (-15.336664251894505922) = -5.2366763416
+                expect(await vault.getAccountValue(bob.address)).closeTo("-5236678", 1)
                 // check: IF account value should be 0
                 expect(await vault.getAccountValue(insuranceFund.address)).eq("0")
                 // call quitMarket
                 await expect(clearingHouse.quitMarket(bob.address, baseToken.address))
                     .to.emit(vault, "BadDebtSettled")
-                    .withArgs(bob.address, "5236672")
+                    .withArgs(bob.address, "5236678")
                 // check: bob account value should 0
                 expect(await vault.getAccountValue(bob.address)).eq("0")
                 // check: IF account value should be negative
-                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236672")
+                expect(await vault.getAccountValue(insuranceFund.address)).eq("-5236678")
             })
         })
 

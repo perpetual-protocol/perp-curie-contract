@@ -48,6 +48,8 @@ interface IOrderBook {
         uint24 exchangeFeeRatio;
         uint24 uniswapFeeRatio;
         Funding.Growth globalFundingGrowth;
+        address pool;
+        uint24 insuranceFundFeeRatio;
     }
 
     /// @param insuranceFundFee = fee * insuranceFundFeeRatio
@@ -80,7 +82,7 @@ interface IOrderBook {
         returns (RemoveLiquidityResponse memory response);
 
     /// @dev This is the non-view version of `getLiquidityCoefficientInFundingPayment()`,
-    /// only can be called by `ClearingHouse` contract
+    /// only can be called by `Exchange` contract
     /// @param trader The trader address
     /// @param baseToken The base token address
     /// @param fundingGrowthGlobal The funding growth info, detail on `Funding.Growth`
@@ -92,7 +94,7 @@ interface IOrderBook {
     ) external returns (int256 liquidityCoefficientInFundingPayment);
 
     /// @notice Replay the swap and get the swap result (price impact and swap fee),
-    /// only can be called by `ClearingHouse` contract;
+    /// only can be called by `Exchange` contract;
     /// @dev `ReplaySwapResponse.insuranceFundFee = fee * insuranceFundFeeRatio`
     /// @param params ReplaySwap params, detail on `IOrderBook.ReplaySwapParams`
     /// @return response The swap result encoded in `ReplaySwapResponse`

@@ -28,3 +28,9 @@ abstract contract MarketRegistryStorageV2 is MarketRegistryStorageV1 {
     // value: the max price spread ratio of the market
     mapping(address => uint24) internal _marketMaxPriceSpreadRatioMap;
 }
+
+abstract contract MarketRegistryStorageV3 is MarketRegistryStorageV2 {
+    // key: trader
+    // value: discount ratio (percent-off)
+    mapping(address => uint24) internal _feeDiscountRatioMap;
+}
