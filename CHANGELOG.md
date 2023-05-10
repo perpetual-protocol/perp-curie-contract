@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.7.0] - 2023-05-09
+- Add `MarketRegistry.setFeeDiscountRatio()` to set a fee discount ratio to a trader.
+- Add `MarketRegistry.getMarketInfoByTrader()` to get a market info related to a trader.
+- Refine `Orderbook.replaySwap` to retrieve market info from arguments.
+
+## [2.6.1] - 2023-05-09
+- Remove legacy code for mark price sanity check.
+
 ## [2.6.0] - 2023-04-10
 ### Changed
 - Switch `IPriceFeedV2` to `IPriceFeedDispatcher` in `BaseToken`.

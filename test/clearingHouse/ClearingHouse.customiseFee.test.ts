@@ -736,6 +736,67 @@ describe("ClearingHouse customized fee", () => {
         })
     })
 
+    describe("change taker's fee discount ratio", async () => {
+        beforeEach(async () => {
+            // set fee ratio to 2%
+            await marketRegistry.setFeeRatio(baseToken.address, 20000)
+            await deposit(taker, vault, 1000, collateral)
+
+            await clearingHouse.connect(taker).openPosition({
+                baseToken: baseToken.address,
+                isBaseToQuote: false,
+                isExactInput: true,
+                oppositeAmountBound: 0,
+                amount: parseEther("1"),
+                sqrtPriceLimitX96: 0,
+                deadline: ethers.constants.MaxUint256,
+                referralCode: ethers.constants.HashZero,
+            })
+        })
+
+        it("swap with customized discount", async () => {
+            await marketRegistry.setFeeDiscountRatio(taker.address, 0.1e6)
+
+            // taker swap 1 USD for ? ETH
+            await expect(
+                clearingHouse.connect(taker).openPosition({
+                    baseToken: baseToken.address,
+                    isBaseToQuote: false,
+                    isExactInput: true,
+                    oppositeAmountBound: 0,
+                    amount: parseEther("1"),
+                    sqrtPriceLimitX96: 0,
+                    deadline: ethers.constants.MaxUint256,
+                    referralCode: ethers.constants.HashZero,
+                }),
+            )
+                .to.emit(clearingHouse, "PositionChanged")
+                .withArgs(
+                    taker.address, // trader
+                    baseToken.address, // baseToken
+                    "6485520158501717", // exchangedPositionSize
+                    parseEther("-0.982"), // exchangedPositionNotional = -(1-0.018)
+                    parseEther("0.018"), // fee = 1 * 0.02 * 0.9
+                    parseEther("-2"), // openNotional = -1 + -1
+                    parseEther("0"), // realizedPnl
+                    "974950371043325929393898091208", // sqrtPriceAfterX96
+                )
+
+            const fee = (
+                await clearingHouse.connect(maker).callStatic.removeLiquidity({
+                    baseToken: baseToken.address,
+                    lowerTick: lowerTick,
+                    upperTick: upperTick,
+                    liquidity: 0,
+                    minBase: 0,
+                    minQuote: 0,
+                    deadline: ethers.constants.MaxUint256,
+                })
+            ).fee
+            expect(fee).to.be.closeTo(parseEther("0.038"), 1) // 0.018 + 0.02
+        })
+    })
+
     describe("CH fee with multiple makers", async () => {
         let liquidity1: BigNumber
         let liquidity2: BigNumber

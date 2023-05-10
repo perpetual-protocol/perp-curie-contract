@@ -52,14 +52,6 @@ contract Exchange is
     // STRUCT
     //
 
-    struct InternalReplaySwapParams {
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        uint256 amount;
-        uint160 sqrtPriceLimitX96;
-    }
-
     struct InternalSwapResponse {
         int256 base;
         int256 quote;
@@ -343,7 +335,7 @@ contract Exchange is
     }
 
     /// @inheritdoc IExchange
-    // Deprecated function, will be removed in the next release
+    // **Deprecated function, will be removed in the next release, use `getSqrtMarketTwapX96()` instead**
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view override returns (uint160) {
         return _getSqrtMarketTwapX96(baseToken, twapInterval);
     }
@@ -377,40 +369,10 @@ contract Exchange is
     // INTERNAL NON-VIEW
     //
 
-    /// @return tick the resulting tick (derived from price) after replaying the swap
-    function _replaySwap(InternalReplaySwapParams memory params) internal returns (int24 tick) {
-        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
-        uint24 exchangeFeeRatio = marketInfo.exchangeFeeRatio;
-        uint24 uniswapFeeRatio = marketInfo.uniswapFeeRatio;
-        (, int256 signedScaledAmountForReplaySwap) =
-            SwapMath.calcScaledAmountForSwaps(
-                params.isBaseToQuote,
-                params.isExactInput,
-                params.amount,
-                exchangeFeeRatio,
-                uniswapFeeRatio
-            );
-
-        // globalFundingGrowth can be empty if shouldUpdateState is false
-        IOrderBook.ReplaySwapResponse memory response =
-            IOrderBook(_orderBook).replaySwap(
-                IOrderBook.ReplaySwapParams({
-                    baseToken: params.baseToken,
-                    isBaseToQuote: params.isBaseToQuote,
-                    amount: signedScaledAmountForReplaySwap,
-                    sqrtPriceLimitX96: params.sqrtPriceLimitX96,
-                    exchangeFeeRatio: exchangeFeeRatio,
-                    uniswapFeeRatio: uniswapFeeRatio,
-                    shouldUpdateState: false,
-                    globalFundingGrowth: Funding.Growth({ twPremiumX96: 0, twPremiumDivBySqrtPriceX96: 0 })
-                })
-            );
-        return response.tick;
-    }
-
     /// @dev customized fee: https://www.notion.so/perp/Customise-fee-tier-on-B2QFee-1b7244e1db63416c8651e8fa04128cdb
     function _swap(SwapParams memory params) internal returns (InternalSwapResponse memory) {
-        IMarketRegistry.MarketInfo memory marketInfo = IMarketRegistry(_marketRegistry).getMarketInfo(params.baseToken);
+        IMarketRegistry.MarketInfo memory marketInfo =
+            IMarketRegistry(_marketRegistry).getMarketInfoByTrader(params.trader, params.baseToken);
 
         (uint256 scaledAmountForUniswapV3PoolSwap, int256 signedScaledAmountForReplaySwap) =
             SwapMath.calcScaledAmountForSwaps(
@@ -427,12 +389,14 @@ contract Exchange is
             IOrderBook(_orderBook).replaySwap(
                 IOrderBook.ReplaySwapParams({
                     baseToken: params.baseToken,
+                    pool: marketInfo.pool,
                     isBaseToQuote: params.isBaseToQuote,
                     shouldUpdateState: true,
                     amount: signedScaledAmountForReplaySwap,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96,
                     exchangeFeeRatio: marketInfo.exchangeFeeRatio,
                     uniswapFeeRatio: marketInfo.uniswapFeeRatio,
+                    insuranceFundFeeRatio: marketInfo.insuranceFundFeeRatio,
                     globalFundingGrowth: fundingGrowthGlobal
                 })
             );

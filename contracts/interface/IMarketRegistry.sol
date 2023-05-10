@@ -36,6 +36,11 @@ interface IMarketRegistry {
     /// @param spreadRatio Max market price spread ratio
     event MarketMaxPriceSpreadRatioChanged(address indexed baseToken, uint24 spreadRatio);
 
+    /// @notice Emitted when the trader's fee discount ratio gets updated.
+    /// @param trader The address of the trader
+    /// @param discountRatio Fee discount ratio (percent-off)
+    event FeeDiscountRatioChanged(address indexed trader, uint24 discountRatio);
+
     /// @notice Get the pool address (UNIv3 pool) by given base token address
     /// @param baseToken The address of the base token
     /// @return pool The address of the pool
@@ -57,6 +62,12 @@ interface IMarketRegistry {
     /// @param baseToken The address of the base token
     /// @return info The market info encoded as `MarketInfo`
     function getMarketInfo(address baseToken) external view returns (MarketInfo memory info);
+
+    /// @notice Get the market info by given trader address and base token address
+    /// @param trader The address of the trader
+    /// @param baseToken The address of the base token
+    /// @return info The market info encoded as `MarketInfo`
+    function getMarketInfoByTrader(address trader, address baseToken) external view returns (MarketInfo memory info);
 
     /// @notice Get the quote token address
     /// @return quoteToken The address of the quote token
