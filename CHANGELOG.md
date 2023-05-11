@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+### Removed
+- Remove admin function, `ClearingHouseConfig.setPartialCloseRatio`
+
 ## [2.7.0] - 2023-05-09
 - Add `MarketRegistry.setFeeDiscountRatio()` to set a fee discount ratio to a trader.
 - Add `MarketRegistry.getMarketInfoByTrader()` to get a market info related to a trader.

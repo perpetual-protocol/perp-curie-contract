@@ -9,7 +9,10 @@ abstract contract ClearingHouseConfigStorageV1 {
     uint24 internal _imRatio;
     uint24 internal _mmRatio;
     uint24 internal _liquidationPenaltyRatio;
+
+    // _partialCloseRatio is deprecated
     uint24 internal _partialCloseRatio;
+
     uint24 internal _maxFundingRate;
     uint32 internal _twapInterval;
     uint256 internal _settlementTokenBalanceCap;
