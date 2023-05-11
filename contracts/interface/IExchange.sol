@@ -28,6 +28,7 @@ interface IExchange {
         uint256 sqrtPriceAfterX96;
         int24 tick;
         bool isPartialClose;
+        uint24 closedRatio;
     }
 
     struct SwapCallbackData {

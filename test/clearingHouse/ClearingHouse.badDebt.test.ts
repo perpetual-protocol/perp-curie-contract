@@ -136,11 +136,15 @@ describe("ClearingHouse badDebt", () => {
                 // set max price impact to 0.1% to trigger partial close
                 await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 10)
 
-                // partial close bob's position: 7.866 * 25% = 1.88784
-                // exchanged notional: 1.629
-                // realized PnL: 1.629 - 800 * 0.25 = -198.371
-                // account value: 100 + 7.866 * 75% * 103.222 - 800 + 1.629 = -89.413 (bad debt)
-                await expect(closePosition(fixture, bob)).to.be.revertedWith("EX_OPLAS")
+                // forward 15 secs to renew `_lastUpdatedTickMap[baseToken]`
+                await forwardBothTimestamps(clearingHouse, 15)
+
+                // close ratio is depended on MAX_TICK_CROSS_WITHIN_BLOCK
+                // partial close bob's position: 7.866 * 36.0605% = 2.83651893
+                // exchanged notional: 2.3498202777
+                // realized PnL: 2.3498202777 - 800 * 0.360605 = -286.1341797223
+                // account value: 100 + 7.866 * 63.9395% * 103.222 - 800 + 2.3498202777 = -178.4970847148 (bad debt)
+                await expect(closePosition(fixture, bob)).to.be.revertedWith("CH_NEFCM")
             })
         })
 

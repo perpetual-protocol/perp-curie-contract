@@ -33,34 +33,6 @@ contract ClearingHouseConfigTest is IClearingHouseConfigEvent, Setup, Constant {
         clearingHouseConfig.setLiquidationPenaltyRatio(MAX_RATIO + 1);
     }
 
-    // setPartialCloseRatio
-
-    function test_setPartialCloseRatio_should_emit_event(uint24 partialCloseRatio) public {
-        vm.assume(partialCloseRatio != 0 && partialCloseRatio <= MAX_RATIO);
-
-        vm.expectEmit(false, false, false, true, address(clearingHouseConfig));
-        emit PartialCloseRatioChanged(partialCloseRatio);
-        clearingHouseConfig.setPartialCloseRatio(partialCloseRatio);
-
-        assertEq(uint256(partialCloseRatio), clearingHouseConfig.getPartialCloseRatio());
-    }
-
-    function test_revert_setPartialCloseRatio_if_called_by_non_owner() public {
-        vm.expectRevert(bytes("SO_CNO"));
-        vm.prank(nonOwnerAddress);
-        clearingHouseConfig.setPartialCloseRatio(MAX_RATIO);
-    }
-
-    function test_revert_setPartialCloseRatio_ratio_overflows() public {
-        vm.expectRevert(bytes("CHC_RO"));
-        clearingHouseConfig.setPartialCloseRatio(MAX_RATIO + 1);
-    }
-
-    function test_revert_setPartialCloseRatio_cannot_be_0() public {
-        vm.expectRevert(bytes("CHC_IPCR"));
-        clearingHouseConfig.setPartialCloseRatio(0);
-    }
-
     // setTwapInterval
 
     function test_setTwapInterval_as_non_zero_should_emit_event(uint32 twapInterval) public {

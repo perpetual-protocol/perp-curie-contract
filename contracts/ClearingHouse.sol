@@ -358,6 +358,7 @@ contract ClearingHouse is
         _settleFunding(trader, params.baseToken);
 
         int256 positionSize = _getTakerPositionSafe(trader, params.baseToken);
+        uint256 positionSizeAbs = positionSize.abs();
 
         // old position is long. when closing, it's baseToQuote && exactInput (sell exact base)
         // old position is short. when closing, it's quoteToBase && exactOutput (buy exact base back)
@@ -371,7 +372,7 @@ contract ClearingHouse is
                     isBaseToQuote: isBaseToQuote,
                     isExactInput: isBaseToQuote,
                     isClose: true,
-                    amount: positionSize.abs(),
+                    amount: positionSizeAbs,
                     sqrtPriceLimitX96: params.sqrtPriceLimitX96
                 })
             );
@@ -382,7 +383,11 @@ contract ClearingHouse is
                 isExactInput: isBaseToQuote,
                 base: response.base,
                 quote: response.quote,
-                oppositeAmountBound: _getOppositeAmount(params.oppositeAmountBound, response.isPartialClose)
+                oppositeAmountBound: _getOppositeAmount(
+                    params.oppositeAmountBound,
+                    response.isPartialClose,
+                    response.closedRatio
+                )
             })
         );
 
@@ -1155,11 +1160,16 @@ contract ClearingHouse is
     // INTERNAL PURE
     //
 
-    function _getOppositeAmount(uint256 oppositeAmountBound, bool isPartialClose) internal view returns (uint256) {
-        return
-            isPartialClose
-                ? oppositeAmountBound.mulRatio(IClearingHouseConfig(_clearingHouseConfig).getPartialCloseRatio())
-                : oppositeAmountBound;
+    function _getOppositeAmount(
+        uint256 oppositeAmountBound,
+        bool isPartialClose,
+        uint24 closedRatio
+    ) internal pure returns (uint256) {
+        if (!isPartialClose) {
+            return oppositeAmountBound;
+        }
+
+        return oppositeAmountBound.mulRatio(closedRatio);
     }
 
     function _checkSlippage(InternalCheckSlippageParams memory params) internal pure {

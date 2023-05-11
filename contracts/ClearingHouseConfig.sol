@@ -28,7 +28,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
         _imRatio = 0.1e6; // initial-margin ratio, 10% in decimal 6
         _mmRatio = 0.0625e6; // minimum-margin ratio, 6.25% in decimal 6
         _liquidationPenaltyRatio = 0.025e6; // initial penalty ratio, 2.5% in decimal 6
-        _partialCloseRatio = 0.25e6; // partial close ratio, 25% in decimal 6
         _maxFundingRate = 0.1e6; // max funding rate, 10% in decimal 6
         _twapInterval = 15 minutes;
         _settlementTokenBalanceCap = 0;
@@ -43,14 +42,6 @@ contract ClearingHouseConfig is IClearingHouseConfig, SafeOwnable, ClearingHouse
     {
         _liquidationPenaltyRatio = liquidationPenaltyRatioArg;
         emit LiquidationPenaltyRatioChanged(liquidationPenaltyRatioArg);
-    }
-
-    function setPartialCloseRatio(uint24 partialCloseRatioArg) external checkRatio(partialCloseRatioArg) onlyOwner {
-        // CHC_IPCR: invalid partialCloseRatio
-        require(partialCloseRatioArg > 0, "CHC_IPCR");
-
-        _partialCloseRatio = partialCloseRatioArg;
-        emit PartialCloseRatioChanged(partialCloseRatioArg);
     }
 
     function setTwapInterval(uint32 twapIntervalArg) external onlyOwner {
