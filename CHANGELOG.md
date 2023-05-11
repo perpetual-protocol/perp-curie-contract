@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+### Changed
+- Apply the `sqrtPriceLimitX96` config when closing a position.
 ### Removed
 - Remove admin function, `ClearingHouseConfig.setPartialCloseRatio`
 
