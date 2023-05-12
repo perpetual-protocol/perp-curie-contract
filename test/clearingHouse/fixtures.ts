@@ -23,9 +23,9 @@ import {
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 import { ethers } from "hardhat"
-import { ChainlinkPriceFeedV2, ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
+import { ChainlinkPriceFeedV2, ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import {
     CACHED_TWAP_INTERVAL,
     CHAINLINK_AGGREGATOR_DECIMALS,
@@ -157,6 +157,8 @@ export function createClearingHouseFixture(
         // deploy UniV3 factory
         const factoryFactory = await ethers.getContractFactory("UniswapV3Factory")
         const uniV3Factory = (await factoryFactory.deploy()) as UniswapV3Factory
+        // add 1bp fee tier
+        await uniV3Factory.enableFeeAmount(100, 1)
 
         const clearingHouseConfigFactory = await ethers.getContractFactory("ClearingHouseConfig")
         const clearingHouseConfig = (await clearingHouseConfigFactory.deploy()) as ClearingHouseConfig
