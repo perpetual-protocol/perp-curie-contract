@@ -157,12 +157,13 @@ contract Exchange is
         int256 takerOpenNotional =
             IAccountBalance(_accountBalance).getTakerOpenNotional(params.trader, params.baseToken);
 
+        bool isBaseToQuote = takerPositionSize < 0;
+
         if (params.isClose && takerPositionSize != 0) {
             // open reverse position when closing position
-            bool isLong = takerPositionSize < 0;
             params.sqrtPriceLimitX96 = _getSqrtPriceLimitForClosingPosition(
                 params.baseToken,
-                isLong,
+                isBaseToQuote,
                 params.sqrtPriceLimitX96
             );
         }
@@ -173,7 +174,7 @@ contract Exchange is
         require(!_isOverPriceLimitWithTick(params.baseToken, response.tick), "EX_OPLAS");
 
         // when takerPositionSize < 0, it's a short position
-        bool isReducingPosition = takerPositionSize == 0 ? false : takerPositionSize < 0 != params.isBaseToQuote;
+        bool isReducingPosition = takerPositionSize == 0 ? false : isBaseToQuote != params.isBaseToQuote;
         // when reducing/not increasing the position size, it's necessary to realize pnl
         int256 pnlToBeRealized;
         if (isReducingPosition) {
@@ -612,14 +613,15 @@ contract Exchange is
     /// @dev get a sqrt price limit for closing position s.t. it can stop when reaching the limit to save gas
     function _getSqrtPriceLimitForClosingPosition(
         address baseToken,
-        bool isLong,
+        bool isBaseToQuote,
         uint160 inputSqrtPriceLimitX96
     ) internal view returns (uint160) {
         int24 lastUpdatedTick = _lastUpdatedTickMap[baseToken];
         uint24 maxDeltaTick = _maxTickCrossedWithinBlockMap[baseToken];
 
-        // price limit = max tick or min tick , depending on which direction
-        int24 tickBoundary = isLong ? lastUpdatedTick + int24(maxDeltaTick) : lastUpdatedTick - int24(maxDeltaTick);
+        // price limit = upper tick boundary or lower tick boundary depending on which direction
+        int24 tickBoundary =
+            isBaseToQuote ? lastUpdatedTick + int24(maxDeltaTick) : lastUpdatedTick - int24(maxDeltaTick);
 
         // tickBoundary should be in (MIN_TICK, MAX_TICK)
         // ref: https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol#L608
@@ -632,7 +634,7 @@ contract Exchange is
             return targetSqrtPriceLimitX96;
         }
 
-        if (isLong) {
+        if (isBaseToQuote) {
             return targetSqrtPriceLimitX96 > inputSqrtPriceLimitX96 ? inputSqrtPriceLimitX96 : targetSqrtPriceLimitX96;
         }
 

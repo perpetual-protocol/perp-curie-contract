@@ -769,6 +769,9 @@ describe("ClearingHouse closePosition", () => {
             // spread: 0.54% (nor over price band limit)
             // positionSize remaining: 0.3815690374
             await closePosition(fixture, alice)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(
+                parseEther("0.381569037390193578"),
+            )
         })
     })
 })
