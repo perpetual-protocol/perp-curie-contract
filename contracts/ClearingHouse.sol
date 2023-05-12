@@ -383,11 +383,9 @@ contract ClearingHouse is
                 isExactInput: isBaseToQuote,
                 base: response.base,
                 quote: response.quote,
-                oppositeAmountBound: _getOppositeAmount(
-                    params.oppositeAmountBound,
-                    response.isPartialClose,
-                    response.closedRatio
-                )
+                oppositeAmountBound: response.isPartialClose
+                    ? params.oppositeAmountBound.mulRatio(response.closedRatio)
+                    : params.oppositeAmountBound
             })
         );
 
@@ -1159,18 +1157,6 @@ contract ClearingHouse is
     //
     // INTERNAL PURE
     //
-
-    function _getOppositeAmount(
-        uint256 oppositeAmountBound,
-        bool isPartialClose,
-        uint24 closedRatio
-    ) internal pure returns (uint256) {
-        if (!isPartialClose) {
-            return oppositeAmountBound;
-        }
-
-        return oppositeAmountBound.mulRatio(closedRatio);
-    }
 
     function _checkSlippage(InternalCheckSlippageParams memory params) internal pure {
         // skip when params.oppositeAmountBound is zero
