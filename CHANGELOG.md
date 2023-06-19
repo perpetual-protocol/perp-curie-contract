@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-## [2.8.0] - TBD
+## [2.8.0] - 2023-06-19
 ### Changed
 - Apply the `sqrtPriceLimitX96` config when closing a position.
 
