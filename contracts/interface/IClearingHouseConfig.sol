@@ -32,6 +32,7 @@ interface IClearingHouseConfig is IClearingHouseConfigEvent {
     /// @return liquidationPenaltyRatio Liquidation penalty ratio
     function getLiquidationPenaltyRatio() external view returns (uint24 liquidationPenaltyRatio);
 
+    /// @notice **Deprecated function, will be removed in later release**
     /// @return partialCloseRatio Partial close ratio
     function getPartialCloseRatio() external view returns (uint24 partialCloseRatio);
 

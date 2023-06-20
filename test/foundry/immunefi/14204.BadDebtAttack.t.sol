@@ -283,9 +283,13 @@ contract Exploiter is Common {
         console.log("6. badDebter open a LP position at a really low price");
         badDebter.unlimitedLP(baseToken, 10000 ether, tick);
 
+        // badDebter can close position, but the tick after the swap will be restricted
+        // within the MAX_TICK_CROSSED_WITHIN_BLOCK range
         console.log("7. badDebter close position and realize a huge loss");
         badDebter.closePosition(baseToken, Utils.getSqrtRatioAtTick(Utils.MIN_TICK) + 100);
 
+        // exploiter can close position, but the tick after the swap will be restricted
+        // within the MAX_TICK_CROSSED_WITHIN_BLOCK range
         console.log("8. exploiter close position and take the profit");
         closePosition(baseToken, Utils.getSqrtRatioAtTick(Utils.MAX_TICK) - 100);
 
@@ -413,12 +417,14 @@ contract BadDebtAttackTest is Setup {
         console.log("6. badDebter open a LP position at a really low price");
         badDebter.unlimitedLP(address(baseToken), 200000 ether);
 
+        // badDebter can close position, but the tick after the swap will be restricted
+        // within the MAX_TICK_CROSSED_WITHIN_BLOCK range
         console.log("7. badDebter close position and realize a huge loss");
-        vm.expectRevert(bytes("EX_OPB"));
         badDebter.closePosition(address(baseToken), Utils.getSqrtRatioAtTick(Utils.MIN_TICK) + 100);
 
+        // exploiter can close position, but the tick after the swap will be restricted
+        // within the MAX_TICK_CROSSED_WITHIN_BLOCK range
         console.log("8. exploiter close position and take the profit");
-        vm.expectRevert(bytes("EX_OPB"));
         exploiter.closePosition(address(baseToken), Utils.getSqrtRatioAtTick(Utils.MAX_TICK) - 100);
 
         exploiter.withdrawAll();
@@ -436,7 +442,7 @@ contract BadDebtAttackTest is Setup {
     function testAttack2_afterHotfix_shouldRevert() public {
         uint256 vaultUsdcBefore = usdc.balanceOf(address(vault));
 
-        uint256 initialUsdcAmount = 3_000_000e6;
+        uint256 initialUsdcAmount = 10_000_000e6;
         usdc.mint(address(this), initialUsdcAmount);
 
         int24 tick = -185820;
@@ -450,12 +456,7 @@ contract BadDebtAttackTest is Setup {
                 // half of usdcAmount goes to exploiter, another half goes to badDebter
                 usdc.transfer(address(exploiter), usdcAmount);
 
-                vm.expectRevert(bytes("EX_OPB"));
                 exploiter.attack2(address(baseToken), tick + 60 * i, usdcAmount / 2);
-
-                // the revert will be caught by Foundry,
-                // and the program will keep running
-                // however, it will be noop since `if (usdcAmount > 0)`
             }
         }
 
@@ -463,7 +464,7 @@ contract BadDebtAttackTest is Setup {
         console.log("vaultUsdcBefore:", vaultUsdcBefore);
         console.log("vaultUsdcAfter:", vaultUsdcAfter);
 
-        uint256 protocolLoss = vaultUsdcBefore - vaultUsdcAfter;
-        assertEq(protocolLoss, 0, "should not have protocol loss");
+        bool protocolHasLoss = vaultUsdcBefore > vaultUsdcAfter;
+        assertEq(protocolHasLoss, false, "should not have protocol loss");
     }
 }

@@ -85,8 +85,6 @@ describe("ClearingHouse partial close in xyk pool", () => {
         await collateral.connect(carol).approve(clearingHouse.address, carolCollateral)
         await deposit(carol, vault, 1000, collateral)
 
-        await clearingHouseConfig.connect(admin).setPartialCloseRatio(250000) // 25%
-
         // initiate both the real and mocked timestamps to enable hard-coded funding related numbers
         // NOTE: Should be the last step in beforeEach
         await initiateBothTimestamps(clearingHouse)
@@ -133,7 +131,8 @@ describe("ClearingHouse partial close in xyk pool", () => {
             expect(await accountBalance.getTotalPositionSize(carol.address, baseToken.address)).eq(parseEther("-2.4"))
         })
 
-        it("revert when it's over price limit", async () => {
+        // will auto partial close by max tick crossed
+        it("can partial close a position", async () => {
             await expect(
                 clearingHouse.connect(carol).closePosition({
                     baseToken: baseToken.address,
@@ -142,7 +141,10 @@ describe("ClearingHouse partial close in xyk pool", () => {
                     deadline: ethers.constants.MaxUint256,
                     referralCode: ethers.constants.HashZero,
                 }),
-            ).to.be.revertedWith("EX_OPLAS")
+            ).to.not.reverted
+
+            const positionSize = await accountBalance.getTotalPositionSize(carol.address, baseToken.address)
+            expect(positionSize).to.not.eq(0)
         })
 
         it("force error, partial closing a position does not apply to opening a reverse position with openPosition", async () => {
@@ -162,7 +164,7 @@ describe("ClearingHouse partial close in xyk pool", () => {
         })
     })
 
-    // skip: no more partial close position, it will revert if it's over price limit
+    // skip: partial close will auto calculate closed ratio by max tick crossed limit
     // solution for bad debt attack
     // https://www.notion.so/perp/isOverPriceLimit-974202d798d746e69a3bbd0ee866926b?d=f9557a7434aa4c0a9a9fe92c4efee682#da5dee7be5e4465dbde04ce522b6711a
     // only check the price before swap here

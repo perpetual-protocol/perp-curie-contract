@@ -740,7 +740,7 @@ describe("ClearingHouse closePosition", () => {
             await expect(closePosition(fixture, alice)).to.be.revertedWith("CH_PSZ")
         })
 
-        it("can not partial close if over price limit", async () => {
+        it("partial close when over price limit", async () => {
             // alice add liquidity
             await addOrder(fixture, alice, 10, 1510, lowerTick, upperTick)
 
@@ -765,8 +765,13 @@ describe("ClearingHouse closePosition", () => {
             // set MaxTickCrossedWithinBlock so that trigger over price limit
             await exchange.setMaxTickCrossedWithinBlock(baseToken.address, 250)
 
-            // after alice partial close, market price: 165.664, index price: 165, spread: 0.44% (nor over price band limit)
-            await expect(closePosition(fixture, alice)).to.be.revertedWith("EX_OPLAS")
+            // after alice partial close, market price: 165.893, index price: 165
+            // spread: 0.54% (nor over price band limit)
+            // positionSize remaining: 0.3815690374
+            await closePosition(fixture, alice)
+            expect(await accountBalance.getTakerPositionSize(alice.address, baseToken.address)).to.be.eq(
+                parseEther("0.381569037390193578"),
+            )
         })
     })
 })
