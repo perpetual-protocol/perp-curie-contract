@@ -525,7 +525,9 @@ contract AccountBalance is IAccountBalance, BlockContext, ClearingHouseCallee, A
         IClearingHouseConfig clearingHouseConfig = IClearingHouseConfig(_clearingHouseConfig);
         (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
-        uint256 marketPrice = _getMarketPrice(baseToken, 0);
+        // previously, marketPrice is _getMarketPrice(baseToken, 0) which is relatively easy to be manipulated,
+        // so we change to 15-second twap
+        uint256 marketPrice = _getMarketPrice(baseToken, 15);
         uint256 marketTwap = _getMarketPrice(baseToken, marketTwapInterval);
         int256 premium =
             _getMarketPrice(baseToken, premiumInterval).toInt256().sub(
