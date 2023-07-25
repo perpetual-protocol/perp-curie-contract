@@ -31,9 +31,8 @@ contract AccountBalanceTest is IAccountBalanceEvent, Setup {
     function test_getMarkPrice_should_return_index_price_with_premium_if_mark_price_enabled() public {
         (uint32 marketTwapInterval, uint32 premiumInterval) = clearingHouseConfig.getMarkPriceConfig();
 
-        // mock current market price, price = 100
-        uint256 sqrtPrice = 10;
-        _mockMarketPrice(address(pool), sqrtPrice);
+        // mock market twap(15sec): price = 100, tick = 46080
+        _mockMarketTwap(address(pool), 15, 46080);
 
         // mock market twap(30min): price = 95, tick = 45541
         _mockMarketTwap(address(pool), marketTwapInterval, 45541);

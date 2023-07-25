@@ -1,6 +1,6 @@
 {
   "name": "@perp/curie-contract",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "Perpetual Protocol Curie (V2) core contracts",
   "license": "GPL-3.0-or-later",
   "author": {
@@ -31,7 +31,7 @@
     "typechain-openzeppelin": "typechain --target ethers-v5 --out-dir ./typechain/openzeppelin './node_modules/@openzeppelin/contracts/build/contracts/**/*.json'",
     "typechain-perp-oracle": "typechain --target ethers-v5 --out-dir ./typechain/perp-oracle './node_modules/@perp/perp-oracle-contract/artifacts/contracts/**/*.json'",
     "clean": "rm -rf typechain && rm -rf artifacts && rm -rf cache",
-    "test": "hardhat --max-memory 8096 test",
+    "test": "NODE_OPTIONS='--max-old-space-size=8192' hardhat --max-memory 8192 test",
     "parallel-test": "hardhat test --parallel",
     "foundry-test": "forge test",
     "foundry-build-uniswap": "forge build --contracts node_modules/@uniswap/v3-core/contracts/UniswapV3Factory.sol",

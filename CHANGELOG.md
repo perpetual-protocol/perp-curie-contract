@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.8.1] - 2023-07-24
+
+### Changed
+
+- Change MarkPrice's marketPrice to 15-second market TWAP.
+
 ## [2.8.0] - 2023-06-19
 ### Changed
 - Apply the `sqrtPriceLimitX96` config when closing a position.
