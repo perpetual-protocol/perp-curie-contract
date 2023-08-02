@@ -26,5 +26,8 @@
 - 2022.07.25 - HashCloak
     - [Audit Report](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.07.25-hashcloak.pdf)
 
+- 2022.09.13 - Dedaub
+    - [Audit Report](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2022.09.13-dedaub.pdf)
+
 - 2023.01.30 - Dedaub
     - [Audit Report](https://github.com/perpetual-protocol/perp-curie-contract/blob/main/audits/2023.01.30-dedaub.pdf)
