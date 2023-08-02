@@ -12,6 +12,7 @@ contract ClearingHouseTest is Setup {
     address maker = makeAddr("Maker");
 
     uint8 usdcDecimals;
+    uint8 priceFeedDecimals;
 
     function setUp() public virtual override {
         Setup.setUp();
@@ -27,11 +28,13 @@ contract ClearingHouseTest is Setup {
         // wait for 30 mins after market is deployed
         skip(1800);
 
+        priceFeedDecimals = IPriceFeedDispatcher(_BASE_TOKEN_PRICE_FEED).decimals();
+
         // mock priceFeed oracle
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
             abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
-            abi.encode(100 * 1e8)
+            abi.encode(100 * (10**priceFeedDecimals))
         );
         usdcDecimals = usdc.decimals();
 

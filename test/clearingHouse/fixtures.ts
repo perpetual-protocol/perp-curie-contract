@@ -23,13 +23,13 @@ import {
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
 import { ethers } from "hardhat"
-import { ChainlinkPriceFeedV2, ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
+import { ChainlinkPriceFeedV2, ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
 import {
     CACHED_TWAP_INTERVAL,
     CHAINLINK_AGGREGATOR_DECIMALS,
-    PRICEFEEDDISPATCHER_DECIMALS,
+    PRICEFEED_DISPATCHER_DECIMALS,
     USDC_DECIMALS,
     WBTC_DECIMALS,
     WETH_DECIMALS,
@@ -139,7 +139,7 @@ export function createClearingHouseFixture(
         )) as PriceFeedDispatcher
         const mockedWethPriceFeedDispatcher = await smockit(wethPriceFeedDispatcher)
         mockedWethPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return PRICEFEEDDISPATCHER_DECIMALS
+            return PRICEFEED_DISPATCHER_DECIMALS
         })
 
         const wbtcPriceFeedDispatcher = (await priceFeedDispatcherFactory.deploy(
@@ -147,7 +147,7 @@ export function createClearingHouseFixture(
         )) as PriceFeedDispatcher
         const mockedWbtcPriceFeedDispatcher = await smockit(wbtcPriceFeedDispatcher)
         mockedWbtcPriceFeedDispatcher.smocked.decimals.will.return.with(async () => {
-            return PRICEFEEDDISPATCHER_DECIMALS
+            return PRICEFEED_DISPATCHER_DECIMALS
         })
 
         // we assume (base, quote) == (token0, token1)
