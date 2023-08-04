@@ -4,7 +4,7 @@ export const CACHED_TWAP_INTERVAL = 15 * 60
 export const USDC_DECIMALS = 6
 export const WBTC_DECIMALS = 8
 export const WETH_DECIMALS = 18
-export const PRICEFEEDDISPATCHER_DECIMALS = 18
+export const PRICEFEED_DISPATCHER_DECIMALS = 18
 export const CHAINLINK_AGGREGATOR_DECIMALS = 8
 
 // There might be dust position or open notional after reducing position or removing liquidity.

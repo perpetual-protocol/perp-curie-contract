@@ -306,6 +306,7 @@ contract BadDebtAttackTest is Setup {
     uint256 public makerPrivateKey = uint256(2);
     address public maker = vm.addr(makerPrivateKey);
     uint8 public usdcDecimals;
+    uint8 priceFeedDecimals;
 
     function setUp() public virtual override {
         Setup.setUp();
@@ -331,11 +332,13 @@ contract BadDebtAttackTest is Setup {
         // Will get `OLD` revert message, if we don't forward timestamp
         vm.warp(block.timestamp + 2000);
 
+        priceFeedDecimals = IPriceFeedDispatcher(_BASE_TOKEN_PRICE_FEED).decimals();
+
         // mock priceFeed
         vm.mockCall(
             _BASE_TOKEN_PRICE_FEED,
             abi.encodeWithSelector(IPriceFeedDispatcher.getDispatchedPrice.selector),
-            abi.encode(1486480) // $0.01486480
+            abi.encode(1486480 * (10**(priceFeedDecimals - 8))) // $0.01486480
         );
         usdcDecimals = usdc.decimals();
 

@@ -110,7 +110,7 @@ contract Setup is Test, DeployConfig {
         }
         // NOTE: put faked code on price feed address, must have contract code to make mockCall
         vm.etch(baseTokenPriceFeed, "_PRICE_FEED");
-        vm.mockCall(baseTokenPriceFeed, abi.encodeWithSelector(IPriceFeed.decimals.selector), abi.encode(8));
+        vm.mockCall(baseTokenPriceFeed, abi.encodeWithSelector(IPriceFeed.decimals.selector), abi.encode(18));
         newBaseToken.initialize(tokenName, tokenName, baseTokenPriceFeed);
         return newBaseToken;
     }
