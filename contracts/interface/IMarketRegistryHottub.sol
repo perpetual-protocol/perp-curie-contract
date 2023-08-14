@@ -6,4 +6,8 @@ interface IMarketRegistryHottub {
     /// @notice Emitted when the hottubFeeManager is changed
     /// @param hottubFeeManager The address of the hottubFeeManager
     event HottubFeeManagerChanged(address hottubFeeManager);
+
+    /// @notice Get Hottub Fee Manager address
+    /// @return hottubFeeManager The address of the Hottub Fee Manager
+    function getHottubFeeManager() external view returns (address hottubFeeManager);
 }

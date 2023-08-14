@@ -191,6 +191,11 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
         return _getMarketMaxPriceSpreadRatio(baseToken);
     }
 
+    /// @inheritdoc IMarketRegistryHottub
+    function getHottubFeeManager() external view override returns (address) {
+        return _hottubFeeManager;
+    }
+
     /// @inheritdoc IMarketRegistry
     function getMarketInfo(address baseToken) external view override checkPool(baseToken) returns (MarketInfo memory) {
         return
