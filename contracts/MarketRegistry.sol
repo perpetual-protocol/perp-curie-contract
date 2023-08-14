@@ -43,8 +43,8 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
     }
 
     modifier onlyOwnerAndHottubFeeManager() {
-        // MR_OAHFM: only owner and hottub fee manager
-        require(msg.sender == owner() || msg.sender == _hottubFeeManager, "MR_OAHFM");
+        // MR_OWHFM: only owner and hottub fee manager
+        require(msg.sender == owner() || msg.sender == _hottubFeeManager, "MR_OWHFM");
         _;
     }
 

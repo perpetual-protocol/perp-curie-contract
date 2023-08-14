@@ -8,4 +8,5 @@ interface IMarketRegistryEvent {
     event MaxOrdersPerMarketChanged(uint8 maxOrdersPerMarket);
     event MarketMaxPriceSpreadRatioChanged(address indexed baseToken, uint24 spreadRatio);
     event FeeDiscountRatioChanged(address indexed trader, uint24 discountRatio);
+    event HottubFeeManagerChanged(address hottubFeeManager);
 }

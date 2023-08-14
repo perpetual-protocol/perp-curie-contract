@@ -181,8 +181,29 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
 
+    function test_setFeeRatio_by_hottub_feeManager_should_emit_event(uint24 feeRatio) public {
+        vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
+
+        address hottubFeeManager = makeAddr("HottubFeeManager");
+        marketRegistry.setHottubFeeManager(hottubFeeManager);
+
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
+        emit FeeRatioChanged(address(baseToken), feeRatio);
+        vm.prank(hottubFeeManager);
+        marketRegistry.setFeeRatio(address(baseToken), feeRatio);
+    }
+
+    function test_setHottubFeeManager_should_emit_event(uint24 feeRatio) public {
+        vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
+
+        address hottubFeeManager = makeAddr("HottubFeeManager");
+        emit HottubFeeManagerChanged(hottubFeeManager);
+        marketRegistry.setHottubFeeManager(hottubFeeManager);
+    }
+
     function test_revert_setFeeRatio_if_called_by_non_owner() public {
-        vm.expectRevert(bytes("SO_CNO"));
+        vm.expectRevert(bytes("MR_OWHFM"));
         vm.prank(nonOwnerAddress);
         marketRegistry.setFeeRatio(address(baseToken), _ONE_HUNDRED_PERCENT_RATIO);
     }
