@@ -9,11 +9,12 @@ import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
-import { MarketRegistryStorageV3 } from "./storage/MarketRegistryStorage.sol";
+import { MarketRegistryStorageV4 } from "./storage/MarketRegistryStorage.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
+import { IMarketRegistryHottub } from "./interface/IMarketRegistryHottub.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryStorageV3 {
+contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouseCallee, MarketRegistryStorageV4 {
     using AddressUpgradeable for address;
     using PerpSafeCast for uint256;
     using PerpMath for uint24;
@@ -38,6 +39,12 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     modifier checkPool(address baseToken) {
         // pool not exists
         require(_poolMap[baseToken] != address(0), "MR_PNE");
+        _;
+    }
+
+    modifier onlyOwnerAndHottubFeeManager() {
+        // MR_OAHFM: only owner and hottub fee manager
+        require(msg.sender == owner() || msg.sender == _hottubFeeManager, "MR_OAHFM");
         _;
     }
 
@@ -104,7 +111,7 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         external
         checkPool(baseToken)
         checkRatio(feeRatio)
-        onlyOwner
+        onlyOwnerAndHottubFeeManager
     {
         _exchangeFeeRatioMap[baseToken] = feeRatio;
         emit FeeRatioChanged(baseToken, feeRatio);
@@ -133,6 +140,11 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     function setFeeDiscountRatio(address trader, uint24 discountRatio) external checkRatio(discountRatio) onlyOwner {
         _feeDiscountRatioMap[trader] = discountRatio;
         emit FeeDiscountRatioChanged(trader, discountRatio);
+    }
+
+    function setHottubFeeManager(address hottubFeeManagerArg) external onlyOwner {
+        _hottubFeeManager = hottubFeeManagerArg;
+        emit HottubFeeManagerChanged(hottubFeeManagerArg);
     }
 
     //
