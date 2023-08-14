@@ -111,7 +111,7 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
         external
         checkPool(baseToken)
         checkRatio(feeRatio)
-        onlyOwnerAndHottubFeeManager
+        onlyOwner
     {
         _exchangeFeeRatioMap[baseToken] = feeRatio;
         emit FeeRatioChanged(baseToken, feeRatio);
@@ -137,7 +137,11 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
         emit MarketMaxPriceSpreadRatioChanged(baseToken, ratio);
     }
 
-    function setFeeDiscountRatio(address trader, uint24 discountRatio) external checkRatio(discountRatio) onlyOwner {
+    function setFeeDiscountRatio(address trader, uint24 discountRatio)
+        external
+        checkRatio(discountRatio)
+        onlyOwnerAndHottubFeeManager
+    {
         _feeDiscountRatioMap[trader] = discountRatio;
         emit FeeDiscountRatioChanged(trader, discountRatio);
     }

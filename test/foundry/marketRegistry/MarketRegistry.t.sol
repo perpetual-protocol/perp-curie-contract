@@ -181,18 +181,6 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
 
-    function test_setFeeRatio_by_hottub_feeManager_should_emit_event(uint24 feeRatio) public {
-        vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
-
-        address hottubFeeManager = makeAddr("HottubFeeManager");
-        marketRegistry.setHottubFeeManager(hottubFeeManager);
-
-        vm.expectEmit(false, false, false, true, address(marketRegistry));
-        emit FeeRatioChanged(address(baseToken), feeRatio);
-        vm.prank(hottubFeeManager);
-        marketRegistry.setFeeRatio(address(baseToken), feeRatio);
-    }
-
     function test_setHottubFeeManager_should_emit_event(uint24 feeRatio) public {
         vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
         vm.expectEmit(false, false, false, true, address(marketRegistry));
@@ -203,7 +191,7 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
     }
 
     function test_revert_setFeeRatio_if_called_by_non_owner() public {
-        vm.expectRevert(bytes("MR_OWHFM"));
+        vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
         marketRegistry.setFeeRatio(address(baseToken), _ONE_HUNDRED_PERCENT_RATIO);
     }
@@ -283,6 +271,20 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         assertEq(uint256(legacyMarketInfo.exchangeFeeRatio), _DEFAULT_POOL_FEE);
         assertEq(uint256(legacyMarketInfo.uniswapFeeRatio), _DEFAULT_POOL_FEE);
         assertEq(uint256(legacyMarketInfo.insuranceFundFeeRatio), 0);
+    }
+
+    function test_setFeeDiscountRatio_by_hottub_fee_manager() public {
+        address hottubFeeManager = makeAddr("HottubFeeManager");
+        marketRegistry.setHottubFeeManager(hottubFeeManager);
+
+        address trader = makeAddr("Trader");
+        uint24 discountRatio = 1e6;
+
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
+        emit FeeDiscountRatioChanged(trader, discountRatio);
+
+        vm.prank(hottubFeeManager);
+        marketRegistry.setFeeDiscountRatio(trader, discountRatio);
     }
 
     function test_getMarketInfoByTrader_and_setFeeDiscountRatio() public {
