@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.8.2] - 2023-08-15
 
 ### Changed
-- MarketRegistry allow hottubFeeManager to set feeDiscountRatio
+- MarketRegistry allow feeManager to set feeDiscountRatio
 
 ## [2.8.1] - 2023-07-24
 

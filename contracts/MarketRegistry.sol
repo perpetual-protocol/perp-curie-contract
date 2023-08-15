@@ -11,10 +11,10 @@ import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
 import { MarketRegistryStorageV4 } from "./storage/MarketRegistryStorage.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
-import { IMarketRegistryHottub } from "./interface/IMarketRegistryHottub.sol";
+import { IMarketRegistryFeeManager } from "./interface/IMarketRegistryFeeManager.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouseCallee, MarketRegistryStorageV4 {
+contract MarketRegistry is IMarketRegistry, IMarketRegistryFeeManager, ClearingHouseCallee, MarketRegistryStorageV4 {
     using AddressUpgradeable for address;
     using PerpSafeCast for uint256;
     using PerpMath for uint24;
@@ -44,7 +44,7 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
 
     modifier onlyOwnerAndHottubFeeManager() {
         // MR_OWHFM: only owner and hottub fee manager
-        require(msg.sender == owner() || msg.sender == _hottubFeeManager, "MR_OWHFM");
+        require(msg.sender == owner() || msg.sender == _feeManager, "MR_OWHFM");
         _;
     }
 
@@ -139,6 +139,7 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
 
     function setFeeDiscountRatio(address trader, uint24 discountRatio)
         external
+        override
         checkRatio(discountRatio)
         onlyOwnerAndHottubFeeManager
     {
@@ -146,9 +147,9 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
         emit FeeDiscountRatioChanged(trader, discountRatio);
     }
 
-    function setHottubFeeManager(address hottubFeeManagerArg) external onlyOwner {
-        _hottubFeeManager = hottubFeeManagerArg;
-        emit HottubFeeManagerChanged(hottubFeeManagerArg);
+    function setFeeManager(address feeManagerArg) external onlyOwner {
+        _feeManager = feeManagerArg;
+        emit FeeManagerChanged(feeManagerArg);
     }
 
     //
@@ -191,9 +192,9 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryHottub, ClearingHouse
         return _getMarketMaxPriceSpreadRatio(baseToken);
     }
 
-    /// @inheritdoc IMarketRegistryHottub
-    function getHottubFeeManager() external view override returns (address) {
-        return _hottubFeeManager;
+    /// @inheritdoc IMarketRegistryFeeManager
+    function getFeeManager() external view override returns (address) {
+        return _feeManager;
     }
 
     /// @inheritdoc IMarketRegistry

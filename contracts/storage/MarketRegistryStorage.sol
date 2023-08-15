@@ -36,5 +36,5 @@ abstract contract MarketRegistryStorageV3 is MarketRegistryStorageV2 {
 }
 
 abstract contract MarketRegistryStorageV4 is MarketRegistryStorageV3 {
-    address internal _hottubFeeManager;
+    address internal _feeManager;
 }
