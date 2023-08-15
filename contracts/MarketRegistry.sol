@@ -42,9 +42,9 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryFeeManager, ClearingH
         _;
     }
 
-    modifier onlyOwnerAndHottubFeeManager() {
-        // MR_OWHFM: only owner and hottub fee manager
-        require(msg.sender == owner() || msg.sender == _feeManager, "MR_OWHFM");
+    modifier onlyFeeManager() {
+        // MR_OFM: only fee manager
+        require(_feeManagerMap[msg.sender], "MR_OFM");
         _;
     }
 
@@ -141,15 +141,15 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryFeeManager, ClearingH
         external
         override
         checkRatio(discountRatio)
-        onlyOwnerAndHottubFeeManager
+        onlyFeeManager
     {
         _feeDiscountRatioMap[trader] = discountRatio;
         emit FeeDiscountRatioChanged(trader, discountRatio);
     }
 
-    function setFeeManager(address feeManagerArg) external onlyOwner {
-        _feeManager = feeManagerArg;
-        emit FeeManagerChanged(feeManagerArg);
+    function setFeeManager(address accountArg, bool isFeeManagerArg) external onlyOwner {
+        _feeManagerMap[accountArg] = isFeeManagerArg;
+        emit FeeManagerChanged(accountArg, isFeeManagerArg);
     }
 
     //
@@ -193,8 +193,8 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryFeeManager, ClearingH
     }
 
     /// @inheritdoc IMarketRegistryFeeManager
-    function getFeeManager() external view override returns (address) {
-        return _feeManager;
+    function isFeeManager(address account) external view override returns (bool) {
+        return _feeManagerMap[account];
     }
 
     /// @inheritdoc IMarketRegistry

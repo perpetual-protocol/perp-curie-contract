@@ -183,11 +183,10 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
 
     function test_setFeeManager_should_emit_event(uint24 feeRatio) public {
         vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
+        address feeManager = makeAddr("FeeManager");
         vm.expectEmit(false, false, false, true, address(marketRegistry));
-
-        address hottubFeeManager = makeAddr("FeeManager");
-        emit FeeManagerChanged(hottubFeeManager);
-        marketRegistry.setFeeManager(hottubFeeManager);
+        emit FeeManagerChanged(feeManager, true);
+        marketRegistry.setFeeManager(feeManager, true);
     }
 
     function test_revert_setFeeRatio_if_called_by_non_owner() public {
@@ -273,9 +272,9 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         assertEq(uint256(legacyMarketInfo.insuranceFundFeeRatio), 0);
     }
 
-    function test_setFeeDiscountRatio_by_hottub_fee_manager() public {
-        address hottubFeeManager = makeAddr("FeeManager");
-        marketRegistry.setFeeManager(hottubFeeManager);
+    function test_setFeeDiscountRatio_by_fee_manager() public {
+        address feeManager = makeAddr("FeeManager");
+        marketRegistry.setFeeManager(feeManager, true);
 
         address trader = makeAddr("Trader");
         uint24 discountRatio = 1e6;
@@ -283,8 +282,15 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         vm.expectEmit(false, false, false, true, address(marketRegistry));
         emit FeeDiscountRatioChanged(trader, discountRatio);
 
-        vm.prank(hottubFeeManager);
+        vm.prank(feeManager);
         marketRegistry.setFeeDiscountRatio(trader, discountRatio);
+    }
+
+    function test_revert_setFeeDiscountRatio_if_called_by_non_fee_manager() public {
+        address nonFeeManager = makeAddr("NonFeeManager");
+        vm.expectRevert(bytes("MR_OFM"));
+        vm.prank(nonOwnerAddress);
+        marketRegistry.setFeeDiscountRatio(nonFeeManager, 0.1e6); // Parameters don't matter
     }
 
     function test_getMarketInfoByTrader_and_setFeeDiscountRatio() public {
