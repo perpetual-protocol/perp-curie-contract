@@ -148,6 +148,9 @@ contract MarketRegistry is IMarketRegistry, IMarketRegistryFeeManager, ClearingH
     }
 
     function setFeeManager(address accountArg, bool isFeeManagerArg) external onlyOwner {
+        if (_feeManagerMap[accountArg] == isFeeManagerArg) {
+            return;
+        }
         _feeManagerMap[accountArg] = isFeeManagerArg;
         emit FeeManagerChanged(accountArg, isFeeManagerArg);
     }

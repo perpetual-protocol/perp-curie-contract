@@ -184,9 +184,19 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
     function test_setFeeManager_should_emit_event(uint24 feeRatio) public {
         vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
         address feeManager = makeAddr("FeeManager");
+
+        // First set will emit events.
         vm.expectEmit(false, false, false, true, address(marketRegistry));
         emit FeeManagerChanged(feeManager, true);
         marketRegistry.setFeeManager(feeManager, true);
+
+        // Second set will still pass, but no events. Unfortunately there's no vm.expectNotEmit() to verify this.
+        marketRegistry.setFeeManager(feeManager, true);
+
+        // First unset will emit events.
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
+        emit FeeManagerChanged(feeManager, false);
+        marketRegistry.setFeeManager(feeManager, false);
     }
 
     function test_revert_setFeeRatio_if_called_by_non_owner() public {
