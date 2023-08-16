@@ -34,3 +34,7 @@ abstract contract MarketRegistryStorageV3 is MarketRegistryStorageV2 {
     // value: discount ratio (percent-off)
     mapping(address => uint24) internal _feeDiscountRatioMap;
 }
+
+abstract contract MarketRegistryStorageV4 is MarketRegistryStorageV3 {
+    mapping(address => bool) internal _feeManagerMap;
+}

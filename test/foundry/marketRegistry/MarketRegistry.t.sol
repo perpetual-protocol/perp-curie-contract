@@ -181,6 +181,24 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         marketRegistry.setFeeRatio(address(baseToken), feeRatio);
     }
 
+    function test_setFeeManager_should_emit_event(uint24 feeRatio) public {
+        vm.assume(feeRatio <= _ONE_HUNDRED_PERCENT_RATIO);
+        address feeManager = makeAddr("FeeManager");
+
+        // First set will emit events.
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
+        emit FeeManagerChanged(feeManager, true);
+        marketRegistry.setFeeManager(feeManager, true);
+
+        // Second set will still pass, but no events. Unfortunately there's no vm.expectNotEmit() to verify this.
+        marketRegistry.setFeeManager(feeManager, true);
+
+        // First unset will emit events.
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
+        emit FeeManagerChanged(feeManager, false);
+        marketRegistry.setFeeManager(feeManager, false);
+    }
+
     function test_revert_setFeeRatio_if_called_by_non_owner() public {
         vm.expectRevert(bytes("SO_CNO"));
         vm.prank(nonOwnerAddress);
@@ -262,6 +280,27 @@ contract MarketRegistrySetterTest is IMarketRegistryEvent, Setup, Constant {
         assertEq(uint256(legacyMarketInfo.exchangeFeeRatio), _DEFAULT_POOL_FEE);
         assertEq(uint256(legacyMarketInfo.uniswapFeeRatio), _DEFAULT_POOL_FEE);
         assertEq(uint256(legacyMarketInfo.insuranceFundFeeRatio), 0);
+    }
+
+    function test_setFeeDiscountRatio_by_fee_manager() public {
+        address feeManager = makeAddr("FeeManager");
+        marketRegistry.setFeeManager(feeManager, true);
+
+        address trader = makeAddr("Trader");
+        uint24 discountRatio = 1e6;
+
+        vm.expectEmit(false, false, false, true, address(marketRegistry));
+        emit FeeDiscountRatioChanged(trader, discountRatio);
+
+        vm.prank(feeManager);
+        marketRegistry.setFeeDiscountRatio(trader, discountRatio);
+    }
+
+    function test_revert_setFeeDiscountRatio_if_called_by_non_fee_manager() public {
+        address nonFeeManager = makeAddr("NonFeeManager");
+        vm.expectRevert(bytes("MR_OFM"));
+        vm.prank(nonOwnerAddress);
+        marketRegistry.setFeeDiscountRatio(nonFeeManager, 0.1e6); // Parameters don't matter
     }
 
     function test_getMarketInfoByTrader_and_setFeeDiscountRatio() public {

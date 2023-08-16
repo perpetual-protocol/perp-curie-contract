@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.8.2] - 2023-08-15
+
+### Changed
+- MarketRegistry allow feeManager to set feeDiscountRatio
+
 ## [2.8.1] - 2023-07-24
 
 ### Changed

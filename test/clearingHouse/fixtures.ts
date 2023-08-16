@@ -22,7 +22,7 @@ import {
 } from "../../typechain"
 import { createQuoteTokenFixture, token0Fixture, tokensFixture, uniswapV3FactoryFixture } from "../shared/fixtures"
 
-import { ethers } from "hardhat"
+import { ethers, waffle } from "hardhat"
 import { QuoteToken } from "../../typechain/QuoteToken"
 import { TestAccountBalance } from "../../typechain/TestAccountBalance"
 import { ChainlinkPriceFeedV2, ChainlinkPriceFeedV3, PriceFeedDispatcher } from "../../typechain/perp-oracle"
@@ -91,6 +91,7 @@ export function createClearingHouseFixture(
     uniFeeTier = 10000, // 1%
 ): () => Promise<ClearingHouseFixture> {
     return async (): Promise<ClearingHouseFixture> => {
+        const [admin] = waffle.provider.getWallets()
         // deploy test tokens
         const tokenFactory = await ethers.getContractFactory("TestERC20")
         const USDC = (await tokenFactory.deploy()) as TestERC20
@@ -296,6 +297,7 @@ export function createClearingHouseFixture(
         await baseToken.addWhitelist(clearingHouse.address)
         await baseToken2.addWhitelist(clearingHouse.address)
         await marketRegistry.setClearingHouse(clearingHouse.address)
+        await marketRegistry.setFeeManager(admin.address, true)
         await orderBook.setClearingHouse(clearingHouse.address)
         await exchange.setClearingHouse(clearingHouse.address)
         await accountBalance.setClearingHouse(clearingHouse.address)
@@ -356,6 +358,7 @@ interface MockedClearingHouseFixture {
 
 const ADDR_GREATER_THAN = true
 const ADDR_LESS_THAN = false
+
 async function mockedBaseTokenToken(longerThan: boolean, targetAddr: string): Promise<MockContract> {
     // deployer ensure base token is always smaller than quote in order to achieve base=token0 and quote=token1
     let mockedToken: MockContract

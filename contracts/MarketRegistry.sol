@@ -9,11 +9,12 @@ import { UniswapV3Broker } from "./lib/UniswapV3Broker.sol";
 import { PerpMath } from "./lib/PerpMath.sol";
 import { PerpSafeCast } from "./lib/PerpSafeCast.sol";
 import { IVirtualToken } from "./interface/IVirtualToken.sol";
-import { MarketRegistryStorageV3 } from "./storage/MarketRegistryStorage.sol";
+import { MarketRegistryStorageV4 } from "./storage/MarketRegistryStorage.sol";
 import { IMarketRegistry } from "./interface/IMarketRegistry.sol";
+import { IMarketRegistryFeeManager } from "./interface/IMarketRegistryFeeManager.sol";
 
 // never inherit any new stateful contract. never change the orders of parent stateful contracts
-contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryStorageV3 {
+contract MarketRegistry is IMarketRegistry, IMarketRegistryFeeManager, ClearingHouseCallee, MarketRegistryStorageV4 {
     using AddressUpgradeable for address;
     using PerpSafeCast for uint256;
     using PerpMath for uint24;
@@ -38,6 +39,12 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     modifier checkPool(address baseToken) {
         // pool not exists
         require(_poolMap[baseToken] != address(0), "MR_PNE");
+        _;
+    }
+
+    modifier onlyFeeManager() {
+        // MR_OFM: only fee manager
+        require(_feeManagerMap[msg.sender], "MR_OFM");
         _;
     }
 
@@ -130,9 +137,22 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
         emit MarketMaxPriceSpreadRatioChanged(baseToken, ratio);
     }
 
-    function setFeeDiscountRatio(address trader, uint24 discountRatio) external checkRatio(discountRatio) onlyOwner {
+    function setFeeDiscountRatio(address trader, uint24 discountRatio)
+        external
+        override
+        checkRatio(discountRatio)
+        onlyFeeManager
+    {
         _feeDiscountRatioMap[trader] = discountRatio;
         emit FeeDiscountRatioChanged(trader, discountRatio);
+    }
+
+    function setFeeManager(address accountArg, bool isFeeManagerArg) external onlyOwner {
+        if (_feeManagerMap[accountArg] == isFeeManagerArg) {
+            return;
+        }
+        _feeManagerMap[accountArg] = isFeeManagerArg;
+        emit FeeManagerChanged(accountArg, isFeeManagerArg);
     }
 
     //
@@ -173,6 +193,11 @@ contract MarketRegistry is IMarketRegistry, ClearingHouseCallee, MarketRegistryS
     /// @dev if we didn't set the max spread ratio for the market, we will use the default value
     function getMarketMaxPriceSpreadRatio(address baseToken) external view override returns (uint24) {
         return _getMarketMaxPriceSpreadRatio(baseToken);
+    }
+
+    /// @inheritdoc IMarketRegistryFeeManager
+    function isFeeManager(address account) external view override returns (bool) {
+        return _feeManagerMap[account];
     }
 
     /// @inheritdoc IMarketRegistry

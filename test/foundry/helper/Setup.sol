@@ -142,6 +142,7 @@ contract Setup is Test, DeployConfig {
     {
         MarketRegistry newMarketRegistry = new MarketRegistry();
         newMarketRegistry.initialize(uniswapV3FactoryArg, quoteTokenArg);
+        newMarketRegistry.setFeeManager(address(this), true);
         return newMarketRegistry;
     }
 
