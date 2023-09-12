@@ -51,7 +51,6 @@ contract Exchange is
     //
     // STRUCT
     //
-
     struct InternalSwapResponse {
         int256 base;
         int256 quote;
@@ -74,7 +73,6 @@ contract Exchange is
     //
     // CONSTANT
     //
-
     uint256 internal constant _FULLY_CLOSED_RATIO = 1e18;
     uint24 internal constant _MAX_TICK_CROSSED_WITHIN_BLOCK_CAP = 1000; // 10%
     uint24 internal constant _MAX_PRICE_SPREAD_RATIO = 0.1e6; // 10% in decimal 6
@@ -83,7 +81,6 @@ contract Exchange is
     //
     // EXTERNAL NON-VIEW
     //
-
     function initialize(
         address marketRegistryArg,
         address orderBookArg,
@@ -426,6 +423,10 @@ contract Exchange is
                 )
             );
 
+        int24 tick = UniswapV3Broker.getTick(marketInfo.pool);
+        // tick mismatch
+        require(tick == replayResponse.tick, "EX_TKMM");
+
         // avoid stack too deep
         {
             // check price band after swap
@@ -521,7 +522,6 @@ contract Exchange is
     //
     // INTERNAL VIEW
     //
-
     function _getSqrtMarketTwapX96(address baseToken, uint32 twapInterval) internal view returns (uint160) {
         return UniswapV3Broker.getSqrtMarketTwapX96(IMarketRegistry(_marketRegistry).getPool(baseToken), twapInterval);
     }

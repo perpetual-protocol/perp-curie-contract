@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+## [2.8.3] - 2023-09-09
+- Add tick checking when swap
+
 ## [2.8.2] - 2023-08-15
 
 ### Changed
