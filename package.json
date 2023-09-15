@@ -43,7 +43,8 @@
     "lint-staged": "lint-staged",
     "prepack": "ts-node --files scripts/prepack.ts",
     "flatten": "ts-node --files scripts/flatten.ts",
-    "slither": "ts-node --files scripts/slither.ts"
+    "slither": "ts-node --files scripts/slither.ts",
+    "deploy:local": "hardhat deploy --network hardhat --tags all"
   },
   "dependencies": {
     "@chainlink/contracts": "0.1.7",
@@ -80,6 +81,7 @@
     "hardhat": "2.3.0",
     "hardhat-contract-sizer": "2.5.1",
     "hardhat-dependency-compiler": "1.1.1",
+    "hardhat-deploy": "^0.11.37",
     "hardhat-gas-reporter": "1.0.4",
     "husky": "6.0.0",
     "json-stable-stringify": "1.0.1",
