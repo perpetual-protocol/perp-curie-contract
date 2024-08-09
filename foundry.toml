@@ -7,6 +7,7 @@ cache_path = 'forge-cache'
 no_match_path = 'contracts/test/*'
 fs_permissions = [{ access = "read", path = "./out"}]
 unchecked_cheatcode_artifacts = true
+gas_limit = "18446744073709551615"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
