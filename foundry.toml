@@ -8,3 +8,8 @@ no_match_path = 'contracts/test/*'
 fs_permissions = [{ access = "read", path = "./out"}]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+[rpc_endpoints]
+# All available network keywords:
+# https://github.com/foundry-rs/forge-std/blob/ff4bf7db008d096ea5a657f2c20516182252a3ed/src/StdCheats.sol#L255-L271
+optimism = "${OPTIMISM_WEB3_ENDPOINT_ARCHIVE}"
