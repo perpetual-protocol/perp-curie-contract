@@ -6,6 +6,7 @@ test = 'test/foundry'
 cache_path = 'forge-cache'
 no_match_path = 'contracts/test/*'
 fs_permissions = [{ access = "read", path = "./out"}]
+unchecked_cheatcode_artifacts = true
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
