@@ -129,5 +129,7 @@ jobs:
               run: npm run foundry-test
 
             - name: Run snapshot
+              env:
+                OPTIMISM_WEB3_ENDPOINT_ARCHIVE: ${{ vars.OPTIMISM_WEB3_ENDPOINT_ARCHIVE }} # For fork tests
               run: forge snapshot
 
