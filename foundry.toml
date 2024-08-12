@@ -6,7 +6,12 @@ test = 'test/foundry'
 cache_path = 'forge-cache'
 no_match_path = 'contracts/test/*'
 fs_permissions = [{ access = "read", path = "./out"}]
+
+# It's to solve vm.getCode is failed due to "No matching artifact found" error.
+# https://github.com/foundry-rs/foundry/issues/7569#issuecomment-2040694197
 unchecked_cheatcode_artifacts = true
+
+# In some foundry tests are failed due to outOfGas.
 gas_limit = "18446744073709551615"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
