@@ -7,4 +7,16 @@ cache_path = 'forge-cache'
 no_match_path = 'contracts/test/*'
 fs_permissions = [{ access = "read", path = "./out"}]
 
+# It's to solve vm.getCode is failed due to "No matching artifact found" error.
+# https://github.com/foundry-rs/foundry/issues/7569#issuecomment-2040694197
+unchecked_cheatcode_artifacts = true
+
+# In some foundry tests are failed due to outOfGas.
+gas_limit = "18446744073709551615"
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+[rpc_endpoints]
+# All available network keywords:
+# https://github.com/foundry-rs/forge-std/blob/ff4bf7db008d096ea5a657f2c20516182252a3ed/src/StdCheats.sol#L255-L271
+optimism = "${OPTIMISM_WEB3_ENDPOINT_ARCHIVE}"
