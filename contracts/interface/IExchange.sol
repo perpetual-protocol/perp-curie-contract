@@ -84,6 +84,24 @@ interface IExchange {
     /// @return maxTickCrossedWithinBlock The max ticks allowed to be crossed within a block when reducing position
     function getMaxTickCrossedWithinBlock(address baseToken) external view returns (uint24 maxTickCrossedWithinBlock);
 
+    /// @notice Get the timestamp of the first tx in this market
+    /// @param baseToken Address of the base token
+    /// @return firstTradedTimestamp The timestamp of the first tx in this market
+    function getFirstTradedTimestamp(address baseToken) external view returns (uint256 firstTradedTimestamp);
+
+    /// @notice Get the last timestamp when funding is settled
+    /// @param baseToken Address of the base token
+    /// @return lastSettledTimestamp The last timestamp when funding is settled
+    function getLastSettledTimestamp(address baseToken) external view returns (uint256 lastSettledTimestamp);
+
+    /// @notice Get the global funding growth when the last funding is settled
+    /// @param baseToken Address of the base token
+    /// @return lastFundingGrowthGlobal The global funding growth when the last funding is settled
+    function getLastFundingGrowthGlobal(address baseToken)
+        external
+        view
+        returns (Funding.Growth memory lastFundingGrowthGlobal);
+
     /// @notice Get all the pending funding payment for a trader
     /// @return pendingFundingPayment The pending funding payment of the trader.
     /// Positive value means the trader pays funding, negative value means the trader receives funding.
